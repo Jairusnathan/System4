@@ -4,42 +4,36 @@ import { motion, AnimatePresence } from 'motion/react';
 import { products, categories } from './data/products';
 import { Product, CartItem, Branch, BranchInventory, Order } from './types';
 
-type ViewState = 'home' | 'shop' | 'checkout' | 'success' | 'login' | 'register' | 'order-status' | 'account';
+type ViewState = 'home' | 'shop' | 'checkout' | 'success' | 'login' | 'register' | 'forgot-password' | 'order-status' | 'account';
+
 
 const partnerBrands = [
   "Pfizer", "Johnson & Johnson", "Bayer", "GSK", "Novartis", 
   "Sanofi", "AstraZeneca", "Unilab", "Bioten", "Centrum"
 ];
 
-const mockOrders: Order[] = [
-  { 
-    id: 'PQ-847291', 
-    date: 'Mar 15, 2026', 
-    items: [{ ...products[0], quantity: 2 }, { ...products[1], quantity: 1 }], 
-    total: 1250.00, 
-    status: 'In Transit' 
-  },
-  { 
-    id: 'PQ-847200', 
-    date: 'Mar 10, 2026', 
-    items: [{ ...products[2], quantity: 1 }], 
-    total: 450.00, 
-    status: 'Delivered' 
-  },
-  { 
-    id: 'PQ-847150', 
-    date: 'Feb 28, 2026', 
-    items: [{ ...products[3], quantity: 5 }], 
-    total: 3200.00, 
-    status: 'Delivered' 
-  },
-];
+const mockOrders: Order[] = [];
+
+// Safely parse JSON responses — prevents crash if body is empty
+async function safeJson(res: Response): Promise<any> {
+  const text = await res.text();
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { error: `Server returned unexpected response (status ${res.status})` };
+  }
+}
+
 
 export default function App() {
   const [view, setView] = useState<ViewState>('home');
-  const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    return !!localStorage.getItem('token');
+  const [isLoggedIn, setIsLoggedIn] = useState(() => !!localStorage.getItem('token'));
+  const [user, setUser] = useState<any>(() => {
+    const savedUser = localStorage.getItem('user');
+    return savedUser ? JSON.parse(savedUser) : null;
   });
+
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -52,10 +46,19 @@ export default function App() {
   const [itemsPerPage, setItemsPerPage] = useState(20);
 
   // Auth state
-  const [authForm, setAuthForm] = useState({ fullName: '', email: 'admin@gmail.com', phone: '', password: 'password123' });
+  const [authForm, setAuthForm] = useState({ fullName: '', email: '', phone: '', password: '', address: '', city: '', birthday: '', gender: '' });
+
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Password change state
+  const [resetForm, setResetForm] = useState({ email: '', newPassword: '', confirm: '' });
+  const [resetError, setResetError] = useState('');
+  const [resetSuccess, setResetSuccess] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [showNewPw, setShowNewPw] = useState(false);
+
 
   // Branch state
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -116,20 +119,28 @@ export default function App() {
     setAuthError('');
     setAuthLoading(true);
     try {
+      const payload = { 
+        ...authForm, 
+        email: authForm.email.toLowerCase().trim() 
+      };
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(authForm)
+        body: JSON.stringify(payload)
       });
-      const data = await res.json();
+      const data = await safeJson(res);
       if (!res.ok) throw new Error(data.error || 'Registration failed');
+
       
       localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      setUser(data.user);
       setIsLoggedIn(true);
       setView('home');
       if (!selectedBranch) {
         setIsBranchModalOpen(true);
       }
+
     } catch (err: any) {
       setAuthError(err.message);
     } finally {
@@ -145,23 +156,83 @@ export default function App() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: authForm.email, password: authForm.password })
+        body: JSON.stringify({ 
+          email: authForm.email.toLowerCase().trim(), 
+          password: authForm.password 
+        })
       });
-      const data = await res.json();
+      const data = await safeJson(res);
       if (!res.ok) throw new Error(data.error || 'Login failed');
+
       
       localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      setUser(data.user);
       setIsLoggedIn(true);
       setView('home');
       if (!selectedBranch) {
         setIsBranchModalOpen(true);
       }
+
     } catch (err: any) {
       setAuthError(err.message);
     } finally {
       setAuthLoading(false);
     }
   };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setUser(null);
+    setIsLoggedIn(false);
+    setView('home');
+    setIsLogoutModalOpen(false);
+  };
+
+  const handleUpdateProfile = (e: React.FormEvent) => {
+    e.preventDefault();
+    localStorage.setItem('user', JSON.stringify(user));
+    alert('Profile updated! (In a real app, this would call the backend API)');
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetError('');
+    setResetSuccess('');
+    if (resetForm.newPassword !== resetForm.confirm) {
+      setResetError('Passwords do not match');
+      return;
+    }
+    if (resetForm.newPassword.length < 8) {
+      setResetError('Password must be at least 8 characters');
+      return;
+    }
+    setResetLoading(true);
+    try {
+      const res = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          email: resetForm.email.toLowerCase().trim(), 
+          newPassword: resetForm.newPassword 
+        })
+      });
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error(data.error || 'Reset failed');
+      setResetSuccess('Password updated! You can now log in with your new password.');
+      setResetForm({ email: '', newPassword: '', confirm: '' });
+    } catch (err: any) {
+      setResetError(err.message);
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  const handleChangePassword = async (_e: React.FormEvent) => {};
+
+
+
 
   const filteredProducts = products.filter(p => {
     const matchesCategory = selectedCategory === 'All' || p.category === selectedCategory;
@@ -306,10 +377,11 @@ export default function App() {
               <div className="flex items-center gap-2">
                 <button 
                   onClick={() => setView('account')}
-                  className="p-2 text-slate-600 hover:text-emerald-600 transition-colors"
+                  className="flex items-center gap-2 p-2 text-slate-600 hover:text-emerald-600 transition-colors"
                   title="My Account"
                 >
                   <User className="w-6 h-6" />
+                  <span className="hidden sm:inline text-sm font-medium max-w-[100px] truncate">{user?.fullName}</span>
                 </button>
                 <button 
                   onClick={() => setIsLogoutModalOpen(true)}
@@ -411,13 +483,19 @@ export default function App() {
                   </div>
                 </div>
               </div>
-              <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between">
                 <div className="flex items-center">
                   <input id="remember-me" name="remember-me" type="checkbox" className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-slate-300 rounded" />
                   <label htmlFor="remember-me" className="ml-2 block text-sm text-slate-600">Remember me</label>
                 </div>
                 <div className="text-sm">
-                  <a href="#" className="font-medium text-emerald-600 hover:text-emerald-500 transition-colors">Forgot your password?</a>
+                  <button
+                    type="button"
+                    onClick={() => { setAuthError(''); setResetError(''); setResetSuccess(''); setResetForm({ email: '', newPassword: '', confirm: '' }); setView('forgot-password'); }}
+                    className="font-medium text-emerald-600 hover:text-emerald-500 transition-colors"
+                  >
+                    Forgot your password?
+                  </button>
                 </div>
               </div>
               <div>
@@ -431,6 +509,97 @@ export default function App() {
                 Don't have an account? <button onClick={() => { setAuthError(''); setView('register'); }} className="font-medium text-emerald-600 hover:text-emerald-500 transition-colors">Sign up</button>
               </p>
             </div>
+          </motion.div>
+        </main>
+      )}
+
+      {/* Forgot Password Page */}
+      {view === 'forgot-password' && (
+        <main className="flex-1 flex items-center justify-center py-20 px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="max-w-md w-full space-y-8 bg-white p-10 rounded-3xl shadow-sm border border-slate-100"
+          >
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-amber-50 mb-6">
+                <Eye className="h-8 w-8 text-amber-500" />
+              </div>
+              <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Reset Password</h2>
+              <p className="mt-2 text-sm text-slate-500">
+                Enter your account email and a new password
+              </p>
+            </div>
+
+            {resetSuccess ? (
+              <div className="space-y-6">
+                <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm rounded-xl flex items-start gap-3">
+                  <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" />
+                  <span>{resetSuccess}</span>
+                </div>
+                <button
+                  onClick={() => { setResetSuccess(''); setView('login'); }}
+                  className="w-full py-3 px-4 rounded-full bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition-colors"
+                >
+                  Back to Sign In
+                </button>
+              </div>
+            ) : (
+              <form className="mt-8 space-y-5" onSubmit={handleResetPassword}>
+                {resetError && <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg">{resetError}</div>}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Email address</label>
+                  <input
+                    type="email"
+                    required
+                    value={resetForm.email}
+                    onChange={e => setResetForm({ ...resetForm, email: e.target.value })}
+                    className="block w-full px-4 py-3 border border-slate-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-shadow"
+                    placeholder="you@example.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">New Password</label>
+                  <div className="relative">
+                    <input
+                      type={showNewPw ? 'text' : 'password'}
+                      required
+                      minLength={8}
+                      value={resetForm.newPassword}
+                      onChange={e => setResetForm({ ...resetForm, newPassword: e.target.value })}
+                      className="block w-full px-4 py-3 border border-slate-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-shadow pr-12"
+                      placeholder="Min. 8 characters"
+                    />
+                    <button type="button" onClick={() => setShowNewPw(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                      {showNewPw ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Confirm New Password</label>
+                  <input
+                    type="password"
+                    required
+                    value={resetForm.confirm}
+                    onChange={e => setResetForm({ ...resetForm, confirm: e.target.value })}
+                    className="block w-full px-4 py-3 border border-slate-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-shadow"
+                    placeholder="Re-enter new password"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={resetLoading}
+                  className="w-full flex justify-center py-3 px-4 border border-transparent rounded-full shadow-sm text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-all hover:shadow-md hover:-translate-y-0.5 disabled:opacity-50"
+                >
+                  {resetLoading ? 'Resetting...' : 'Reset Password'}
+                </button>
+                <div className="text-center">
+                  <button type="button" onClick={() => setView('login')} className="text-sm text-slate-500 hover:text-emerald-600 transition-colors">
+                    ← Back to Sign In
+                  </button>
+                </div>
+              </form>
+            )}
           </motion.div>
         </main>
       )}
@@ -510,6 +679,49 @@ export default function App() {
                       {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
                   </div>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Delivery Address</label>
+                  <textarea 
+                    rows={2}
+                    value={authForm.address}
+                    onChange={e => setAuthForm({...authForm, address: e.target.value})}
+                    className="block w-full px-4 py-3 border border-slate-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-shadow outline-none resize-none" 
+                    placeholder="Street, Barangay, Village" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">City</label>
+                  <input 
+                    type="text" 
+                    value={authForm.city}
+                    onChange={e => setAuthForm({...authForm, city: e.target.value})}
+                    className="block w-full px-4 py-3 border border-slate-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-shadow" 
+                    placeholder="Quezon City" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Birthday</label>
+                  <input 
+                    type="date" 
+                    value={authForm.birthday}
+                    onChange={e => setAuthForm({...authForm, birthday: e.target.value})}
+                    className="block w-full px-4 py-3 border border-slate-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-shadow" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Gender</label>
+                  <select 
+                    value={authForm.gender}
+                    onChange={e => setAuthForm({...authForm, gender: e.target.value})}
+                    className="block w-full px-4 py-3 border border-slate-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-shadow outline-none bg-white"
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                    <option value="Prefer not to say">Prefer not to say</option>
+                  </select>
                 </div>
               </div>
               <div className="flex justify-center mt-8">
@@ -1010,6 +1222,7 @@ export default function App() {
                       <input 
                         type="text" 
                         required 
+                        defaultValue={user?.fullName || ''}
                         placeholder="Juan Dela Cruz" 
                         className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none"
                       />
@@ -1019,6 +1232,7 @@ export default function App() {
                       <input 
                         type="tel" 
                         required 
+                        defaultValue={user?.phone || ''}
                         placeholder="09XX XXX XXXX" 
                         className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none"
                       />
@@ -1028,6 +1242,7 @@ export default function App() {
                       <textarea 
                         required 
                         rows={3}
+                        defaultValue={user?.address || ''}
                         placeholder="House/Unit No., Street, Barangay, City/Municipality, Province, Zip Code" 
                         className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none resize-none"
                       />
@@ -1338,8 +1553,8 @@ export default function App() {
                   )}
                 </div>
                 <div>
-                  <h2 className="font-bold text-lg text-slate-900 ">John Doe</h2>
-                  <p className="text-sm text-slate-500 ">john.doe@example.com</p>
+                  <h2 className="font-bold text-lg text-slate-900 ">{user?.fullName || 'User'}</h2>
+                  <p className="text-sm text-slate-500 ">{user?.email || 'user@example.com'}</p>
                 </div>
               </div>
               
@@ -1422,13 +1637,15 @@ export default function App() {
                     </div>
                   </div>
                   
-                  <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
+                  <form className="space-y-6" onSubmit={handleUpdateProfile}>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
                         <label className="text-sm font-medium text-slate-700">Full Name</label>
                         <input 
                           type="text" 
-                          defaultValue="John Doe"
+                          value={user?.fullName || ''}
+                          onChange={(e) => setUser({...user, fullName: e.target.value})}
                           className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none"
                         />
                       </div>
@@ -1436,15 +1653,17 @@ export default function App() {
                         <label className="text-sm font-medium text-slate-700">Email Address</label>
                         <input 
                           type="email" 
-                          defaultValue="john.doe@example.com"
-                          className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none"
+                          value={user?.email || ''}
+                          disabled
+                          className="w-full px-4 py-2 rounded-lg border border-slate-200 bg-slate-50 outline-none cursor-not-allowed"
                         />
                       </div>
                       <div className="space-y-2">
                         <label className="text-sm font-medium text-slate-700">Phone Number</label>
                         <input 
                           type="tel" 
-                          defaultValue="0912 345 6789"
+                          value={user?.phone || ''}
+                          onChange={(e) => setUser({...user, phone: e.target.value})}
                           className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none"
                         />
                       </div>
@@ -1452,7 +1671,8 @@ export default function App() {
                         <label className="text-sm font-medium text-slate-700">Date of Birth</label>
                         <input 
                           type="date" 
-                          defaultValue="1990-01-01"
+                          value={user?.birthday || ''}
+                          onChange={(e) => setUser({...user, birthday: e.target.value})}
                           className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none"
                         />
                       </div>
@@ -1462,7 +1682,8 @@ export default function App() {
                       <label className="text-sm font-medium text-slate-700">Default Delivery Address</label>
                       <textarea 
                         rows={3}
-                        defaultValue="123 Main St, Brgy. San Jose, Quezon City, Metro Manila, 1115"
+                        value={user?.address || ''}
+                        onChange={(e) => setUser({...user, address: e.target.value})}
                         className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none resize-none"
                       />
                     </div>
@@ -1510,38 +1731,43 @@ export default function App() {
               )}
 
               {accountView === 'settings' && (
-                <div className="bg-white  p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100 ">
-                  <h2 className="text-xl font-bold text-slate-900  mb-6">Account Settings</h2>
+                <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
+                  <h2 className="text-xl font-bold text-slate-900 mb-6">Account Settings</h2>
                   <div className="space-y-6">
-                    <div className="flex items-center justify-between pb-6 border-b border-slate-100 ">
+                    <div className="flex items-center justify-between pb-6 border-b border-slate-100">
                       <div>
-                        <h3 className="font-medium text-slate-900 ">Email Notifications</h3>
-                        <p className="text-sm text-slate-500 ">Receive order updates and promotions</p>
+                        <h3 className="font-medium text-slate-900">Email Notifications</h3>
+                        <p className="text-sm text-slate-500">Receive order updates and promotions</p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" className="sr-only peer" defaultChecked />
-                        <div className="w-11 h-6 bg-slate-200  peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
                       </label>
                     </div>
-                    <div className="flex items-center justify-between pb-6 border-b border-slate-100 ">
+                    <div className="flex items-center justify-between pb-6 border-b border-slate-100">
                       <div>
-                        <h3 className="font-medium text-slate-900 ">SMS Notifications</h3>
-                        <p className="text-sm text-slate-500 ">Receive delivery updates via SMS</p>
+                        <h3 className="font-medium text-slate-900">SMS Notifications</h3>
+                        <p className="text-sm text-slate-500">Receive delivery updates via SMS</p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" className="sr-only peer" defaultChecked />
-                        <div className="w-11 h-6 bg-slate-200  peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
                       </label>
                     </div>
-                    <div>
-                      <h3 className="font-medium text-slate-900  mb-2">Change Password</h3>
-                      <button className="px-4 py-2 border border-slate-200  text-slate-700  rounded-lg text-sm font-medium hover:bg-slate-50 :bg-slate-700 transition-colors">
-                        Update Password
+                    <div className="pt-2">
+                      <h3 className="font-medium text-slate-900 mb-1">Password</h3>
+                      <p className="text-sm text-slate-500 mb-3">Need to change your password?</p>
+                      <button
+                        onClick={() => { setResetError(''); setResetSuccess(''); setResetForm({ email: user?.email || '', newPassword: '', confirm: '' }); setView('forgot-password'); }}
+                        className="px-4 py-2 border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors"
+                      >
+                        Reset Password
                       </button>
                     </div>
                   </div>
                 </div>
               )}
+
             </div>
           </div>
         </main>
@@ -2056,16 +2282,12 @@ export default function App() {
                     Cancel
                   </button>
                   <button 
-                    onClick={() => {
-                      localStorage.removeItem('token');
-                      setIsLoggedIn(false);
-                      setView('home');
-                      setIsLogoutModalOpen(false);
-                    }}
+                    onClick={handleLogout}
                     className="flex-1 px-4 py-2 bg-red-600 text-white rounded-full font-medium hover:bg-red-700 transition-colors"
                   >
                     Log Out
                   </button>
+
                 </div>
               </div>
             </motion.div>

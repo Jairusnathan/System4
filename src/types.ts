@@ -4,6 +4,8 @@ export interface Order {
   items: CartItem[];
   total: number;
   status: 'Processing' | 'In Transit' | 'Delivered';
+  shippingAddress: string;
+  paymentMethod: string;
 }
 
 export interface Product {

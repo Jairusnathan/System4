@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server';
-import db from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 
 export async function GET() {
   try {
-    const branches = db.prepare('SELECT * FROM branches WHERE is_active = 1').all();
+    const { data: branches, error } = await supabase
+      .from('branches')
+      .select('*')
+      .eq('is_active', true);
+
+    if (error) throw error;
+
     return NextResponse.json(branches);
   } catch (error) {
     console.error('Database error:', error);

@@ -38,3 +38,12 @@ export interface BranchInventory {
   product_id: string;
   stock: number;
 }
+
+export interface User {
+  id: string;
+  full_name: string;
+  email: string;
+  phone?: string;
+  dob?: string;
+  address?: string;
+}

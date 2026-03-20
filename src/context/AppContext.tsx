@@ -1,13 +1,16 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Product, Branch, BranchInventory, Order, CartItem } from '../types';
+import { Product, Branch, BranchInventory, Order, CartItem, User } from '../types';
 
 interface AppContextType {
   view: string;
   setView: (view: string) => void;
   isLoggedIn: boolean;
   setIsLoggedIn: (isLoggedIn: boolean) => void;
+  user: User | null;
+  setUser: (user: User | null) => void;
+  fetchUserProfile: (token: string) => Promise<void>;
   cart: CartItem[];
   setCart: React.Dispatch<React.SetStateAction<CartItem[]>>;
   selectedBranch: Branch | null;
@@ -37,6 +40,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [view, setView] = useState('home');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -52,6 +56,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const token = localStorage.getItem('token');
     if (token) {
       setIsLoggedIn(true);
+      fetchUserProfile(token);
     }
 
     const savedCart = localStorage.getItem('cart');
@@ -107,6 +112,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const fetchUserProfile = async (token: string) => {
+    try {
+      const res = await fetch('/api/auth/me', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setUser(data);
+      } else {
+        console.error('Error fetching user profile:', data.error);
+        if (res.status === 401) {
+          handleLogout();
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    setIsLoggedIn(false);
+    setUser(null);
+    setView('home');
+  };
+
   const addToCart = (product: Product) => {
     setCart(prev => {
       const existingItem = prev.find(item => item.id === product.id);
@@ -152,7 +183,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <AppContext.Provider value={{
       view, setView,
-      isLoggedIn, setIsLoggedIn,
+      isLoggedIn, setIsLoggedIn: (val: boolean) => {
+        if (!val) handleLogout();
+        else setIsLoggedIn(true);
+      },
+      user, setUser,
+      fetchUserProfile,
       cart, setCart,
       selectedBranch, setSelectedBranch,
       branches,

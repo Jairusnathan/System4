@@ -8,24 +8,82 @@ import { useAppContext } from '../context/AppContext';
 export default function Account() {
   const { 
     orders, setSelectedOrder, setView,
-    setIsLoggedIn
+    setIsLoggedIn, user, setUser
   } = useAppContext();
 
   const [subView, setSubView] = useState<'profile' | 'orders' | 'settings'>('profile');
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error' | null; message: string }>({ type: null, message: '' });
 
   const [profileData, setProfileData] = useState({
-    fullName: 'Admin User',
-    email: 'admin@gmail.com',
-    phone: '+639000000000',
-    dob: '1990-01-01',
-    address: '123 Main St, Brgy. San Jose, Quezon City, Metro Manila, 1115'
+    fullName: user?.full_name || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
+    dob: user?.dob || '',
+    address: user?.address || ''
   });
+
+  React.useEffect(() => {
+    if (user) {
+      setProfileData({
+        fullName: user.full_name || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        dob: user.dob || '',
+        address: user.address || ''
+      });
+    }
+  }, [user]);
+
+  const handleSaveProfile = async () => {
+    setIsSaving(true);
+    setSaveStatus({ type: null, message: '' });
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('/api/auth/update-profile', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          full_name: profileData.fullName,
+          phone: profileData.phone,
+          dob: profileData.dob,
+          address: profileData.address
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setUser(data);
+        setSaveStatus({ type: 'success', message: 'Profile updated successfully!' });
+        setTimeout(() => setSaveStatus({ type: null, message: '' }), 3000);
+      } else {
+        setSaveStatus({ type: 'error', message: data.error || 'Failed to update profile' });
+      }
+    } catch (error) {
+      setSaveStatus({ type: 'error', message: 'An error occurred' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const [settings, setSettings] = useState({
     emailNotifications: true,
     smsNotifications: true
   });
+  
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [passwordStatus, setPasswordStatus] = useState<{
+    type: 'success' | 'error' | null;
+    message: string;
+  }>({ type: null, message: '' });
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -101,9 +159,33 @@ export default function Account() {
         </div>
       </div>
 
+      {saveStatus.type && (
+        <motion.div 
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`p-4 rounded-2xl flex items-center gap-3 text-sm font-bold ${
+            saveStatus.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-100' : 'bg-red-50 text-red-800 border border-red-100'
+          }`}
+        >
+          {saveStatus.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <X className="w-5 h-5" />}
+          {saveStatus.message}
+        </motion.div>
+      )}
+
       <div className="flex justify-end">
-        <button className="px-10 py-3 bg-emerald-600 text-white rounded-full font-black hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100">
-          Save Changes
+        <button 
+          onClick={handleSaveProfile}
+          disabled={isSaving}
+          className="px-10 py-3 bg-emerald-600 text-white rounded-full font-black hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 disabled:opacity-70 flex items-center gap-2"
+        >
+          {isSaving ? (
+            <>
+              <Clock className="w-5 h-5 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            'Save Changes'
+          )}
         </button>
       </div>
     </div>
@@ -208,7 +290,10 @@ export default function Account() {
 
       <div className="pt-8 border-t border-slate-100">
         <h4 className="font-black text-slate-900 mb-6">Change Password</h4>
-        <button className="px-6 py-2.5 bg-white border-2 border-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-50 transition-all">
+        <button 
+          onClick={() => setIsPasswordModalOpen(true)}
+          className="px-6 py-2.5 bg-white border-2 border-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-50 transition-all font-black"
+        >
           Update Password
         </button>
       </div>
@@ -233,13 +318,13 @@ export default function Account() {
           <div className="lg:col-span-4 space-y-6">
             {/* User Info Card */}
             <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 flex items-center gap-4">
-              <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-600">
-                <User className="w-8 h-8" />
-              </div>
-              <div>
-                <h2 className="font-black text-slate-900">{profileData.fullName}</h2>
-                <p className="text-sm text-slate-400 font-medium">{profileData.email}</p>
-              </div>
+                    <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 border-2 border-white shadow-sm shrink-0">
+                      <User className="w-8 h-8" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-black text-slate-900 leading-tight">{user?.full_name || 'Guest User'}</h3>
+                      <p className="text-sm text-slate-500 font-medium">{user?.email || 'Not logged in'}</p>
+                    </div>
             </div>
 
             {/* Menu Card */}
@@ -335,6 +420,129 @@ export default function Account() {
                     className="flex-1 px-4 py-2 bg-red-600 text-white rounded-full font-medium hover:bg-red-700 transition-colors"
                   >
                     Log Out
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Password Update Modal */}
+      <AnimatePresence>
+        {isPasswordModalOpen && (
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                if (!isUpdatingPassword) setIsPasswordModalOpen(false);
+              }}
+              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 px-4"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl z-50 overflow-hidden"
+            >
+              <div className="p-8 sm:p-10">
+                <div className="flex items-center justify-between mb-8">
+                  <div className="flex items-center gap-4">
+                    <div className="bg-amber-100 p-3 rounded-2xl">
+                      <Lock className="w-6 h-6 text-amber-600" />
+                    </div>
+                    <h3 className="text-2xl font-black text-slate-900 tracking-tight">Update Password</h3>
+                  </div>
+                  <button 
+                    onClick={() => setIsPasswordModalOpen(false)}
+                    className="p-2 hover:bg-slate-100 rounded-xl transition-colors"
+                  >
+                    <X className="w-6 h-6 text-slate-400" />
+                  </button>
+                </div>
+
+                {passwordStatus.type && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`p-4 rounded-2xl mb-6 flex items-start gap-3 ${
+                      passwordStatus.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-100' : 'bg-red-50 text-red-800 border border-red-100'
+                    }`}
+                  >
+                    {passwordStatus.type === 'success' ? <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" /> : <X className="w-5 h-5 shrink-0 mt-0.5" />}
+                    <p className="text-sm font-bold">{passwordStatus.message}</p>
+                  </motion.div>
+                )}
+
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">New Password</label>
+                    <input 
+                      type="password"
+                      value={passwordData.newPassword}
+                      onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
+                      placeholder="••••••••"
+                      className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Confirm New Password</label>
+                    <input 
+                      type="password"
+                      value={passwordData.confirmPassword}
+                      onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
+                      placeholder="••••••••"
+                      className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium"
+                    />
+                  </div>
+
+                  <button 
+                    onClick={async () => {
+                      if (passwordData.newPassword !== passwordData.confirmPassword) {
+                        setPasswordStatus({ type: 'error', message: 'Passwords do not match' });
+                        return;
+                      }
+                      if (passwordData.newPassword.length < 6) {
+                        setPasswordStatus({ type: 'error', message: 'Password must be at least 6 characters' });
+                        return;
+                      }
+
+                      setIsUpdatingPassword(true);
+                      setPasswordStatus({ type: null, message: '' });
+
+                      try {
+                        const token = localStorage.getItem('token');
+                        const res = await fetch('/api/auth/update-password', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ token, newPassword: passwordData.newPassword })
+                        });
+
+                        const data = await res.json();
+                        if (res.ok) {
+                          setPasswordStatus({ type: 'success', message: 'Password updated successfully!' });
+                          setTimeout(() => {
+                            setIsPasswordModalOpen(false);
+                            setPasswordData({ newPassword: '', confirmPassword: '' });
+                            setPasswordStatus({ type: null, message: '' });
+                          }, 2000);
+                        } else {
+                          setPasswordStatus({ type: 'error', message: data.error || 'Failed to update password' });
+                        }
+                      } catch (err) {
+                        setPasswordStatus({ type: 'error', message: 'An error occurred. Please try again.' });
+                      } finally {
+                        setIsUpdatingPassword(false);
+                      }
+                    }}
+                    disabled={isUpdatingPassword || !passwordData.newPassword || !passwordData.confirmPassword}
+                    className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black text-lg hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {isUpdatingPassword ? (
+                      <div className="w-6 h-6 border-4 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : 'Update Password'}
                   </button>
                 </div>
               </div>

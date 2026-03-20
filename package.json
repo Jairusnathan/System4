@@ -4,15 +4,15 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "next dev -p 3000",
-    "start": "next start -p 3000",
+    "dev": "next dev",
+    "start": "next start",
     "build": "next build",
     "lint": "next lint"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
+    "@supabase/supabase-js": "^2.99.2",
     "bcrypt": "^6.0.0",
-    "better-sqlite3": "^12.8.0",
     "dotenv": "^17.2.3",
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^0.546.0",
@@ -24,7 +24,6 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.1",
     "@types/bcrypt": "^6.0.0",
-    "@types/better-sqlite3": "^7.6.13",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.14.0",
     "@types/react": "19.2.14",

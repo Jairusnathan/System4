@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import db from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 
 export async function GET(
   request: Request,
@@ -7,7 +7,13 @@ export async function GET(
 ) {
   try {
     const { id: branchId } = await params;
-    const inventory = db.prepare('SELECT * FROM branch_inventory WHERE branch_id = ?').all(branchId);
+    const { data: inventory, error } = await supabase
+      .from('branch_inventory')
+      .select('*')
+      .eq('branch_id', branchId);
+
+    if (error) throw error;
+
     return NextResponse.json(inventory);
   } catch (error) {
     console.error('Database error:', error);

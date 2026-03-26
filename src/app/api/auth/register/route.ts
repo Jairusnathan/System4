@@ -3,6 +3,12 @@ import { supabase } from '@/lib/supabase';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { isMailerConfigured, sendRegistrationCodeEmail } from '@/lib/mailer';
+import { normalizePhilippinePhone, PH_PHONE_MESSAGE } from '@/lib/phone';
+import {
+  setRefreshTokenCookie,
+  signAccessToken,
+  signRefreshToken,
+} from '../../../../../lib/auth';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
@@ -12,14 +18,21 @@ export async function POST(request: Request) {
       full_name,
       email: rawEmail,
       phone,
+      birthday,
+      gender,
       password,
       verificationCode,
       registrationToken
     } = await request.json();
     const email = rawEmail?.toLowerCase().trim();
+    const normalizedPhone = normalizePhilippinePhone(phone ?? '');
 
-    if (!full_name || !email || !phone || !password) {
+    if (!full_name || !email || !phone || !birthday || !gender || !password) {
       return NextResponse.json({ error: 'All fields are required' }, { status: 400 });
+    }
+
+    if (!normalizedPhone) {
+      return NextResponse.json({ error: PH_PHONE_MESSAGE }, { status: 400 });
     }
 
     if (!verificationCode && !isMailerConfigured()) {
@@ -50,7 +63,9 @@ export async function POST(request: Request) {
         {
           full_name,
           email,
-          phone,
+          phone: normalizedPhone,
+          birthday,
+          gender,
           password: hashedPassword,
           code,
           purpose: 'register'
@@ -83,31 +98,40 @@ export async function POST(request: Request) {
       decoded.email !== email ||
       decoded.code !== verificationCode ||
       decoded.full_name !== full_name ||
-      decoded.phone !== phone
+      decoded.phone !== normalizedPhone ||
+      decoded.birthday !== birthday ||
+      decoded.gender !== gender
     ) {
       return NextResponse.json({ error: 'Invalid verification code' }, { status: 401 });
     }
 
     const { data: newUser, error: insertError } = await supabase
       .from('customers')
-      .insert([{ full_name, email, phone, password: decoded.password }])
+      .insert([{
+        full_name,
+        email,
+        phone: normalizedPhone,
+        birthday: decoded.birthday,
+        gender: decoded.gender,
+        password: decoded.password
+      }])
       .select()
       .single();
 
     if (insertError) throw insertError;
 
-    const token = jwt.sign(
-      { userId: newUser.id, email },
-      JWT_SECRET,
-      { expiresIn: '24h' }
-    );
+    const payload = { userId: newUser.id, email };
+    const token = signAccessToken(payload);
+    const refreshToken = signRefreshToken(payload);
 
     const { password: _, ...userWithoutPassword } = newUser;
 
-    return NextResponse.json({ 
-      token, 
-      user: userWithoutPassword 
+    const response = NextResponse.json({
+      token,
+      user: userWithoutPassword,
     });
+
+    return setRefreshTokenCookie(response, refreshToken);
   } catch (error) {
     console.error('Registration error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

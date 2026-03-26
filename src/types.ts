@@ -44,6 +44,8 @@ export interface User {
   full_name: string;
   email: string;
   phone?: string;
+  birthday?: string;
+  gender?: string;
   dob?: string;
   address?: string;
 }

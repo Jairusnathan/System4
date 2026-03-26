@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, CheckCircle2, Plus } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -13,6 +13,19 @@ export default function ProductDetailsModal() {
     selectedBranch,
     branchInventory
   } = useAppContext();
+  const [addedProductName, setAddedProductName] = useState('');
+
+  useEffect(() => {
+    if (!addedProductName) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setAddedProductName('');
+    }, 1800);
+
+    return () => window.clearTimeout(timeout);
+  }, [addedProductName]);
 
   if (!selectedProduct) return null;
 
@@ -23,6 +36,36 @@ export default function ProductDetailsModal() {
     <AnimatePresence>
       {selectedProduct && (
         <>
+          <AnimatePresence>
+            {addedProductName && (
+              <>
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 bg-slate-900/25 backdrop-blur-sm z-[70]"
+                  onClick={() => setAddedProductName('')}
+                />
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.92, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.92, y: 20 }}
+                  className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[80] w-[min(92vw,26rem)]"
+                >
+                  <div className="bg-white rounded-[2rem] border border-emerald-100 shadow-2xl p-8 text-center">
+                    <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-5">
+                      <CheckCircle2 className="w-10 h-10 text-emerald-600" />
+                    </div>
+                    <h3 className="text-2xl font-black text-slate-900 tracking-tight mb-2">
+                      Added to cart
+                    </h3>
+                    <p className="text-slate-500 font-medium">{addedProductName}</p>
+                  </div>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -123,8 +166,8 @@ export default function ProductDetailsModal() {
                     <button 
                       onClick={() => {
                         if (isLoggedIn) {
-                          addToCart(selectedProduct);
-                          setSelectedProduct(null);
+                          addToCart(selectedProduct, { openCart: false });
+                          setAddedProductName(selectedProduct.name);
                         } else {
                           setSelectedProduct(null);
                           setView('login');

@@ -2,8 +2,10 @@
 
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Pill, Mail, ArrowRight, AlertCircle, Loader2, User, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
+import { Pill, Mail, ArrowRight, AlertCircle, Loader2, User, Eye, EyeOff, CheckCircle2, Calendar } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import { storeAccessToken } from '@/lib/auth-client';
+import { normalizePhilippinePhone, PH_PHONE_MESSAGE } from '@/lib/phone';
 
 export default function Register() {
   const { setView, setIsLoggedIn, setUser } = useAppContext();
@@ -11,6 +13,8 @@ export default function Register() {
     fullName: '',
     email: '',
     phone: '',
+    birthday: '',
+    gender: '',
     password: '',
     confirmPassword: ''
   });
@@ -23,14 +27,16 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const submitRegistrationRequest = async () => {
+  const submitRegistrationRequest = async (normalizedPhone: string) => {
     const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         full_name: formData.fullName,
         email: formData.email,
-        phone: formData.phone,
+        phone: normalizedPhone,
+        birthday: formData.birthday,
+        gender: formData.gender,
         password: formData.password
       })
     });
@@ -63,8 +69,16 @@ export default function Register() {
       return;
     }
 
+    const normalizedPhone = normalizePhilippinePhone(formData.phone);
+    if (!normalizedPhone) {
+      setError(PH_PHONE_MESSAGE);
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      await submitRegistrationRequest();
+      setFormData((prev) => ({ ...prev, phone: normalizedPhone }));
+      await submitRegistrationRequest(normalizedPhone);
       setSuccessMessage('Check your email for the 6-digit verification code to finish creating your account.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
@@ -93,6 +107,8 @@ export default function Register() {
           full_name: formData.fullName,
           email: formData.email,
           phone: formData.phone,
+          birthday: formData.birthday,
+          gender: formData.gender,
           password: formData.password,
           verificationCode,
           registrationToken
@@ -101,7 +117,7 @@ export default function Register() {
       const data = await res.json();
 
       if (res.ok) {
-        localStorage.setItem('token', data.token);
+        storeAccessToken(data.token);
         setIsLoggedIn(true);
         setUser(data.user);
         setView('home');
@@ -121,7 +137,13 @@ export default function Register() {
     setSuccessMessage('');
 
     try {
-      await submitRegistrationRequest();
+      const normalizedPhone = normalizePhilippinePhone(formData.phone);
+
+      if (!normalizedPhone) {
+        throw new Error(PH_PHONE_MESSAGE);
+      }
+
+      await submitRegistrationRequest(normalizedPhone);
       setSuccessMessage('A new verification code has been sent to your email.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to resend the verification code right now.');
@@ -200,7 +222,7 @@ export default function Register() {
                   required
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="+639123456789"
+                  placeholder="09123456789 or +639123456789"
                   className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium"
                 />
               </div>
@@ -217,6 +239,40 @@ export default function Register() {
                   placeholder="name@example.com"
                   className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium"
                 />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Birthday</label>
+                <div className="relative">
+                  <Calendar className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+                  <input
+                    type="date"
+                    required
+                    value={formData.birthday}
+                    onChange={(e) => setFormData({ ...formData, birthday: e.target.value })}
+                    className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium text-slate-500"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Gender</label>
+                <div className="relative">
+                  <User className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+                  <select
+                    required
+                    value={formData.gender}
+                    onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                    className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium text-slate-500 appearance-none"
+                  >
+                    <option value="" disabled>
+                      Select gender
+                    </option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Prefer not to say">Prefer not to say</option>
+                  </select>
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">

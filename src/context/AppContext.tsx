@@ -2,6 +2,11 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Product, Branch, BranchInventory, Order, CartItem, User } from '../types';
+import {
+  clearAccessToken,
+  fetchWithAuth,
+  getAccessToken,
+} from '@/lib/auth-client';
 
 interface AppContextType {
   view: string;
@@ -27,7 +32,7 @@ interface AppContextType {
   setOrders: React.Dispatch<React.SetStateAction<Order[]>>;
   selectedOrder: Order | null;
   setSelectedOrder: (order: Order | null) => void;
-  addToCart: (product: Product) => void;
+  addToCart: (product: Product, options?: { openCart?: boolean }) => void;
   updateQuantity: (id: string, delta: number) => void;
   cartTotal: number;
   isBranchOpen: (branch: Branch) => boolean;
@@ -53,7 +58,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = getAccessToken();
     if (token) {
       setIsLoggedIn(true);
       fetchUserProfile(token);
@@ -114,12 +119,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const fetchUserProfile = async (token: string) => {
     try {
-      const res = await fetch('/api/auth/me', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await fetchWithAuth('/api/auth/me');
       const data = await res.json();
       if (res.ok) {
         setUser(data);
+        setIsLoggedIn(true);
       } else {
         console.error('Error fetching user profile:', data.error);
         if (res.status === 401) {
@@ -132,13 +136,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
+    clearAccessToken();
+    fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
     setIsLoggedIn(false);
     setUser(null);
     setView('home');
   };
 
-  const addToCart = (product: Product) => {
+  const addToCart = (
+    product: Product,
+    options?: { openCart?: boolean }
+  ) => {
     setCart(prev => {
       const existingItem = prev.find(item => item.id === product.id);
       if (existingItem) {
@@ -148,7 +156,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       return [...prev, { ...product, quantity: 1 }];
     });
-    setIsCartOpen(true);
+
+    if (options?.openCart !== false) {
+      setIsCartOpen(true);
+    }
   };
 
   const updateQuantity = (id: string, delta: number) => {

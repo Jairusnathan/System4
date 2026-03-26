@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Pill, Mail, ArrowRight, AlertCircle, Loader2, Eye, EyeOff, X, CheckCircle2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import { storeAccessToken } from '@/lib/auth-client';
 
 type ResetStep = 'email' | 'code' | 'password';
 
@@ -61,7 +62,7 @@ export default function Login() {
       const data = await res.json();
 
       if (res.ok) {
-        localStorage.setItem('token', data.token);
+        storeAccessToken(data.token);
         setIsLoggedIn(true);
         setUser(data.user);
         setView('home');

@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+import {
+  setRefreshTokenCookie,
+  signAccessToken,
+  signRefreshToken,
+} from '../../../../../lib/auth';
 
 export async function POST(request: Request) {
   try {
@@ -26,18 +28,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
-    const token = jwt.sign(
-      { userId: user.id, email: user.email },
-      JWT_SECRET,
-      { expiresIn: '24h' }
-    );
+    const payload = { userId: user.id, email: user.email };
+    const token = signAccessToken(payload);
+    const refreshToken = signRefreshToken(payload);
 
     const { password: _, ...userWithoutPassword } = user;
 
-    return NextResponse.json({ 
-      token, 
-      user: userWithoutPassword 
+    const response = NextResponse.json({
+      token,
+      user: userWithoutPassword,
     });
+
+    return setRefreshTokenCookie(response, refreshToken);
   } catch (error) {
     console.error('Login error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

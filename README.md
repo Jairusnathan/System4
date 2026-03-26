@@ -26,6 +26,4 @@ View your app in AI Studio: https://ai.studio/apps/9736117b-8e38-4e67-b7fd-41f53
 3. Run the app:
    `npm run dev`
 
-This project also accepts `VITE_PUBLIC_SUPABASE_URL`/`VITE_PUBLIC_SUPABASE_ANON_KEY` and `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` as fallbacks, but `NEXT_PUBLIC_*` is the intended format for Next.js.
-
 Forgot-password email delivery requires valid SMTP credentials. If you use Gmail, create an App Password and use that as `SMTP_PASS`.

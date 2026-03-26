@@ -10,11 +10,22 @@ View your app in AI Studio: https://ai.studio/apps/9736117b-8e38-4e67-b7fd-41f53
 
 ## Run Locally
 
-**Prerequisites:**  Node.js
-
+**Prerequisites:** Node.js
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+2. Configure Supabase and JWT values in `.env`:
+   `NEXT_PUBLIC_SUPABASE_URL=...`
+   `NEXT_PUBLIC_SUPABASE_ANON_KEY=...`
+   `JWT_SECRET=...`
+   `SMTP_HOST=...`
+   `SMTP_PORT=...`
+   `SMTP_USER=...`
+   `SMTP_PASS=...`
+   `SMTP_FROM=...`
 3. Run the app:
    `npm run dev`
+
+This project also accepts `VITE_PUBLIC_SUPABASE_URL`/`VITE_PUBLIC_SUPABASE_ANON_KEY` and `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` as fallbacks, but `NEXT_PUBLIC_*` is the intended format for Next.js.
+
+Forgot-password email delivery requires valid SMTP credentials. If you use Gmail, create an App Password and use that as `SMTP_PASS`.

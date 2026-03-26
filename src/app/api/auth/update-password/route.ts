@@ -7,7 +7,14 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 export async function POST(request: Request) {
   try {
-    const { token, newPassword, email: rawEmail, oldPassword } = await request.json();
+    const {
+      token,
+      newPassword,
+      email: rawEmail,
+      oldPassword,
+      resetToken,
+      verificationCode
+    } = await request.json();
 
     if (!newPassword) {
       return NextResponse.json({ error: 'Missing new password' }, { status: 400 });
@@ -16,16 +23,43 @@ export async function POST(request: Request) {
     let userId: string;
 
     if (token) {
-      // Mode 1: Token-based (Authenticated)
       try {
         const decoded: any = jwt.verify(token, JWT_SECRET);
         userId = decoded.userId;
       } catch (err) {
         return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
       }
+    } else if (resetToken && verificationCode && rawEmail) {
+      const email = rawEmail.toLowerCase().trim();
+      let decoded: any;
+
+      try {
+        decoded = jwt.verify(resetToken, JWT_SECRET);
+      } catch (err) {
+        return NextResponse.json({ error: 'Verification code expired. Please request a new one.' }, { status: 401 });
+      }
+
+      if (
+        decoded.purpose !== 'password-reset' ||
+        decoded.email !== email ||
+        decoded.code !== verificationCode
+      ) {
+        return NextResponse.json({ error: 'Invalid verification code' }, { status: 401 });
+      }
+
+      const { data: user, error: fetchError } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('email', email)
+        .single();
+
+      if (fetchError || !user) {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      }
+
+      userId = user.id;
     } else if (rawEmail && oldPassword) {
-      // Mode 2: Email/OldPassword-based (Forgot Password flow)
-      const email = rawEmail.toLowerCase();
+      const email = rawEmail.toLowerCase().trim();
       const { data: user, error: fetchError } = await supabase
         .from('customers')
         .select('*')
@@ -40,6 +74,7 @@ export async function POST(request: Request) {
       if (!isPasswordValid) {
         return NextResponse.json({ error: 'Incorrect old password' }, { status: 401 });
       }
+
       userId = user.id;
     } else {
       return NextResponse.json({ error: 'Missing required credentials' }, { status: 400 });
@@ -52,7 +87,9 @@ export async function POST(request: Request) {
       .update({ password: hashedPassword })
       .eq('id', userId);
 
-    if (updateError) throw updateError;
+    if (updateError) {
+      throw updateError;
+    }
 
     return NextResponse.json({ message: 'Password updated successfully' });
   } catch (error) {

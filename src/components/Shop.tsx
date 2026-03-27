@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Product } from '../types';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 const CATEGORIES = ['All', 'Medicines', 'First Aid', 'Personal Care', 'Vitamins'];
 const SORT_OPTIONS = [
@@ -53,6 +54,8 @@ export default function Shop() {
   const selectedCategoryLabel = hasCategoryFilter
     ? selectedCategories.join(', ')
     : 'All';
+
+  useBodyScrollLock(isFilterModalOpen);
 
   useEffect(() => {
     setPendingCategories(selectedCategories);

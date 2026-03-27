@@ -5,6 +5,7 @@ import { motion } from 'motion/react';
 import { Pill, Mail, ArrowRight, AlertCircle, Loader2, Eye, EyeOff, X, CheckCircle2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { storeAccessToken } from '@/lib/auth-client';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 type ResetStep = 'email' | 'code' | 'password';
 
@@ -33,6 +34,8 @@ export default function Login() {
     new: false,
     confirm: false
   });
+
+  useBodyScrollLock(isForgotModalOpen);
 
   const resetForgotPasswordState = () => {
     setForgotData({

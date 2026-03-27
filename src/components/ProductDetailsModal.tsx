@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, CheckCircle2, Plus } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 export default function ProductDetailsModal() {
   const { 
@@ -14,6 +15,8 @@ export default function ProductDetailsModal() {
     branchInventory
   } = useAppContext();
   const [addedProductName, setAddedProductName] = useState('');
+
+  useBodyScrollLock(Boolean(selectedProduct) || Boolean(addedProductName));
 
   useEffect(() => {
     if (!addedProductName) {

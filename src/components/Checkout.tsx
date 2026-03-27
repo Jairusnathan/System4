@@ -7,6 +7,7 @@ import { useAppContext } from '../context/AppContext';
 import { Order } from '../types';
 import { fetchWithAuth } from '@/lib/auth-client';
 import { normalizePhilippinePhone, PH_PHONE_MESSAGE } from '@/lib/phone';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 const ADDRESS_STORAGE_PREFIX = '__addresses_json__:';
 
@@ -234,6 +235,8 @@ export default function Checkout() {
   const [isProvincePickerOpen, setIsProvincePickerOpen] = useState(false);
   const [isCityPickerOpen, setIsCityPickerOpen] = useState(false);
   const [checkoutAddressError, setCheckoutAddressError] = useState('');
+
+  useBodyScrollLock(isAddressPickerOpen);
 
   const savedAddresses = checkoutAddresses;
   const cityOptions = checkoutAddressForm.province

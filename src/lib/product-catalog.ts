@@ -186,3 +186,17 @@ export async function getProductSuggestions(
     category: product.category,
   }));
 }
+
+export function getProductsByIds(ids: string[]): Product[] {
+  const uniqueIds = [...new Set(ids.filter(Boolean))];
+
+  if (uniqueIds.length === 0) {
+    return [];
+  }
+
+  const productsById = new Map(productData.map((product) => [product.id, product]));
+
+  return uniqueIds
+    .map((id) => productsById.get(id))
+    .filter((product): product is Product => Boolean(product));
+}

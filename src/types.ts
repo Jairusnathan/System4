@@ -48,4 +48,5 @@ export interface User {
   gender?: string;
   dob?: string;
   address?: string;
+  profile_image?: string;
 }

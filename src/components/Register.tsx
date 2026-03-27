@@ -6,6 +6,7 @@ import { Pill, Mail, ArrowRight, AlertCircle, Loader2, User, Eye, EyeOff, CheckC
 import { useAppContext } from '../context/AppContext';
 import { storeAccessToken } from '@/lib/auth-client';
 import { normalizePhilippinePhone, PH_PHONE_MESSAGE } from '@/lib/phone';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 export default function Register() {
   const { setView, setIsLoggedIn, setUser } = useAppContext();
@@ -24,8 +25,11 @@ export default function Register() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [showAccountCreatedModal, setShowAccountCreatedModal] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  useBodyScrollLock(showAccountCreatedModal);
 
   const submitRegistrationRequest = async (normalizedPhone: string) => {
     const res = await fetch('/api/auth/register', {
@@ -120,7 +124,7 @@ export default function Register() {
         storeAccessToken(data.token);
         setIsLoggedIn(true);
         setUser(data.user);
-        setView('home');
+        setShowAccountCreatedModal(true);
       } else {
         setError(data.error || 'Verification failed');
       }
@@ -150,6 +154,11 @@ export default function Register() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleAccountCreatedContinue = () => {
+    setShowAccountCreatedModal(false);
+    setView('home');
   };
 
   return (
@@ -395,6 +404,36 @@ export default function Register() {
           </p>
         </div>
       </motion.div>
+
+      {showAccountCreatedModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-6">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="w-full max-w-md rounded-[2rem] border border-emerald-100 bg-white p-8 shadow-2xl"
+          >
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
+              <CheckCircle2 className="h-8 w-8 text-emerald-600" />
+            </div>
+
+            <div className="mt-6 text-center">
+              <h3 className="text-2xl font-black text-slate-900">Account Successfully Created</h3>
+              <p className="mt-3 text-sm font-medium leading-6 text-slate-600">
+                Welcome to PharmaQuick. Your account is ready, and we&apos;ve also sent a welcome email to{' '}
+                <span className="font-bold text-slate-800">{formData.email}</span>.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleAccountCreatedContinue}
+              className="mt-8 w-full rounded-2xl bg-emerald-600 py-4 text-lg font-black text-white transition-all hover:bg-emerald-700"
+            >
+              Continue to Home
+            </button>
+          </motion.div>
+        </div>
+      )}
     </main>
   );
 }

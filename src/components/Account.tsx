@@ -1,14 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { User, Package, MapPin, LogOut, ChevronRight, Clock, CheckCircle2, Truck, X, Settings, Bell, Lock, Calendar, Phone, Mail, Camera, ArrowLeft, Trash2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import {
-  clearAccessToken,
   ensureAccessToken,
   fetchWithAuth,
 } from '@/lib/auth-client';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { normalizeDateForInput, normalizeDateForStorage } from '@/lib/date';
 import { normalizePhilippinePhone, PH_PHONE_MESSAGE } from '@/lib/phone';
 
@@ -213,13 +213,16 @@ export default function Account() {
   const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error' | null; message: string }>({ type: null, message: '' });
   const [addressEntries, setAddressEntries] = useState<SavedAddress[]>(parseAddresses(user?.address, user));
   const [addressFormData, setAddressFormData] = useState<SavedAddress>(createEmptyAddress(user));
+  const profileImageInputRef = useRef<HTMLInputElement | null>(null);
 
   const [profileData, setProfileData] = useState({
     fullName: user?.full_name || '',
     email: user?.email || '',
     phone: user?.phone || '',
     birthday: normalizeDateForInput(user?.birthday || user?.dob),
-    address: user?.address || ''
+    address: user?.address || '',
+    profileImage: user?.profile_image || '',
+    profileImageTouched: false
   });
 
   const cityOptions = addressFormData.province
@@ -235,7 +238,9 @@ export default function Account() {
         email: user.email || '',
         phone: user.phone || '',
         birthday: normalizeDateForInput(user.birthday || user.dob),
-        address: stringifyAddresses(parsedAddresses)
+        address: stringifyAddresses(parsedAddresses),
+        profileImage: user.profile_image || '',
+        profileImageTouched: false
       });
       setAddressEntries(parsedAddresses);
       setIsEditingProfile(false);
@@ -277,7 +282,10 @@ export default function Account() {
           full_name: profileData.fullName,
           phone: normalizedPhone,
           birthday: normalizeDateForStorage(profileData.birthday),
-          address: profileData.address
+          address: profileData.address,
+          profile_image: profileData.profileImageTouched
+            ? profileData.profileImage || null
+            : user?.profile_image || null
         })
       });
       const data = await res.json();
@@ -386,77 +394,183 @@ export default function Account() {
   }>({ type: null, message: '' });
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
+  useBodyScrollLock(isAddressModalOpen || isLogoutModalOpen || isPasswordModalOpen);
+
+  const handleProfileImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      setSaveStatus({ type: 'error', message: 'Please choose a valid image file.' });
+      event.target.value = '';
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setSaveStatus({ type: 'error', message: 'Profile picture must be 2MB or smaller.' });
+      event.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : '';
+      setProfileData((prev) => ({
+        ...prev,
+        profileImage: result,
+        profileImageTouched: true,
+      }));
+      setIsEditingProfile(true);
+      setSaveStatus({ type: 'success', message: 'Profile picture selected. Click Save Changes to keep it.' });
+    };
+
+    reader.onerror = () => {
+      setSaveStatus({ type: 'error', message: 'Unable to read that image. Please try another one.' });
+    };
+
+    reader.readAsDataURL(file);
+    event.target.value = '';
+  };
+
+  const handleRemoveProfileImage = () => {
+    setProfileData((prev) => ({
+      ...prev,
+      profileImage: '',
+      profileImageTouched: true,
+    }));
+    setIsEditingProfile(true);
+    setSaveStatus({ type: 'success', message: 'Profile picture removed. Click Save Changes to update your account.' });
+  };
+
+  const profileImageSrc = profileData.profileImageTouched
+    ? profileData.profileImage
+    : user?.profile_image || '';
+
   const handleLogout = () => {
-    clearAccessToken();
-    fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
     setIsLoggedIn(false);
-    setView('home');
     setIsLogoutModalOpen(false);
   };
 
   const renderProfileDetails = () => (
     <div className="space-y-8">
-      <div className="flex items-center gap-6">
-        <div className="relative group">
-          <div className="w-24 h-24 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 border-4 border-white shadow-md">
-            <User className="w-12 h-12" />
-          </div>
-          <button className="absolute bottom-0 right-0 bg-emerald-600 text-white p-2 rounded-full shadow-lg hover:bg-emerald-700 transition-colors">
-            <Camera className="w-4 h-4" />
-          </button>
-        </div>
-        <div>
-          <h3 className="text-lg font-black text-slate-900">Profile Picture</h3>
-          <p className="text-sm text-slate-500">Upload a new profile picture. Max size 2MB.</p>
-        </div>
-      </div>
+      <div className="rounded-[2rem] border border-slate-100 bg-slate-50/70 p-6 sm:p-8">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-5">
+            <div className="relative shrink-0">
+              <input
+                ref={profileImageInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleProfileImageChange}
+              />
+              <div className="h-28 w-28 overflow-hidden rounded-full border-4 border-white bg-emerald-100 text-emerald-600 shadow-md shadow-slate-200/70 sm:h-32 sm:w-32">
+                {profileImageSrc ? (
+                  <img
+                    src={profileImageSrc}
+                    alt={user?.full_name || 'Profile'}
+                    className="h-full w-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center">
+                    <User className="w-12 h-12" />
+                  </div>
+                )}
+              </div>
+              {isEditingProfile && (
+                <button
+                  type="button"
+                  onClick={() => profileImageInputRef.current?.click()}
+                  className="absolute bottom-0 right-0 rounded-full bg-emerald-600 p-2 text-white shadow-lg transition-colors hover:bg-emerald-700"
+                >
+                  <Camera className="w-4 h-4" />
+                </button>
+              )}
+            </div>
 
-      <div className="flex items-center justify-end">
-        {!isEditingProfile ? (
-          <button
-            onClick={() => {
-              setSaveStatus({ type: null, message: '' });
-              setIsEditingProfile(true);
-            }}
-            className="px-8 py-3 bg-emerald-600 text-white rounded-full font-black hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100"
-          >
-            Edit Profile
-          </button>
-        ) : (
-          <div className="flex gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-slate-400">
+                Profile
+              </p>
+              <h3 className="mt-2 text-2xl font-black text-slate-900">
+                Hi, {user?.full_name || 'Guest User'}!
+              </h3>
+              <p className="mt-1 text-sm font-medium text-slate-500">
+                Welcome back to PharmaQuick.
+              </p>
+
+              {isEditingProfile && (
+                <div className="mt-4">
+                  <p className="text-sm font-medium text-slate-500">
+                    Upload a new profile picture. Max size 2MB.
+                  </p>
+                  {profileImageSrc && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveProfileImage}
+                      className="mt-3 text-sm font-bold text-red-500 transition-colors hover:text-red-600"
+                    >
+                      Remove picture
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {!isEditingProfile ? (
             <button
               onClick={() => {
-                setProfileData({
-                  fullName: user?.full_name || '',
-                  email: user?.email || '',
-                  phone: user?.phone || '',
-                  birthday: normalizeDateForInput(user?.birthday || user?.dob),
-                  address: user?.address || ''
-                });
-                setAddressEntries(parseAddresses(user?.address, user));
                 setSaveStatus({ type: null, message: '' });
-                setIsEditingProfile(false);
+                setIsEditingProfile(true);
               }}
-              className="px-6 py-3 bg-white border-2 border-slate-200 text-slate-700 rounded-full font-black hover:bg-slate-50 transition-all"
+              className="inline-flex items-center justify-center self-start rounded-full bg-emerald-600 px-8 py-3 font-black text-white shadow-lg shadow-emerald-100 transition-all hover:bg-emerald-700 lg:self-center"
             >
-              Cancel
+              Edit Profile
             </button>
-            <button 
-              onClick={handleSaveProfile}
-              disabled={isSaving}
-              className="px-10 py-3 bg-emerald-600 text-white rounded-full font-black hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 disabled:opacity-70 flex items-center gap-2"
-            >
-              {isSaving ? (
-                <>
-                  <Clock className="w-5 h-5 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                'Save Changes'
-              )}
-            </button>
-          </div>
-        )}
+          ) : (
+            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+              <button
+                onClick={() => {
+                  setProfileData({
+                    fullName: user?.full_name || '',
+                    email: user?.email || '',
+                    phone: user?.phone || '',
+                    birthday: normalizeDateForInput(user?.birthday || user?.dob),
+                    address: user?.address || '',
+                    profileImage: user?.profile_image || '',
+                    profileImageTouched: false
+                  });
+                  setAddressEntries(parseAddresses(user?.address, user));
+                  setSaveStatus({ type: null, message: '' });
+                  setIsEditingProfile(false);
+                }}
+                className="rounded-full border-2 border-slate-200 bg-white px-6 py-3 font-black text-slate-700 transition-all hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleSaveProfile}
+                disabled={isSaving}
+                className="flex items-center justify-center gap-2 rounded-full bg-emerald-600 px-10 py-3 font-black text-white shadow-lg shadow-emerald-100 transition-all hover:bg-emerald-700 disabled:opacity-70"
+              >
+                {isSaving ? (
+                  <>
+                    <Clock className="w-5 h-5 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Changes'
+                )}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1078,7 +1192,7 @@ export default function Account() {
   );
 
   return (
-    <main className="flex-1 bg-slate-50 py-8 sm:py-12">
+    <main className="flex-1 py-8 sm:py-12">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
         <button 
           onClick={() => setView('shop')}
@@ -1095,8 +1209,19 @@ export default function Account() {
           <div className="lg:col-span-4 space-y-6">
             {/* User Info Card */}
             <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 flex items-center gap-4">
-                    <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 border-2 border-white shadow-sm shrink-0">
-                      <User className="w-8 h-8" />
+                    <div className="w-16 h-16 overflow-hidden rounded-full border-2 border-white bg-emerald-100 text-emerald-600 shadow-sm shrink-0">
+                      {profileImageSrc ? (
+                        <img
+                          src={profileImageSrc}
+                          alt={user?.full_name || 'Profile'}
+                          className="h-full w-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center">
+                          <User className="w-8 h-8" />
+                        </div>
+                      )}
                     </div>
                     <div>
                       <h3 className="text-xl font-black text-slate-900 leading-tight">{user?.full_name || 'Guest User'}</h3>

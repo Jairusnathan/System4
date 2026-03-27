@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { Pill, Search, ShoppingCart, User, MapPin, LogOut } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
-import { clearAccessToken } from '@/lib/auth-client';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface ProductSuggestion {
   id: string;
@@ -15,6 +16,7 @@ export default function Navbar() {
   const { 
     view, setView, 
     isLoggedIn, setIsLoggedIn, 
+    user,
     cart, 
     selectedBranch, 
     setIsBranchModalOpen, 
@@ -24,7 +26,10 @@ export default function Navbar() {
   } = useAppContext();
   const [suggestions, setSuggestions] = useState<ProductSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement | null>(null);
+
+  useBodyScrollLock(isLogoutModalOpen);
 
   useEffect(() => {
     const handleOutsideClick = (event: MouseEvent) => {
@@ -156,25 +161,36 @@ export default function Navbar() {
           {/* Actions */}
           <div className="flex items-center gap-4 shrink-0">
             {/* Cart */}
-            <button 
-              onClick={() => setIsCartOpen(true)}
-              className="relative p-2 text-slate-600 hover:text-emerald-600 transition-all"
-            >
-              <ShoppingCart className="w-6 h-6" />
-              {cart.length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-emerald-600 text-white text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full">
-                  {cart.reduce((sum, item) => sum + item.quantity, 0)}
-                </span>
-              )}
-            </button>
+            {isLoggedIn && (
+              <button 
+                onClick={() => setIsCartOpen(true)}
+                className="relative p-2 text-slate-600 hover:text-emerald-600 transition-all"
+              >
+                <ShoppingCart className="w-6 h-6" />
+                {cart.length > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-emerald-600 text-white text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full">
+                    {cart.reduce((sum, item) => sum + item.quantity, 0)}
+                  </span>
+                )}
+              </button>
+            )}
 
             {/* Auth */}
             {isLoggedIn ? (
               <button 
                 onClick={() => setView('account')}
-                className="p-2 text-slate-600 hover:text-emerald-600 transition-all"
+                className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-50 text-slate-600 transition-all hover:border-emerald-200 hover:text-emerald-600"
               >
-                <User className="w-6 h-6" />
+                {user?.profile_image ? (
+                  <img
+                    src={user.profile_image}
+                    alt={user.full_name || 'Profile'}
+                    className="h-full w-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <User className="w-5 h-5" />
+                )}
               </button>
             ) : (
               <button 
@@ -188,12 +204,7 @@ export default function Navbar() {
             {/* Logout */}
             {isLoggedIn && (
               <button 
-                onClick={() => {
-                  clearAccessToken();
-                  fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
-                  setIsLoggedIn(false);
-                  setView('home');
-                }}
+                onClick={() => setIsLogoutModalOpen(true)}
                 className="p-2 text-slate-600 hover:text-emerald-600 transition-all"
               >
                 <LogOut className="w-6 h-6" />
@@ -202,6 +213,51 @@ export default function Navbar() {
           </div>
         </div>
       </div>
+
+      <AnimatePresence>
+        {isLogoutModalOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsLogoutModalOpen(false)}
+              className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl bg-white shadow-2xl"
+            >
+              <div className="p-6 text-center">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 text-red-600">
+                  <LogOut className="w-8 h-8" />
+                </div>
+                <h3 className="mb-2 text-xl font-bold text-slate-900">Log Out?</h3>
+                <p className="mb-6 text-slate-500">Are you sure you want to log out?</p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setIsLogoutModalOpen(false)}
+                    className="flex-1 rounded-full bg-slate-100 px-4 py-2 font-medium text-slate-700 transition-colors hover:bg-slate-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsLogoutModalOpen(false);
+                      setIsLoggedIn(false);
+                    }}
+                    className="flex-1 rounded-full bg-red-600 px-4 py-2 font-medium text-white transition-colors hover:bg-red-700"
+                  >
+                    Log Out
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </nav>
   );
 }

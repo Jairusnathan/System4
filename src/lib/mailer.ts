@@ -69,3 +69,24 @@ export async function sendRegistrationCodeEmail(email: string, code: string) {
     `
   });
 }
+
+export async function sendWelcomeEmail(email: string, fullName: string) {
+  const transporter = getTransporter();
+  const firstName = fullName.trim().split(/\s+/)[0] || 'there';
+
+  await transporter.sendMail({
+    from: smtpFrom,
+    to: email,
+    subject: 'Welcome to PharmaQuick',
+    text: `Welcome to PharmaQuick, ${firstName}! Your account has been created successfully. We're glad to have you with us. You can now explore trusted healthcare products, manage your account, and enjoy a faster checkout experience.`,
+    html: `
+      <div style="font-family: Arial, sans-serif; color: #0f172a; line-height: 1.6;">
+        <h2 style="margin-bottom: 8px;">Welcome to PharmaQuick</h2>
+        <p style="margin-top: 0;">Hi ${firstName}, your account has been created successfully.</p>
+        <p>We're glad to have you with us and excited to help make your healthcare shopping faster, easier, and more reliable.</p>
+        <p>You can now explore trusted products, manage your profile, and enjoy a smoother checkout experience whenever you need it.</p>
+        <p style="margin-top: 24px;">Thank you for choosing PharmaQuick.</p>
+      </div>
+    `
+  });
+}

@@ -25,7 +25,8 @@ export async function POST(request: Request) {
     }
     const userId = decoded.userId as string;
 
-    const { full_name, phone, birthday, gender, address } = await request.json();
+    const body = await request.json();
+    const { full_name, phone, birthday, gender, address, profile_image } = body;
     const normalizedPhone = phone ? normalizePhilippinePhone(phone) : null;
 
     if (phone && !normalizedPhone) {
@@ -73,12 +74,18 @@ export async function POST(request: Request) {
       birthday?: string | null;
       gender?: string | null;
       address?: string | null;
+      profile_image?: string | null;
     } = {
       full_name,
       phone: normalizedPhone || null,
       birthday: birthday || null,
       gender: gender || null,
     };
+
+    if (Object.prototype.hasOwnProperty.call(body, 'profile_image')) {
+      updatePayload.profile_image =
+        typeof profile_image === 'string' && profile_image.trim() ? profile_image : null;
+    }
 
     if (typeof serializedAddressValue !== 'undefined') {
       updatePayload.address = serializedAddressValue || null;
@@ -88,7 +95,7 @@ export async function POST(request: Request) {
       .from('customers')
       .update(updatePayload)
       .eq('id', userId)
-      .select('id, full_name, email, phone, birthday, gender, address')
+      .select('id, full_name, email, phone, birthday, gender, address, profile_image')
       .single();
 
     if (updateError) {

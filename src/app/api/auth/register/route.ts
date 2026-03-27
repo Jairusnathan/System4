@@ -2,7 +2,11 @@ import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { isMailerConfigured, sendRegistrationCodeEmail } from '@/lib/mailer';
+import {
+  isMailerConfigured,
+  sendRegistrationCodeEmail,
+  sendWelcomeEmail,
+} from '@/lib/mailer';
 import { normalizePhilippinePhone, PH_PHONE_MESSAGE } from '@/lib/phone';
 import {
   setRefreshTokenCookie,
@@ -119,6 +123,14 @@ export async function POST(request: Request) {
       .single();
 
     if (insertError) throw insertError;
+
+    if (isMailerConfigured()) {
+      try {
+        await sendWelcomeEmail(email, full_name);
+      } catch (mailError) {
+        console.error('Welcome email error:', mailError);
+      }
+    }
 
     const payload = { userId: newUser.id, email };
     const token = signAccessToken(payload);

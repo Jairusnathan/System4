@@ -31,3 +31,10 @@ Forgot-password email delivery requires valid SMTP credentials. If you use Gmail
 ## Account Creation Note
 
 When creating an account, users must enter a valid email address because the app sends a verification code by email before registration is completed.
+
+## Supabase SQL Files
+
+Run these SQL files in your Supabase SQL editor when you want the related backend tables:
+
+- `supabase/customer_addresses.sql` for saved customer addresses
+- `supabase/cart_items.sql` for user-synced cart items

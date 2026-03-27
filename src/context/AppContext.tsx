@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { Product, Branch, BranchInventory, Order, CartItem, User } from '../types';
 import {
   clearAccessToken,
@@ -42,6 +42,53 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+const CART_STORAGE_KEY = 'cart';
+
+const areCartItemsEqual = (left: CartItem[], right: CartItem[]) => {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((item, index) => {
+    const other = right[index];
+
+    return (
+      item.id === other?.id &&
+      item.quantity === other?.quantity
+    );
+  });
+};
+
+const mergeCartItems = (localItems: CartItem[], remoteItems: CartItem[]) => {
+  const merged = new Map<string, CartItem>();
+
+  for (const item of remoteItems) {
+    merged.set(item.id, { ...item });
+  }
+
+  for (const item of localItems) {
+    const existing = merged.get(item.id);
+
+    if (existing) {
+      merged.set(item.id, {
+        ...existing,
+        quantity: existing.quantity + item.quantity,
+      });
+      continue;
+    }
+
+    merged.set(item.id, { ...item });
+  }
+
+  return Array.from(merged.values());
+};
+
+const cartSnapshot = (items: CartItem[]) =>
+  items
+    .map((item) => `${item.id}:${item.quantity}`)
+    .sort()
+    .join('|');
+
 export function AppProvider({ children }: { children: ReactNode }) {
   const [view, setView] = useState('home');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -56,6 +103,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isCartHydrated, setIsCartHydrated] = useState(false);
+  const [isCartSyncReady, setIsCartSyncReady] = useState(false);
+  const syncedCartUserIdRef = useRef<string | null>(null);
+  const skipNextCartSyncRef = useRef(false);
+  const initialLocalCartSnapshotRef = useRef('');
 
   useEffect(() => {
     const token = getAccessToken();
@@ -64,10 +116,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       fetchUserProfile(token);
     }
 
-    const savedCart = localStorage.getItem('cart');
+    const savedCart = localStorage.getItem(CART_STORAGE_KEY);
     if (savedCart) {
-      setCart(JSON.parse(savedCart));
+      const parsedCart = JSON.parse(savedCart) as CartItem[];
+      setCart(parsedCart);
+      initialLocalCartSnapshotRef.current = cartSnapshot(parsedCart);
     }
+
+    setIsCartHydrated(true);
 
     const savedBranch = localStorage.getItem('selectedBranch');
     if (savedBranch) {
@@ -83,7 +139,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('cart', JSON.stringify(cart));
+    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
   }, [cart]);
 
   useEffect(() => {
@@ -135,12 +191,125 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const persistCartToBackend = async (items: CartItem[]) => {
+    const res = await fetchWithAuth('/api/cart', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        items: items.map((item) => ({
+          id: item.id,
+          quantity: item.quantity,
+        })),
+      }),
+    });
+
+    if (!res.ok) {
+      const payload = await res.json().catch(() => null);
+      throw new Error(payload?.error || 'Failed to sync cart.');
+    }
+  };
+
+  useEffect(() => {
+    if (!isCartHydrated) {
+      return;
+    }
+
+    if (!user?.id) {
+      syncedCartUserIdRef.current = null;
+      setIsCartSyncReady(false);
+      return;
+    }
+
+    if (syncedCartUserIdRef.current === user.id) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    const syncCartFromBackend = async () => {
+      try {
+        const res = await fetchWithAuth('/api/cart');
+        const payload = await res.json().catch(() => ({ items: [] }));
+
+        if (!res.ok) {
+          throw new Error(payload?.error || 'Failed to load cart.');
+        }
+
+        const remoteItems = Array.isArray(payload?.items) ? payload.items : [];
+        const localSnapshot = cartSnapshot(cart);
+        const initialLocalSnapshot = initialLocalCartSnapshotRef.current;
+        const remoteSnapshot = cartSnapshot(remoteItems);
+        const shouldMergeGuestCart =
+          cart.length > 0 &&
+          localSnapshot === initialLocalSnapshot &&
+          localSnapshot !== remoteSnapshot;
+        const nextItems = shouldMergeGuestCart
+          ? mergeCartItems(cart, remoteItems)
+          : remoteItems;
+
+        if (!isCancelled) {
+          syncedCartUserIdRef.current = user.id;
+          skipNextCartSyncRef.current = true;
+          setCart(nextItems);
+          setIsCartSyncReady(true);
+          initialLocalCartSnapshotRef.current = '';
+
+          if (!areCartItemsEqual(nextItems, remoteItems)) {
+            await persistCartToBackend(nextItems);
+          }
+        }
+      } catch (error) {
+        console.error('Error syncing cart from backend:', error);
+
+        if (!isCancelled) {
+          syncedCartUserIdRef.current = user.id;
+          setIsCartSyncReady(true);
+        }
+      }
+    };
+
+    syncCartFromBackend();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [cart, isCartHydrated, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !isCartSyncReady) {
+      return;
+    }
+
+    if (skipNextCartSyncRef.current) {
+      skipNextCartSyncRef.current = false;
+      return;
+    }
+
+    const syncCart = async () => {
+      try {
+        await persistCartToBackend(cart);
+      } catch (error) {
+        console.error('Error syncing cart to backend:', error);
+      }
+    };
+
+    syncCart();
+  }, [cart, isCartSyncReady, user?.id]);
+
   const handleLogout = () => {
     clearAccessToken();
     fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
     setIsLoggedIn(false);
     setUser(null);
+    setCart([]);
+    localStorage.removeItem(CART_STORAGE_KEY);
     setView('home');
+    setIsCartOpen(false);
+    setIsCartSyncReady(false);
+    syncedCartUserIdRef.current = null;
+    initialLocalCartSnapshotRef.current = '';
   };
 
   const addToCart = (

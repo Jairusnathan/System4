@@ -4,6 +4,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, MapPin, Clock } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 export default function BranchModal() {
   const { 
@@ -13,6 +14,8 @@ export default function BranchModal() {
     setCart,
     isBranchOpen
   } = useAppContext();
+
+  useBodyScrollLock(isBranchModalOpen);
 
   return (
     <AnimatePresence>

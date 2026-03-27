@@ -4,9 +4,11 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ShoppingCart, X, Minus, Plus } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 export default function CartDrawer() {
   const { 
+    isLoggedIn,
     view, setView,
     cart, setCart,
     isCartOpen, setIsCartOpen,
@@ -16,10 +18,16 @@ export default function CartDrawer() {
 
   const [isClearCartModalOpen, setIsClearCartModalOpen] = useState(false);
 
+  useBodyScrollLock(isCartOpen || isClearCartModalOpen);
+
   const handleProceedToCheckout = () => {
     setIsCartOpen(false);
     setView('checkout');
   };
+
+  if (!isLoggedIn) {
+    return null;
+  }
 
   return (
     <>

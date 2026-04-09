@@ -1,5 +1,4 @@
-import { products as productData } from '@/data/products';
-import { supabase } from '@/lib/supabase';
+import { secondSupabase } from '@/lib/second-supabase';
 import { Product } from '@/types';
 
 export interface ProductQueryOptions {
@@ -21,6 +20,74 @@ export interface ProductSuggestion {
 }
 
 const normalize = (value: string) => value.trim().toLowerCase();
+
+type SecondDatabaseProductRow = {
+  id: number | string;
+  name: string | null;
+  price: number | string | null;
+  stock: number | string | null;
+  category: string | null;
+  low_stock_threshold?: number | string | null;
+};
+
+const FALLBACK_PRODUCT_IMAGE =
+  'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&q=80&w=800&h=800';
+
+const toNumber = (value: number | string | null | undefined, fallback = 0) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const buildProductDescription = (row: SecondDatabaseProductRow) => {
+  const stock = toNumber(row.stock);
+  const threshold = toNumber(row.low_stock_threshold);
+
+  if (threshold > 0 && stock > 0 && stock <= threshold) {
+    return `Limited stocks available in ${row.category ?? 'this category'}.`;
+  }
+
+  if (stock > 0) {
+    return `${row.category ?? 'Product'} item with ${stock} units currently available.`;
+  }
+
+  return `${row.category ?? 'Product'} item currently unavailable.`;
+};
+
+const mapSecondDatabaseProduct = (row: SecondDatabaseProductRow): Product => {
+  const id = String(row.id);
+  const category = row.category?.trim() || 'Uncategorized';
+
+  return {
+    id,
+    name: row.name?.trim() || `Product ${id}`,
+    description: buildProductDescription(row),
+    price: toNumber(row.price),
+    category,
+    image: `${FALLBACK_PRODUCT_IMAGE}&sig=${encodeURIComponent(id)}`,
+    images: [],
+    specifications: {
+      Category: category,
+      Stock: String(toNumber(row.stock)),
+    },
+    stock: toNumber(row.stock),
+  };
+};
+
+const fetchCatalogProducts = async (): Promise<Product[]> => {
+  const { data, error } = await secondSupabase
+    .from('products')
+    .select('id, name, price, stock, category, low_stock_threshold')
+    .order('id', { ascending: true });
+
+  if (error) {
+    console.error('Second database product fetch failed:', error);
+    return [];
+  }
+
+  return (data ?? []).map((row) =>
+    mapSecondDatabaseProduct(row as SecondDatabaseProductRow)
+  );
+};
 
 const tokenize = (value: string) =>
   normalize(value)
@@ -92,38 +159,13 @@ const sortProducts = (
     .map(({ product }) => product);
 };
 
-const getStockByProduct = async (branchId?: number) => {
-  let query = supabase.from('branch_inventory').select('product_id, stock');
-
-  if (typeof branchId === 'number' && !Number.isNaN(branchId)) {
-    query = query.eq('branch_id', branchId);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    console.error('Inventory lookup failed:', error);
-    return null;
-  }
-
-  const stockByProduct = new Map<string, number>();
-
-  for (const row of data ?? []) {
-    stockByProduct.set(
-      row.product_id,
-      (stockByProduct.get(row.product_id) ?? 0) + Number(row.stock ?? 0)
-    );
-  }
-
-  return stockByProduct;
-};
-
 export async function queryProducts(options: ProductQueryOptions = {}) {
+  const catalogProducts = await fetchCatalogProducts();
   const normalizedCategory = options.category?.trim();
   const normalizedCategories = (options.categories ?? [])
     .map((category) => category.trim().toLowerCase())
     .filter((category) => category && category !== 'all');
-  let filtered = productData.filter((product) => {
+  let filtered = catalogProducts.filter((product) => {
     if (normalizedCategories.length > 0) {
       if (!normalizedCategories.includes(product.category.toLowerCase())) {
         return false;
@@ -147,18 +189,8 @@ export async function queryProducts(options: ProductQueryOptions = {}) {
     return true;
   });
 
-  if (typeof options.branchId === 'number' || options.inStockOnly) {
-    const stockByProduct = await getStockByProduct(options.branchId);
-
-    if (stockByProduct && typeof options.branchId === 'number') {
-      filtered = filtered.filter(
-        (product) => (stockByProduct.get(product.id) ?? 0) > 0
-      );
-    } else if (stockByProduct && options.inStockOnly) {
-      filtered = filtered.filter(
-        (product) => (stockByProduct.get(product.id) ?? 0) > 0
-      );
-    }
+  if (options.inStockOnly) {
+    filtered = filtered.filter((product) => (product.stock ?? 0) > 0);
   }
 
   const searched = sortProducts(filtered, options.q, options.sortBy);
@@ -187,14 +219,15 @@ export async function getProductSuggestions(
   }));
 }
 
-export function getProductsByIds(ids: string[]): Product[] {
+export async function getProductsByIds(ids: string[]): Promise<Product[]> {
   const uniqueIds = [...new Set(ids.filter(Boolean))];
 
   if (uniqueIds.length === 0) {
     return [];
   }
 
-  const productsById = new Map(productData.map((product) => [product.id, product]));
+  const products = await fetchCatalogProducts();
+  const productsById = new Map(products.map((product) => [product.id, product]));
 
   return uniqueIds
     .map((id) => productsById.get(id))

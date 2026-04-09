@@ -33,7 +33,12 @@ export default function ProductDetailsModal() {
   if (!selectedProduct) return null;
 
   const inventoryItem = selectedBranch ? branchInventory.find(inv => inv.product_id === selectedProduct.id) : null;
-  const stock = inventoryItem ? inventoryItem.stock : 0;
+  const stock =
+    typeof selectedProduct.stock === 'number'
+      ? selectedProduct.stock
+      : inventoryItem
+        ? inventoryItem.stock
+        : 0;
 
   return (
     <AnimatePresence>

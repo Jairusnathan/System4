@@ -38,3 +38,5 @@ Run these SQL files in your Supabase SQL editor when you want the related backen
 
 - `supabase/customer_addresses.sql` for saved customer addresses
 - `supabase/cart_items.sql` for user-synced cart items
+- `supabase/delivery_rates.sql` for city/province-based delivery fee and ETA estimates
+- `supabase/promo_codes.sql` for checkout promo codes and discount validation

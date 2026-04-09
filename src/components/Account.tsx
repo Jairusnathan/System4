@@ -86,6 +86,9 @@ const parseAddresses = (
 const stringifyAddresses = (addresses: SavedAddress[]) =>
   `${ADDRESS_STORAGE_PREFIX}${JSON.stringify(addresses)}`;
 
+const getDisplayOrderNumber = (order: { orderNumber?: string; txNo?: string; id: string; date: string }) =>
+  order.id || order.orderNumber || (order.txNo ? `TXN-${order.txNo}` : `TXN-${new Date(order.date).getTime()}`);
+
 const MAX_SAVED_ADDRESSES = 4;
 
 const PROVINCE_OPTIONS = [
@@ -197,10 +200,10 @@ const CITY_OPTIONS_BY_PROVINCE: Partial<Record<(typeof PROVINCE_OPTIONS)[number]
 export default function Account() {
   const { 
     orders, setSelectedOrder, setView,
+    accountSubView, setAccountSubView,
     setIsLoggedIn, user, setUser
   } = useAppContext();
 
-  const [subView, setSubView] = useState<'profile' | 'addresses' | 'orders' | 'settings'>('profile');
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -1112,7 +1115,7 @@ export default function Account() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                 <div>
                   <p className="text-xs font-black text-slate-400 uppercase tracking-wider mb-1">Order ID</p>
-                  <p className="font-black text-slate-900 tracking-tight">{order.id}</p>
+                  <p className="font-black text-slate-900 tracking-tight">{getDisplayOrderNumber(order)}</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className={`px-4 py-1.5 rounded-full text-xs font-black flex items-center gap-2 ${
@@ -1240,9 +1243,9 @@ export default function Account() {
                 ].map(item => (
                   <button 
                     key={item.id}
-                    onClick={() => setSubView(item.id as any)}
+                    onClick={() => setAccountSubView(item.id as 'profile' | 'addresses' | 'orders' | 'settings')}
                     className={`w-full flex items-center justify-between p-4 rounded-2xl font-bold text-sm transition-all group ${
-                      subView === item.id 
+                      accountSubView === item.id 
                         ? 'bg-emerald-50 text-emerald-600 border-l-4 border-emerald-600 rounded-l-none' 
                         : 'text-slate-600 hover:bg-slate-50'
                     }`}
@@ -1251,7 +1254,7 @@ export default function Account() {
                       {item.icon}
                       {item.name}
                     </div>
-                    <ChevronRight className={`w-4 h-4 transition-transform ${subView === item.id ? 'text-emerald-600 translate-x-1' : 'text-slate-300'}`} />
+                    <ChevronRight className={`w-4 h-4 transition-transform ${accountSubView === item.id ? 'text-emerald-600 translate-x-1' : 'text-slate-300'}`} />
                   </button>
                 ))}
                 
@@ -1271,21 +1274,21 @@ export default function Account() {
           {/* Content Area */}
           <div className="lg:col-span-8">
             <motion.div 
-              key={subView}
+              key={accountSubView}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               className="bg-white p-10 rounded-[3rem] shadow-sm border border-slate-100 min-h-[600px]"
             >
-              {subView !== 'addresses' && (
+              {accountSubView !== 'addresses' && (
                 <h2 className="text-2xl font-black text-slate-900 mb-10 tracking-tight">
-                  {subView === 'profile' ? 'Profile Details' : subView === 'orders' ? 'Order History' : 'Account Settings'}
+                  {accountSubView === 'profile' ? 'Profile Details' : accountSubView === 'orders' ? 'Order History' : 'Account Settings'}
                 </h2>
               )}
               
-              {subView === 'profile' && renderProfileDetails()}
-              {subView === 'addresses' && renderAddresses()}
-              {subView === 'orders' && renderOrderHistory()}
-              {subView === 'settings' && renderAccountSettings()}
+              {accountSubView === 'profile' && renderProfileDetails()}
+              {accountSubView === 'addresses' && renderAddresses()}
+              {accountSubView === 'orders' && renderOrderHistory()}
+              {accountSubView === 'settings' && renderAccountSettings()}
             </motion.div>
           </div>
         </div>

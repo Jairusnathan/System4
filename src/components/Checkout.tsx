@@ -74,6 +74,33 @@ const formatSavedAddress = (address: SavedAddress) =>
 const stringifyAddresses = (addresses: SavedAddress[]) =>
   `${ADDRESS_STORAGE_PREFIX}${JSON.stringify(addresses)}`;
 
+const formatDeliveryAddress = (info: {
+  address: string;
+  city: string;
+  province?: string;
+  postalCode?: string;
+}) =>
+  [info.address, info.city, info.province, info.postalCode].filter(Boolean).join(', ');
+
+type DeliveryEstimate = {
+  fee: number;
+  etaMinMinutes: number;
+  etaMaxMinutes: number;
+  etaLabel: string;
+  matchedLocation: string;
+};
+
+type AppliedPromo = {
+  id: number;
+  code: string;
+  description?: string | null;
+  discountType: 'fixed' | 'percent';
+  discountValue: number;
+  discountAmount: number;
+  minSubtotal: number;
+  maxDiscount?: number | null;
+};
+
 const MAX_SAVED_ADDRESSES = 4;
 
 const createEmptyCheckoutAddress = (user?: { full_name?: string; phone?: string } | null): SavedAddress => ({
@@ -198,6 +225,7 @@ export default function Checkout() {
     cartTotal,
     setView,
     setOrders,
+    setAccountSubView,
     selectedBranch,
     user,
     setUser
@@ -208,9 +236,18 @@ export default function Checkout() {
     fullName: '',
     phone: '',
     address: '',
-    city: 'Manila'
+    city: 'Manila',
+    province: '',
+    postalCode: '',
   });
   const [shippingError, setShippingError] = useState('');
+  const [deliveryEstimate, setDeliveryEstimate] = useState<DeliveryEstimate | null>(null);
+  const [deliveryEstimateStatus, setDeliveryEstimateStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [deliveryEstimateError, setDeliveryEstimateError] = useState('');
+  const [promoCodeInput, setPromoCodeInput] = useState('');
+  const [promoStatus, setPromoStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
+  const [promoMessage, setPromoMessage] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState<AppliedPromo | null>(null);
   const [paymentMethod, setPaymentMethod] = useState('cod');
   const [gcashInfo, setGcashInfo] = useState({
     number: '',
@@ -242,13 +279,18 @@ export default function Checkout() {
   const cityOptions = checkoutAddressForm.province
     ? CITY_OPTIONS_BY_PROVINCE[checkoutAddressForm.province as keyof typeof CITY_OPTIONS_BY_PROVINCE] || [checkoutAddressForm.province]
     : [];
+  const deliveryFee = deliveryEstimate?.fee ?? 0;
+  const discountAmount = appliedPromo?.discountAmount ?? 0;
+  const orderTotal = Math.max(0, cartTotal + deliveryFee - discountAmount);
 
   const applySavedAddress = (address: SavedAddress) => {
     setShippingInfo({
       fullName: address.fullName || user?.full_name || '',
       phone: address.phoneNumber || user?.phone || '',
-      address: formatSavedAddress(address),
+      address: address.streetAddress || '',
       city: address.city || 'Manila',
+      province: address.province || '',
+      postalCode: address.postalCode || '',
     });
     setShippingError('');
   };
@@ -305,6 +347,8 @@ export default function Checkout() {
       phone: user?.phone || '',
       address: '',
       city: 'Manila',
+      province: '',
+      postalCode: '',
     });
     setShippingError('');
   };
@@ -334,22 +378,195 @@ export default function Checkout() {
     }));
   }, [user?.address, user?.full_name, user?.phone]);
 
-  const handlePlaceOrder = () => {
-    const newOrder: Order = {
-      id: `ORD-${Math.floor(100000 + Math.random() * 900000)}`,
-      date: new Date().toISOString(),
-      items: [...cart],
-      total: cartTotal + 50, // Including shipping
-      status: 'Processing',
-      shippingAddress: [shippingInfo.address, shippingInfo.city].filter(Boolean).join(', '),
-      paymentMethod: paymentMethod === 'cod' ? 'Cash on Delivery' : 
-                     paymentMethod === 'gcash' ? 'GCash' : 
-                     paymentMethod === 'maya' ? 'Maya' : 'Credit / Debit Card'
+  React.useEffect(() => {
+    const address = shippingInfo.address.trim();
+    const city = shippingInfo.city.trim();
+    const province = shippingInfo.province.trim();
+
+    if (!address || !city || !province) {
+      setDeliveryEstimate(null);
+      setDeliveryEstimateStatus('idle');
+      setDeliveryEstimateError('');
+      return;
+    }
+
+    let cancelled = false;
+
+    setDeliveryEstimateStatus('loading');
+    setDeliveryEstimateError('');
+
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        const res = await fetch('/api/delivery/estimate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            address,
+            city,
+            province,
+          }),
+        });
+
+        const data = await res.json();
+
+        if (cancelled) {
+          return;
+        }
+
+        if (!res.ok) {
+          setDeliveryEstimate(null);
+          setDeliveryEstimateStatus('error');
+          setDeliveryEstimateError(data.error || 'Unable to estimate delivery for this address.');
+          return;
+        }
+
+        setDeliveryEstimate(data.estimate);
+        setDeliveryEstimateStatus('ready');
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        console.error('Delivery estimate request failed:', error);
+        setDeliveryEstimate(null);
+        setDeliveryEstimateStatus('error');
+        setDeliveryEstimateError('Unable to estimate delivery for this address.');
+      }
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
     };
-    
-    setOrders(prev => [newOrder, ...prev]);
-    setCart([]);
-    setView('success');
+  }, [shippingInfo.address, shippingInfo.city, shippingInfo.province]);
+
+  React.useEffect(() => {
+    const trimmedCode = promoCodeInput.trim();
+
+    if (!trimmedCode) {
+      setPromoStatus('idle');
+      setPromoMessage('');
+      setAppliedPromo(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    setPromoStatus('checking');
+    setPromoMessage('');
+
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        const res = await fetch('/api/promos/validate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            code: trimmedCode,
+            subtotal: cartTotal,
+          }),
+        });
+
+        const data = await res.json();
+
+        if (cancelled) {
+          return;
+        }
+
+        if (!res.ok || !data.valid) {
+          setPromoStatus('invalid');
+          setPromoMessage(data.reason || data.error || 'Promo code is invalid.');
+          setAppliedPromo(null);
+          return;
+        }
+
+        setPromoStatus('valid');
+        setPromoMessage(data.message || 'Promo code applied.');
+        setAppliedPromo(data.promo);
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        console.error('Promo validation request failed:', error);
+        setPromoStatus('invalid');
+        setPromoMessage('Unable to validate promo code right now.');
+        setAppliedPromo(null);
+      }
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [promoCodeInput, cartTotal]);
+
+  const handlePlaceOrder = async () => {
+    try {
+      const paymentMethodLabel =
+        paymentMethod === 'cod'
+          ? 'Cash on Delivery'
+          : paymentMethod === 'gcash'
+            ? 'GCash'
+            : paymentMethod === 'maya'
+              ? 'Maya'
+              : 'Credit / Debit Card';
+
+      const shippingAddress = formatDeliveryAddress(shippingInfo);
+
+      const res = await fetchWithAuth('/api/orders/place', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          shippingAddress,
+          deliveryFee,
+          promoCode: appliedPromo?.code || '',
+          paymentMethod: paymentMethodLabel,
+          items: cart.map((item) => ({
+            id: item.id,
+            name: item.name,
+            category: item.category,
+            price: item.price,
+            quantity: item.quantity,
+          })),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to place order');
+      }
+
+      const newOrder: Order = {
+        id: data.order.id,
+        orderNumber: data.order.orderNumber,
+        txNo: data.order.txNo,
+        date: data.order.date,
+        items: cart.map((item) => ({ ...item })),
+        subtotal: Number(data.order.subtotal ?? cartTotal),
+        deliveryFee: Number(data.order.deliveryFee ?? deliveryFee),
+        discountAmount: Number(data.order.discountAmount ?? discountAmount),
+        promoCode: data.order.promoCode || appliedPromo?.code,
+        total: Number(data.order.total ?? orderTotal),
+        status: 'Processing',
+        shippingAddress,
+        paymentMethod: paymentMethodLabel,
+      };
+
+      setOrders((prev) => [newOrder, ...prev]);
+      setCart([]);
+      setAccountSubView('orders');
+      setView('account');
+    } catch (error) {
+      console.error('Place order failed:', error);
+      alert(error instanceof Error ? error.message : 'Failed to place order.');
+    }
   };
 
   if (cart.length === 0) {
@@ -442,7 +659,7 @@ export default function Checkout() {
                             <p className="mt-3 text-2xl font-black text-slate-900">{shippingInfo.fullName || 'Receiver name'}</p>
                             <p className="mt-1 text-sm font-medium text-slate-500">{shippingInfo.phone || 'Add a phone number'}</p>
                             <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600">
-                              {shippingInfo.address || 'Choose an address to continue.'}
+                              {formatDeliveryAddress(shippingInfo) || 'Choose an address to continue.'}
                             </p>
                           </div>
                           <div className="flex flex-wrap gap-2">
@@ -481,6 +698,19 @@ export default function Checkout() {
                   {selectedSavedAddressIndex !== null && shippingError && (
                     <p className="mt-4 text-sm font-bold text-red-600">{shippingError}</p>
                   )}
+                  {deliveryEstimateStatus === 'loading' && (
+                    <p className="mt-4 text-sm font-bold text-slate-500">Checking delivery fee for this address...</p>
+                  )}
+                  {deliveryEstimateStatus === 'ready' && deliveryEstimate && (
+                    <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+                      <p className="font-black">Delivery fee: ₱{deliveryEstimate.fee.toFixed(2)}</p>
+                      <p className="mt-1 font-medium">ETA: {deliveryEstimate.etaLabel}</p>
+                      <p className="mt-1 text-xs font-bold uppercase tracking-wider text-emerald-600">Matched area: {deliveryEstimate.matchedLocation}</p>
+                    </div>
+                  )}
+                  {deliveryEstimateStatus === 'error' && deliveryEstimateError && (
+                    <p className="mt-4 text-sm font-bold text-red-600">{deliveryEstimateError}</p>
+                  )}
                    
                   <button 
                     onClick={() => {
@@ -491,11 +721,16 @@ export default function Checkout() {
                         return;
                       }
 
+                      if (!deliveryEstimate) {
+                        setShippingError(deliveryEstimateError || 'Choose a deliverable address before continuing.');
+                        return;
+                      }
+
                       setShippingInfo((prev) => ({ ...prev, phone: normalizedPhone }));
                       setShippingError('');
                       setCheckoutStep(2);
                     }}
-                    disabled={selectedSavedAddressIndex === null}
+                    disabled={selectedSavedAddressIndex === null || !deliveryEstimate}
                     className="w-full mt-10 py-4 bg-emerald-600 text-white rounded-2xl font-black text-lg hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group"
                   >
                     Continue to Payment
@@ -989,7 +1224,7 @@ export default function Checkout() {
                       <div className="bg-[#f4f8ff] border border-blue-200 p-5 rounded-xl text-sm text-[#1e3a8a]">
                         <p className="font-bold mb-3 text-base">GCash Payment Instructions:</p>
                         <ol className="space-y-2 list-decimal list-inside">
-                          <li>Send ₱{(cartTotal + 50).toFixed(2)} to GCash number: <span className="font-bold">0917-123-4567</span></li>
+                          <li>Send ₱{orderTotal.toFixed(2)} to GCash number: <span className="font-bold">0917-123-4567</span></li>
                           <li>Account Name: <span className="font-bold">HealthPlus Pharmacy</span></li>
                           <li>Enter your GCash number and reference number below</li>
                         </ol>
@@ -1029,7 +1264,7 @@ export default function Checkout() {
                       <div className="bg-[#f0fdf4] border border-emerald-200 p-5 rounded-xl text-sm text-[#064e3b]">
                         <p className="font-bold mb-3 text-base">Maya Payment Instructions:</p>
                         <ol className="space-y-2 list-decimal list-inside">
-                          <li>Send ₱{(cartTotal + 50).toFixed(2)} to Maya number: <span className="font-bold">0918-765-4321</span></li>
+                          <li>Send ₱{orderTotal.toFixed(2)} to Maya number: <span className="font-bold">0918-765-4321</span></li>
                           <li>Account Name: <span className="font-bold">HealthPlus Pharmacy</span></li>
                           <li>Enter your Maya number and reference number below</li>
                         </ol>
@@ -1104,7 +1339,7 @@ export default function Checkout() {
                         <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Shipping To</h3>
                         <p className="font-black text-slate-900 mb-1">{shippingInfo.fullName}</p>
                         <p className="text-sm text-slate-600 mb-1">{shippingInfo.phone}</p>
-                        <p className="text-sm text-slate-600 leading-relaxed">{[shippingInfo.address, shippingInfo.city].filter(Boolean).join(', ') || 'Address will be confirmed during checkout.'}</p>
+                        <p className="text-sm text-slate-600 leading-relaxed">{formatDeliveryAddress(shippingInfo) || 'Address will be confirmed during checkout.'}</p>
                       </div>
                       <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
                         <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Payment Method</h3>
@@ -1121,6 +1356,44 @@ export default function Checkout() {
                              paymentMethod === 'maya' ? 'Maya' : 'Credit / Debit Card'}
                           </p>
                         </div>
+                      </div>
+                    </div>
+                    {deliveryEstimate && (
+                      <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
+                        <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Delivery Estimate</h3>
+                        <p className="font-black text-slate-900 mb-1">₱{deliveryEstimate.fee.toFixed(2)}</p>
+                        <p className="text-sm text-slate-600 mb-1">ETA: {deliveryEstimate.etaLabel}</p>
+                        <p className="text-sm text-slate-600">{deliveryEstimate.matchedLocation}</p>
+                      </div>
+                    )}
+                    <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
+                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Promo Code</h3>
+                      <div className="space-y-3">
+                        <input
+                          type="text"
+                          value={promoCodeInput}
+                          onChange={(e) => setPromoCodeInput(e.target.value)}
+                          placeholder="Enter code like Happy50"
+                          className={`w-full rounded-2xl border px-4 py-3 text-sm font-bold uppercase tracking-[0.16em] transition-all focus:outline-none ${
+                            promoStatus === 'valid'
+                              ? 'border-emerald-300 bg-emerald-50 text-emerald-700 focus:ring-2 focus:ring-emerald-200'
+                              : promoStatus === 'invalid'
+                                ? 'border-red-300 bg-red-50 text-red-700 focus:ring-2 focus:ring-red-200'
+                                : 'border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-slate-200'
+                          }`}
+                        />
+                        {promoStatus === 'checking' && (
+                          <p className="text-sm font-bold text-slate-500">Checking promo code...</p>
+                        )}
+                        {promoStatus === 'valid' && (
+                          <p className="text-sm font-bold text-emerald-600">{promoMessage}</p>
+                        )}
+                        {promoStatus === 'invalid' && (
+                          <p className="text-sm font-bold text-red-600">{promoMessage}</p>
+                        )}
+                        {appliedPromo?.description && promoStatus === 'valid' && (
+                          <p className="text-xs font-medium leading-relaxed text-slate-500">{appliedPromo.description}</p>
+                        )}
                       </div>
                     </div>
                     
@@ -1152,7 +1425,7 @@ export default function Checkout() {
                       onClick={handlePlaceOrder}
                       className="flex-[2] py-4 bg-emerald-600 text-white rounded-2xl font-black text-lg hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-100"
                     >
-                      Place Order (₱{(cartTotal + 50).toFixed(2)})
+                      Place Order (₱{orderTotal.toFixed(2)})
                     </button>
                   </div>
                 </motion.div>
@@ -1164,20 +1437,54 @@ export default function Checkout() {
           <div className="lg:col-span-1 lg:self-start">
             <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100 sticky top-32">
               <h2 className="text-xl font-black text-slate-900 mb-8 uppercase tracking-wider">Order Summary</h2>
-              
+
+              <div className="mb-6 rounded-[2rem] border border-slate-100 bg-slate-50 p-5">
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Promo Code</p>
+                <div className="mt-3 space-y-3">
+                  <input
+                    type="text"
+                    value={promoCodeInput}
+                    onChange={(e) => setPromoCodeInput(e.target.value)}
+                    placeholder="Enter code like Happy50"
+                    className={`w-full rounded-2xl border px-4 py-3 text-sm font-bold uppercase tracking-[0.16em] transition-all focus:outline-none ${
+                      promoStatus === 'valid'
+                        ? 'border-emerald-300 bg-emerald-50 text-emerald-700 focus:ring-2 focus:ring-emerald-200'
+                        : promoStatus === 'invalid'
+                          ? 'border-red-300 bg-red-50 text-red-700 focus:ring-2 focus:ring-red-200'
+                          : 'border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-slate-200'
+                    }`}
+                  />
+                  {promoStatus === 'checking' && (
+                    <p className="text-sm font-bold text-slate-500">Checking promo code...</p>
+                  )}
+                  {promoStatus === 'valid' && (
+                    <p className="text-sm font-bold text-emerald-600">{promoMessage}</p>
+                  )}
+                  {promoStatus === 'invalid' && (
+                    <p className="text-sm font-bold text-red-600">{promoMessage}</p>
+                  )}
+                </div>
+              </div>
+
               <div className="space-y-4 mb-8">
                 <div className="flex justify-between text-slate-600">
                   <span className="font-bold">Subtotal</span>
                   <span className="font-black">₱{cartTotal.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-slate-600">
-                  <span className="font-bold">Shipping Fee</span>
-                  <span className="font-black">₱50.00</span>
+                  <span className="font-bold">Delivery</span>
+                  <span className="font-black">₱{deliveryFee.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span className="font-bold">Discount</span>
+                  <span className={`font-black ${discountAmount > 0 ? 'text-emerald-600' : ''}`}>
+                    -₱{discountAmount.toFixed(2)}
+                  </span>
                 </div>
                 <div className="pt-4 border-t border-slate-100 flex justify-between items-end">
                   <span className="text-slate-900 font-black">Total</span>
                   <div className="text-right">
-                    <p className="text-3xl font-black text-emerald-600 tracking-tight">₱{(cartTotal + 50).toFixed(2)}</p>
+                    <p className="text-3xl font-black text-emerald-600 tracking-tight">₱{orderTotal.toFixed(2)}</p>
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">VAT Included</p>
                   </div>
                 </div>
@@ -1191,7 +1498,7 @@ export default function Checkout() {
                 {selectedBranch && (
                   <div className="flex items-center gap-3 text-xs text-slate-500 bg-emerald-50 p-4 rounded-2xl">
                     <Truck className="w-5 h-5 text-emerald-600 shrink-0" />
-                    <p className="font-medium leading-relaxed">Delivering from <span className="font-black text-emerald-700">{selectedBranch.name}</span>. Estimated time: 45-60 mins.</p>
+                    <p className="font-medium leading-relaxed">Delivering from <span className="font-black text-emerald-700">{selectedBranch.name}</span>. Estimated time: <span className="font-black text-emerald-700">{deliveryEstimate?.etaLabel || 'Waiting for address'}</span>.</p>
                   </div>
                 )}
               </div>
@@ -1202,3 +1509,4 @@ export default function Checkout() {
     </main>
   );
 }
+

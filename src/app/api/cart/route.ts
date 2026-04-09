@@ -45,7 +45,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Failed to fetch cart items' }, { status: 500 });
     }
 
-    const products = getProductsByIds((rows ?? []).map((row) => row.product_id));
+    const products = await getProductsByIds((rows ?? []).map((row) => row.product_id));
     const productsById = new Map(products.map((product) => [product.id, product]));
 
     const items = (rows ?? [])
@@ -92,7 +92,7 @@ export async function PUT(request: Request) {
         quantity: Math.max(1, Math.trunc(item.quantity)),
       }));
 
-    const validProducts = getProductsByIds(normalizedItems.map((item) => item.productId));
+    const validProducts = await getProductsByIds(normalizedItems.map((item) => item.productId));
     const validProductIds = new Set(validProducts.map((product) => product.id));
     const sanitizedItems = normalizedItems.filter((item) => validProductIds.has(item.productId));
 

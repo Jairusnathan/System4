@@ -4,6 +4,22 @@
   --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
+html {
+  font-size: 16px;
+}
+
+@media (min-width: 1024px) {
+  html {
+    font-size: 13px;
+  }
+}
+
+@media (min-width: 1536px) {
+  html {
+    font-size: 12.5px;
+  }
+}
+
 @layer utilities {
   .hide-scrollbar::-webkit-scrollbar {
     display: none;

@@ -197,7 +197,7 @@ export default function Shop() {
   }, [addedProductName]);
 
   return (
-    <main className="flex-1 bg-slate-50 py-12">
+    <main className="flex-1 bg-slate-50 py-7 lg:py-8">
       <AnimatePresence>
         {addedProductName && (
           <>
@@ -315,24 +315,24 @@ export default function Shop() {
         )}
       </AnimatePresence>
 
-      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
-        <div className="mb-8 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+      <div className="mx-auto max-w-[1420px] px-5 sm:px-6 lg:px-8 xl:px-8">
+        <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="mb-2 text-4xl font-black tracking-tight text-slate-900">
+            <h1 className="mb-2 text-3xl font-black tracking-tight text-slate-900 lg:text-[2.8rem]">
               Shop Products
             </h1>
-            <p className="text-slate-500">
+            <p className="text-sm text-slate-500 lg:text-base">
               Browse our wide range of authentic healthcare products.
             </p>
           </div>
         </div>
 
-        <div className="mb-8 rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-6 rounded-[1.5rem] border border-slate-200 bg-white p-3.5 shadow-sm lg:p-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center">
               <button
                 onClick={() => setSelectedCategories(['All'])}
-                className={`rounded-xl px-4 py-3 text-sm font-bold transition ${
+                className={`rounded-xl px-4 py-2.5 text-sm font-bold transition ${
                   !hasCategoryFilter
                     ? 'bg-slate-900 text-white'
                     : 'text-slate-700 hover:bg-slate-100'
@@ -345,15 +345,15 @@ export default function Shop() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <button
                 onClick={() => setIsFilterModalOpen(true)}
-                className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+                className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
               >
                 <span>Filters</span>
                 <SlidersHorizontal className="h-4 w-4" />
               </button>
 
-              <div className="hidden h-10 w-px bg-slate-200 sm:block" />
+              <div className="hidden h-9 w-px bg-slate-200 sm:block" />
 
-              <label className="flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-500">
+              <label className="flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-500">
                 <span className="font-medium">Sort by</span>
                 <div className="relative">
                   <select
@@ -374,13 +374,13 @@ export default function Shop() {
           </div>
         </div>
 
-        <div className="mb-6 flex flex-col gap-4 rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between">
-          <div className="flex flex-wrap items-center gap-3 text-sm text-slate-500">
+        <div className="mb-5 flex flex-col gap-3 rounded-[1.35rem] border border-slate-200 bg-white p-3.5 shadow-sm md:flex-row md:items-center md:justify-between lg:p-4">
+          <div className="flex flex-wrap items-center gap-2.5 text-sm text-slate-500">
             <span className="font-bold text-slate-900">Showing {products.length} products</span>
-            <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-600">
+            <span className="rounded-full bg-slate-100 px-3 py-0.5 font-semibold text-slate-600">
               Category: {selectedCategoryLabel}
             </span>
-            <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-600">
+            <span className="rounded-full bg-slate-100 px-3 py-0.5 font-semibold text-slate-600">
               Sort: {selectedSortLabel}
             </span>
           </div>
@@ -394,7 +394,7 @@ export default function Shop() {
                 onChange={(event) =>
                   setPriceRange({ ...priceRange, min: event.target.value })
                 }
-                className="w-28 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none transition focus:border-emerald-500 focus:bg-white"
+                className="w-24 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition focus:border-emerald-500 focus:bg-white lg:w-28"
               />
               <input
                 type="number"
@@ -403,10 +403,10 @@ export default function Shop() {
                 onChange={(event) =>
                   setPriceRange({ ...priceRange, max: event.target.value })
                 }
-                className="w-28 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none transition focus:border-emerald-500 focus:bg-white"
+                className="w-24 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition focus:border-emerald-500 focus:bg-white lg:w-28"
               />
             </div>
-            <label className="flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
+            <label className="flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700">
               <input
                 type="checkbox"
                 checked={inStockOnly}
@@ -417,7 +417,7 @@ export default function Shop() {
             </label>
             <button
               onClick={clearAllFilters}
-              className="rounded-xl px-4 py-3 text-sm font-bold text-emerald-600 transition hover:bg-emerald-50"
+              className="rounded-xl px-4 py-2.5 text-sm font-bold text-emerald-600 transition hover:bg-emerald-50"
             >
               Clear All
             </button>
@@ -426,7 +426,7 @@ export default function Shop() {
 
         <div>
           {isLoading ? (
-            <div className="rounded-[3rem] border border-slate-100 bg-white p-20 text-center shadow-sm">
+            <div className="rounded-[2rem] border border-slate-100 bg-white p-12 text-center shadow-sm lg:p-14">
               <div className="mx-auto mb-6 h-12 w-12 animate-spin rounded-full border-4 border-emerald-200 border-t-emerald-600" />
               <h3 className="mb-2 text-2xl font-black tracking-tight text-slate-900">
                 Loading products
@@ -436,7 +436,7 @@ export default function Shop() {
               </p>
             </div>
           ) : error ? (
-            <div className="rounded-[3rem] border border-slate-100 bg-white p-20 text-center shadow-sm">
+            <div className="rounded-[2rem] border border-slate-100 bg-white p-12 text-center shadow-sm lg:p-14">
               <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-red-50">
                 <X className="h-10 w-10 text-red-300" />
               </div>
@@ -452,7 +452,7 @@ export default function Shop() {
               </button>
             </div>
           ) : currentProducts.length === 0 ? (
-            <div className="rounded-[3rem] border border-slate-100 bg-white p-20 text-center shadow-sm">
+            <div className="rounded-[2rem] border border-slate-100 bg-white p-12 text-center shadow-sm lg:p-14">
               <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-slate-50">
                 <Search className="h-10 w-10 text-slate-300" />
               </div>
@@ -471,12 +471,17 @@ export default function Shop() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                 {currentProducts.map((product) => {
                   const inventoryItem = selectedBranch
                     ? branchInventory.find((inv) => inv.product_id === product.id)
                     : null;
-                  const stock = inventoryItem ? inventoryItem.stock : 0;
+                  const stock =
+                    typeof product.stock === 'number'
+                      ? product.stock
+                      : inventoryItem
+                        ? inventoryItem.stock
+                        : 0;
 
                   return (
                     <motion.div
@@ -484,7 +489,7 @@ export default function Shop() {
                       layout
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="group flex flex-col overflow-hidden rounded-[2rem] border border-slate-100 bg-white shadow-sm transition-all hover:shadow-xl"
+                      className="group flex flex-col overflow-hidden rounded-[1.3rem] border border-slate-100 bg-white shadow-sm transition-all hover:shadow-xl"
                     >
                       <div
                         onClick={() => setSelectedProduct(product)}
@@ -496,13 +501,13 @@ export default function Shop() {
                           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
                           referrerPolicy="no-referrer"
                         />
-                        <div className="absolute left-4 top-4">
+                        <div className="absolute left-3 top-3">
                           <span className="rounded-full bg-white/90 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-600 shadow-sm backdrop-blur-sm">
                             {product.category}
                           </span>
                         </div>
                         {selectedBranch && (
-                          <div className="absolute bottom-4 left-4 right-4">
+                          <div className="absolute bottom-3 left-3 right-3">
                             {stock > 0 ? (
                               <span className="flex w-fit items-center gap-1.5 rounded-full bg-emerald-500/90 px-3 py-1.5 text-[10px] font-bold text-white shadow-lg backdrop-blur-sm">
                                 <CheckCircle2 className="h-3 w-3" /> In Stock ({stock})
@@ -516,21 +521,21 @@ export default function Shop() {
                         )}
                       </div>
 
-                      <div className="flex flex-1 flex-col p-6">
+                      <div className="flex flex-1 flex-col p-3.5">
                         <div
                           onClick={() => setSelectedProduct(product)}
                           className="mb-2 cursor-pointer"
                         >
-                          <h3 className="line-clamp-1 text-lg font-black tracking-tight text-slate-900 transition-colors group-hover:text-emerald-600">
+                          <h3 className="line-clamp-1 text-sm font-black tracking-tight text-slate-900 transition-colors group-hover:text-emerald-600 lg:text-[15px]">
                             {product.name}
                           </h3>
-                          <p className="h-10 line-clamp-2 text-sm leading-relaxed text-slate-500">
+                          <p className="h-8 line-clamp-2 text-[11px] leading-relaxed text-slate-500 lg:text-xs">
                             {product.description}
                           </p>
                         </div>
 
-                        <div className="mt-auto flex items-center justify-between pt-6">
-                          <div className="text-xl font-black tracking-tight text-slate-900">
+                        <div className="mt-auto flex items-center justify-between pt-3.5">
+                          <div className="text-sm font-black tracking-tight text-slate-900 lg:text-base">
                             PHP {product.price.toFixed(2)}
                           </div>
                           <button
@@ -543,10 +548,10 @@ export default function Shop() {
                               }
                             }}
                             disabled={selectedBranch && stock === 0}
-                            className={`rounded-xl p-3 shadow-md transition-all hover:shadow-lg ${
+                            className={`rounded-xl p-2 shadow-md transition-all hover:shadow-lg ${
                               selectedBranch && stock === 0
                                 ? 'cursor-not-allowed bg-slate-100 text-slate-300'
-                                : 'bg-emerald-600 text-white hover:scale-110 hover:bg-emerald-700'
+                                : 'bg-emerald-600 text-white hover:scale-105 hover:bg-emerald-700'
                             }`}
                           >
                             <Plus className="h-5 w-5" />

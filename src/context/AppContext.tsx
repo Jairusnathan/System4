@@ -11,6 +11,8 @@ import {
 interface AppContextType {
   view: string;
   setView: (view: string) => void;
+  accountSubView: 'profile' | 'addresses' | 'orders' | 'settings';
+  setAccountSubView: React.Dispatch<React.SetStateAction<'profile' | 'addresses' | 'orders' | 'settings'>>;
   isLoggedIn: boolean;
   setIsLoggedIn: (isLoggedIn: boolean) => void;
   user: User | null;
@@ -91,6 +93,7 @@ const cartSnapshot = (items: CartItem[]) =>
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [view, setView] = useState('home');
+  const [accountSubView, setAccountSubView] = useState<'profile' | 'addresses' | 'orders' | 'settings'>('profile');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -363,6 +366,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <AppContext.Provider value={{
       view, setView,
+      accountSubView, setAccountSubView,
       isLoggedIn, setIsLoggedIn: (val: boolean) => {
         if (!val) handleLogout();
         else setIsLoggedIn(true);

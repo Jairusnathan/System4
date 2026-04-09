@@ -15,6 +15,7 @@ interface ProductSuggestion {
 export default function Navbar() {
   const { 
     view, setView, 
+    setAccountSubView,
     isLoggedIn, setIsLoggedIn, 
     user,
     cart, 
@@ -81,34 +82,34 @@ export default function Navbar() {
   return (
     <nav className="sticky top-0 z-40 bg-white border-b border-slate-100">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16 gap-8">
+        <div className="flex justify-between items-center h-[4.5rem] gap-8">
           {/* Logo */}
           <div 
             onClick={() => setView('home')} 
             className="flex items-center gap-2 cursor-pointer group shrink-0"
           >
             <Pill className="w-6 h-6 text-emerald-600" />
-            <span className="text-xl font-black text-slate-900 tracking-tight">PharmaQuick</span>
+            <span className="text-[1.35rem] font-black text-slate-900 tracking-tight">PharmaQuick</span>
           </div>
 
           {/* Desktop Navigation */}
           <div className="hidden lg:flex items-center gap-8 shrink-0">
             <button 
               onClick={() => setView('home')} 
-              className={`text-sm font-bold transition-colors ${view === 'home' ? 'text-emerald-600' : 'text-slate-600 hover:text-emerald-600'}`}
+              className={`text-[0.95rem] font-bold transition-colors ${view === 'home' ? 'text-emerald-600' : 'text-slate-600 hover:text-emerald-600'}`}
             >
               Home
             </button>
             <button 
               onClick={() => setView('shop')} 
-              className={`text-sm font-bold transition-colors ${view === 'shop' ? 'text-emerald-600' : 'text-slate-600 hover:text-emerald-600'}`}
+              className={`text-[0.95rem] font-bold transition-colors ${view === 'shop' ? 'text-emerald-600' : 'text-slate-600 hover:text-emerald-600'}`}
             >
               Shop
             </button>
             {/* Branch Selector */}
             <button 
               onClick={() => setIsBranchModalOpen(true)}
-              className="flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-emerald-600 transition-colors"
+              className="flex items-center gap-2 text-[0.95rem] font-bold text-slate-600 hover:text-emerald-600 transition-colors"
             >
               <MapPin className="w-4 h-4 text-emerald-600" />
               {selectedBranch ? selectedBranch.name : 'Select Branch'}
@@ -116,8 +117,8 @@ export default function Navbar() {
           </div>
 
           {/* Search Bar */}
-          <div ref={searchRef} className="hidden md:flex relative flex-1 max-w-xl">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <div ref={searchRef} className="hidden md:flex relative flex-1 max-w-[34rem]">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-[1.1rem] h-[1.1rem] text-slate-400" />
             <input 
               type="text"
               placeholder="Search medicines, vitamins..."
@@ -128,7 +129,7 @@ export default function Navbar() {
                 setShowSuggestions(true);
                 if (view !== 'shop') setView('shop');
               }}
-              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+              className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-full text-[0.95rem] focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
             />
             {showSuggestions && suggestions.length > 0 && (
               <div className="absolute top-[calc(100%+0.75rem)] left-0 right-0 bg-white border border-slate-100 rounded-3xl shadow-xl overflow-hidden">
@@ -164,9 +165,9 @@ export default function Navbar() {
             {isLoggedIn && (
               <button 
                 onClick={() => setIsCartOpen(true)}
-                className="relative p-2 text-slate-600 hover:text-emerald-600 transition-all"
+                className="relative p-2.5 text-slate-600 hover:text-emerald-600 transition-all"
               >
-                <ShoppingCart className="w-6 h-6" />
+                <ShoppingCart className="w-[1.65rem] h-[1.65rem]" />
                 {cart.length > 0 && (
                   <span className="absolute -top-1 -right-1 bg-emerald-600 text-white text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full">
                     {cart.reduce((sum, item) => sum + item.quantity, 0)}
@@ -178,8 +179,11 @@ export default function Navbar() {
             {/* Auth */}
             {isLoggedIn ? (
               <button 
-                onClick={() => setView('account')}
-                className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-50 text-slate-600 transition-all hover:border-emerald-200 hover:text-emerald-600"
+                onClick={() => {
+                  setAccountSubView('profile');
+                  setView('account');
+                }}
+                className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-50 text-slate-600 transition-all hover:border-emerald-200 hover:text-emerald-600"
               >
                 {user?.profile_image ? (
                   <img
@@ -189,13 +193,13 @@ export default function Navbar() {
                     referrerPolicy="no-referrer"
                   />
                 ) : (
-                  <User className="w-5 h-5" />
+                  <User className="w-[1.35rem] h-[1.35rem]" />
                 )}
               </button>
             ) : (
               <button 
                 onClick={() => setView('login')}
-                className="px-6 py-2 bg-emerald-600 text-white rounded-full font-bold text-sm hover:bg-emerald-700 transition-all shadow-sm"
+                className="px-6 py-2.5 bg-emerald-600 text-white rounded-full font-bold text-[0.95rem] hover:bg-emerald-700 transition-all shadow-sm"
               >
                 Log In
               </button>
@@ -205,9 +209,9 @@ export default function Navbar() {
             {isLoggedIn && (
               <button 
                 onClick={() => setIsLogoutModalOpen(true)}
-                className="p-2 text-slate-600 hover:text-emerald-600 transition-all"
+                className="p-2.5 text-slate-600 hover:text-emerald-600 transition-all"
               >
-                <LogOut className="w-6 h-6" />
+                <LogOut className="w-[1.65rem] h-[1.65rem]" />
               </button>
             )}
           </div>

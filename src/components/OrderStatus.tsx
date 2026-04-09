@@ -5,6 +5,9 @@ import { motion } from 'motion/react';
 import { ChevronLeft, Package, Truck, CheckCircle2, MapPin, Clock, ShieldCheck, ArrowRight } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 
+const getDisplayOrderNumber = (order: { orderNumber?: string; txNo?: string; id: string; date: string }) =>
+  order.id || order.orderNumber || (order.txNo ? `TXN-${order.txNo}` : `TXN-${new Date(order.date).getTime()}`);
+
 export default function OrderStatus() {
   const { selectedOrder, setView } = useAppContext();
 
@@ -124,7 +127,7 @@ export default function OrderStatus() {
               <div className="space-y-6">
                 <div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Order ID</p>
-                  <p className="font-black text-slate-900 tracking-tight">{selectedOrder.id}</p>
+                  <p className="font-black text-slate-900 tracking-tight">{getDisplayOrderNumber(selectedOrder)}</p>
                 </div>
                 <div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Payment Method</p>
@@ -134,10 +137,36 @@ export default function OrderStatus() {
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Shipping Address</p>
                   <p className="text-sm font-bold text-slate-600 leading-relaxed">{selectedOrder.shippingAddress}</p>
                 </div>
+                {selectedOrder.promoCode && (
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Promo Code</p>
+                    <p className="font-bold text-emerald-600">{selectedOrder.promoCode}</p>
+                  </div>
+                )}
                 <div className="pt-6 border-t border-slate-100">
-                  <div className="flex justify-between items-end">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Total Paid</p>
-                    <p className="text-2xl font-black text-emerald-600 tracking-tight">₱{selectedOrder.total.toFixed(2)}</p>
+                  <div className="space-y-3">
+                    {typeof selectedOrder.subtotal === 'number' && (
+                      <div className="flex items-center justify-between text-sm text-slate-600">
+                        <span className="font-bold">Subtotal</span>
+                        <span className="font-black">₱{selectedOrder.subtotal.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {typeof selectedOrder.deliveryFee === 'number' && (
+                      <div className="flex items-center justify-between text-sm text-slate-600">
+                        <span className="font-bold">Delivery</span>
+                        <span className="font-black">₱{selectedOrder.deliveryFee.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {typeof selectedOrder.discountAmount === 'number' && (
+                      <div className="flex items-center justify-between text-sm text-slate-600">
+                        <span className="font-bold">Discount</span>
+                        <span className="font-black text-emerald-600">-₱{selectedOrder.discountAmount.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-end pt-3">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Total Paid</p>
+                      <p className="text-2xl font-black text-emerald-600 tracking-tight">₱{selectedOrder.total.toFixed(2)}</p>
+                    </div>
                   </div>
                 </div>
               </div>

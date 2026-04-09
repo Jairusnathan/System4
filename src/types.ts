@@ -1,7 +1,13 @@
 export interface Order {
   id: string;
+  orderNumber?: string;
+  txNo?: string;
   date: string;
   items: CartItem[];
+  subtotal?: number;
+  deliveryFee?: number;
+  discountAmount?: number;
+  promoCode?: string;
   total: number;
   status: 'Processing' | 'In Transit' | 'Delivered';
   shippingAddress: string;
@@ -17,6 +23,7 @@ export interface Product {
   image: string;
   images?: string[];
   specifications?: Record<string, string>;
+  stock?: number;
 }
 
 export interface CartItem extends Product {

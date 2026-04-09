@@ -9,6 +9,7 @@ import {
   fetchWithAuth,
 } from '@/lib/auth-client';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import { usePhilippineLocations } from '@/hooks/usePhilippineLocations';
 import { normalizeDateForInput, normalizeDateForStorage } from '@/lib/date';
 import { normalizePhilippinePhone, PH_PHONE_MESSAGE } from '@/lib/phone';
 
@@ -91,112 +92,6 @@ const getDisplayOrderNumber = (order: { orderNumber?: string; txNo?: string; id:
 
 const MAX_SAVED_ADDRESSES = 4;
 
-const PROVINCE_OPTIONS = [
-  'Abra',
-  'Agusan Del Norte',
-  'Agusan Del Sur',
-  'Aklan',
-  'Albay',
-  'Antique',
-  'Apayao',
-  'Aurora',
-  'Basilan',
-  'Bataan',
-  'Batangas',
-  'Benguet',
-  'Biliran',
-  'Bohol',
-  'Bukidnon',
-  'Bulacan',
-  'Cagayan',
-  'Camarines Norte',
-  'Camarines Sur',
-  'Camiguin',
-  'Capiz',
-  'Catanduanes',
-  'Cavite',
-  'Cebu',
-  'Cotabato',
-  'Davao Del Norte',
-  'Davao Del Sur',
-  'Davao de Oro',
-  'Davao Occidental',
-  'Davao Oriental',
-  'Dinagat Islands',
-  'Eastern Samar',
-  'Guimaras',
-  'Ifugao',
-  'Ilocos Norte',
-  'Ilocos Sur',
-  'Iloilo',
-  'Isabela',
-  'Kalinga',
-  'Laguna',
-  'Lanao Del Norte',
-  'La Union',
-  'Lazada Office',
-  'Leyte',
-  'Maguindanao',
-  'Marinduque',
-  'Masbate',
-  'Metro Manila',
-  'Misamis Occidental',
-  'Misamis Oriental',
-  'Mountain Province',
-  'Negros Occidental',
-  'Negros Oriental',
-  'North Cotabato',
-  'Northern Samar',
-  'Nueva Ecija',
-  'Nueva Vizcaya',
-  'Occidental Mindoro',
-  'Oriental Mindoro',
-  'Palawan',
-  'Pampanga',
-  'Pangasinan',
-  'Quezon',
-  'Quirino',
-  'Rizal',
-  'Romblon',
-  'Sarangani',
-  'Siquijor',
-  'Sorsogon',
-  'South Cotabato',
-  'Southern Leyte',
-  'Sultan Kudarat',
-  'Surigao Del Norte',
-  'Surigao Del Sur',
-  'Tarlac',
-  'Tawi-Tawi',
-  'Western Samar',
-  'Zambales',
-  'Zamboanga Del Norte',
-  'Zamboanga Del Sur',
-  'Zamboanga Sibugay',
-] as const;
-
-const CITY_OPTIONS_BY_PROVINCE: Partial<Record<(typeof PROVINCE_OPTIONS)[number], readonly string[]>> = {
-  'Metro Manila': [
-    'Caloocan',
-    'Las Pinas',
-    'Makati',
-    'Malabon',
-    'Mandaluyong',
-    'Manila',
-    'Marikina',
-    'Muntinlupa',
-    'Navotas',
-    'Paranaque',
-    'Pasay',
-    'Pasig',
-    'Pateros',
-    'Quezon City',
-    'San Juan',
-    'Taguig',
-    'Valenzuela',
-  ],
-};
-
 export default function Account() {
   const { 
     orders, setSelectedOrder, setView,
@@ -228,9 +123,12 @@ export default function Account() {
     profileImageTouched: false
   });
 
-  const cityOptions = addressFormData.province
-    ? CITY_OPTIONS_BY_PROVINCE[addressFormData.province as keyof typeof CITY_OPTIONS_BY_PROVINCE] || [addressFormData.province]
-    : [];
+  const {
+    provinces: provinceOptions,
+    cities: cityOptions,
+    provincesStatus,
+    citiesStatus,
+  } = usePhilippineLocations(addressFormData.province, addressFormData.city);
 
   React.useEffect(() => {
     if (user) {
@@ -854,7 +752,10 @@ export default function Account() {
 
                     {isProvincePickerOpen && (
                       <div className="absolute left-0 right-0 top-full z-30 mt-2 max-h-64 overflow-y-auto rounded-2xl border border-slate-200 bg-white px-2 py-2 text-left text-base text-slate-700 shadow-xl shadow-slate-200/60">
-                        {PROVINCE_OPTIONS.map((province) => (
+                        {provincesStatus === 'loading' && (
+                          <div className="px-3 py-2 text-sm text-slate-400">Loading provinces...</div>
+                        )}
+                        {provinceOptions.map((province) => (
                           <button
                             key={province}
                             type="button"
@@ -862,7 +763,7 @@ export default function Account() {
                               setAddressFormData((prev) => ({
                                 ...prev,
                                 province,
-                                city: CITY_OPTIONS_BY_PROVINCE[province]?.includes(prev.city) ? prev.city : '',
+                                city: prev.province === province ? prev.city : '',
                               }));
                               setIsProvincePickerOpen(false);
                             }}
@@ -897,8 +798,17 @@ export default function Account() {
                       </button>
                     </div>
 
-                    {isCityPickerOpen && cityOptions.length > 0 && (
+                    {isCityPickerOpen && (
                       <div className="absolute left-0 right-0 top-full z-30 mt-2 max-h-64 overflow-y-auto rounded-2xl border border-slate-200 bg-white px-2 py-2 text-left text-base text-slate-700 shadow-xl shadow-slate-200/60">
+                        {!addressFormData.province && (
+                          <div className="px-3 py-2 text-sm text-slate-400">Select a province first.</div>
+                        )}
+                        {addressFormData.province && citiesStatus === 'loading' && (
+                          <div className="px-3 py-2 text-sm text-slate-400">Loading cities...</div>
+                        )}
+                        {addressFormData.province && citiesStatus !== 'loading' && cityOptions.length === 0 && (
+                          <div className="px-3 py-2 text-sm text-slate-400">No cities found for this province.</div>
+                        )}
                         {cityOptions.map((city) => (
                           <button
                             key={city}

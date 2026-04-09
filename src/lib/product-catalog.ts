@@ -129,26 +129,64 @@ const sortProducts = (
   query?: string,
   sortBy: ProductQueryOptions['sortBy'] = 'popularity'
 ) => {
-  if (sortBy === 'price-asc') {
-    return [...products].sort((a, b) => a.price - b.price);
-  }
-
-  if (sortBy === 'price-desc') {
-    return [...products].sort((a, b) => b.price - a.price);
-  }
-
   const normalizedQuery = query?.trim();
 
   if (!normalizedQuery) {
+    if (sortBy === 'price-asc') {
+      return [...products].sort((a, b) => a.price - b.price);
+    }
+
+    if (sortBy === 'price-desc') {
+      return [...products].sort((a, b) => b.price - a.price);
+    }
+
     return [...products].sort((a, b) => a.name.localeCompare(b.name));
   }
 
-  return [...products]
+  const matchedProducts = [...products]
     .map((product) => ({
       product,
       score: scoreProduct(product, normalizedQuery),
     }))
     .filter(({ score }) => score > 0)
+    .map(({ product, score }) => ({
+      product,
+      score,
+    }));
+
+  if (sortBy === 'price-asc') {
+    return matchedProducts
+      .sort((a, b) => {
+        if (a.product.price !== b.product.price) {
+          return a.product.price - b.product.price;
+        }
+
+        if (b.score !== a.score) {
+          return b.score - a.score;
+        }
+
+        return a.product.name.localeCompare(b.product.name);
+      })
+      .map(({ product }) => product);
+  }
+
+  if (sortBy === 'price-desc') {
+    return matchedProducts
+      .sort((a, b) => {
+        if (b.product.price !== a.product.price) {
+          return b.product.price - a.product.price;
+        }
+
+        if (b.score !== a.score) {
+          return b.score - a.score;
+        }
+
+        return a.product.name.localeCompare(b.product.name);
+      })
+      .map(({ product }) => product);
+  }
+
+  return matchedProducts
     .sort((a, b) => {
       if (b.score !== a.score) {
         return b.score - a.score;

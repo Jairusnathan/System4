@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { normalizePhilippineLocationName } from '@/lib/philippine-locations';
 
 type DeliveryEstimateRequest = {
   address?: string;
@@ -33,25 +34,33 @@ const buildEstimatePayload = (rate: DeliveryRate) => ({
 });
 
 async function findExactRate(province: string, city: string, barangay: string) {
-  let query = supabase
+  const { data, error } = await supabase
     .from('delivery_rates')
     .select('id, province, city, barangay, fee, eta_min_minutes, eta_max_minutes, is_default')
     .eq('is_active', true)
     .ilike('province', province);
 
-  if (city) {
-    query = query.ilike('city', city);
-  }
-
-  if (barangay) {
-    query = query.ilike('barangay', barangay);
-  }
-
-  const { data, error } = await query.limit(1);
-
   if (error) throw error;
 
-  return data?.[0] as DeliveryRate | undefined;
+  const normalizedCity = normalizePhilippineLocationName(city);
+  const normalizedBarangay = normalizePhilippineLocationName(barangay);
+  const provinceRates = (data ?? []) as DeliveryRate[];
+
+  if (normalizedBarangay) {
+    const barangayMatch = provinceRates.find((rate) =>
+      normalizePhilippineLocationName(rate.city ?? '') === normalizedCity &&
+      normalizePhilippineLocationName(rate.barangay ?? '') === normalizedBarangay
+    );
+
+    if (barangayMatch) {
+      return barangayMatch;
+    }
+  }
+
+  return provinceRates.find((rate) =>
+    normalizePhilippineLocationName(rate.city ?? '') === normalizedCity &&
+    !rate.barangay
+  );
 }
 
 async function findProvinceFallback(province: string) {

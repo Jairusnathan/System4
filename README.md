@@ -11,7 +11,7 @@ Starter for a multi-app Next.js monorepo that calls the central FE Multi pipelin
 - Per-app ESLint, Jest, Docker, TypeScript, and simple UI test
 - Root `sonar-project.properties` for multi-app scan
 
-## Require repository variable
+## Require repository variables
 
 `FE_MULTI_SYSTEMS_JSON`
 

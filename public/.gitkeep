@@ -1,0 +1,268 @@
+# Template: FE Multi Pipeline Caller (for other repositories)
+# Copy this file to: .github/workflows/master-pipeline-fe-multi.yml in the target repo.
+#
+# IMPORTANT:
+# - Update CENTRAL_PIPELINE_REPO and CENTRAL_PIPELINE_REF below.
+# - Add required secrets/vars in the target repo.
+# - This template calls reusable workflows from the central pipeline repository.
+
+name: "Master Pipeline Orchestrator (Template Caller)"
+
+on:
+  push:
+    branches: [test, uat, main]
+  pull_request:
+    branches: [test, uat, main]
+  workflow_dispatch:
+    inputs:
+      run_deploy:
+        description: "Run deploy jobs"
+        type: boolean
+        default: true
+      run_promotion:
+        description: "Run PR promotion jobs"
+        type: boolean
+        default: true
+      dry_run:
+        description: "Preview-only mode (skip deploy/tag push, print PR body)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  packages: write
+  pull-requests: write
+  security-events: write
+
+concurrency:
+  group: master-pipeline-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CENTRAL_PIPELINE_REPO: ImplementSprint/CICD-Fe-Multi
+  CENTRAL_PIPELINE_REF: main
+
+jobs:
+  systems-config:
+    name: "Resolve Systems Configuration"
+    runs-on: ubuntu-latest
+    outputs:
+      systems_json: ${{ steps.resolve.outputs.systems_json }}
+      systems_label: ${{ steps.resolve.outputs.systems_label }}
+    steps:
+      - name: Resolve systems JSON
+        id: resolve
+        env:
+          SYSTEMS_JSON_VAR: ${{ vars.FE_MULTI_SYSTEMS_JSON }}
+        run: |
+          if [ -z "${SYSTEMS_JSON_VAR}" ]; then
+            echo "❌ Missing required repository variable FE_MULTI_SYSTEMS_JSON."
+            exit 1
+          fi
+
+          SYSTEMS_JSON="${SYSTEMS_JSON_VAR}"
+          echo "${SYSTEMS_JSON}" | jq -e . >/dev/null
+          echo "${SYSTEMS_JSON}" | jq -e 'type == "array" and length > 0' >/dev/null
+          echo "${SYSTEMS_JSON}" | jq -e 'all(.[]; (.name|type=="string" and length>0) and (.dir|type=="string" and length>0) and (.image|type=="string" and length>0) and (.vercel_project_secret|type=="string" and length>0))' >/dev/null
+
+          SYSTEMS_JSON=$(echo "${SYSTEMS_JSON}" | jq -c .)
+          SYSTEMS_LABEL=$(echo "${SYSTEMS_JSON}" | jq -r 'map(.name) | join(", ")')
+
+          echo "systems_json=${SYSTEMS_JSON}" >> "$GITHUB_OUTPUT"
+          echo "systems_label=${SYSTEMS_LABEL}" >> "$GITHUB_OUTPUT"
+
+  active-systems:
+    name: "Detect Active Systems"
+    needs: [systems-config]
+    runs-on: ubuntu-latest
+    outputs:
+      active_systems_json: ${{ steps.select.outputs.active_systems_json }}
+      active_count: ${{ steps.select.outputs.active_count }}
+      active_label: ${{ steps.select.outputs.active_label }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Select active systems
+        id: select
+        env:
+          SYSTEMS_JSON: ${{ needs.systems-config.outputs.systems_json }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            ACTIVE="${SYSTEMS_JSON}"
+          else
+            if [ "${{ github.event_name }}" = "pull_request" ]; then
+              BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            else
+              BASE_SHA="${{ github.event.before }}"
+            fi
+
+            if [ -z "${BASE_SHA}" ] || [ "${BASE_SHA}" = "0000000000000000000000000000000000000000" ]; then
+              BASE_SHA=$(git rev-parse HEAD^ 2>/dev/null || git rev-parse HEAD)
+            fi
+
+            CHANGED_FILES=$(git diff --name-only "${BASE_SHA}" "${GITHUB_SHA}" || true)
+            CHANGED_JSON=$(printf "%s\n" "${CHANGED_FILES}" | sed '/^$/d' | jq -R . | jq -s .)
+
+            SHARED_CHANGED=false
+            if printf "%s\n" "${CHANGED_FILES}" | grep -Eq '^(\.github/|package\.json$|sonar-project\.properties$)'; then
+              SHARED_CHANGED=true
+            fi
+
+            if [ "${SHARED_CHANGED}" = "true" ]; then
+              ACTIVE="${SYSTEMS_JSON}"
+            else
+              ACTIVE=$(echo "${SYSTEMS_JSON}" | jq -c --argjson changed "${CHANGED_JSON}" '
+                map(select(any($changed[]; startswith((.dir | gsub("^\\./"; "") ) + "/"))))
+              ')
+            fi
+          fi
+
+          ACTIVE_COUNT=$(echo "${ACTIVE}" | jq 'length')
+          if [ "${ACTIVE_COUNT}" -gt 0 ]; then
+            ACTIVE_LABEL=$(echo "${ACTIVE}" | jq -r 'map(.name) | join(", ")')
+          else
+            ACTIVE_LABEL="None"
+          fi
+
+          echo "active_systems_json=${ACTIVE}" >> "$GITHUB_OUTPUT"
+          echo "active_count=${ACTIVE_COUNT}" >> "$GITHUB_OUTPUT"
+          echo "active_label=${ACTIVE_LABEL}" >> "$GITHUB_OUTPUT"
+
+  frontend:
+    name: "Frontend — ${{ matrix.system.name }}"
+    needs: [active-systems]
+    if: fromJson(needs.active-systems.outputs.active_count) > 0
+    strategy:
+      fail-fast: false
+      matrix:
+        system: ${{ fromJson(needs.active-systems.outputs.active_systems_json) }}
+    uses: ImplementSprint/CICD-Fe-Multi/.github/workflows/front-end-workflow.yml@main
+    with:
+      system-dir: ${{ matrix.system.dir }}
+      system-name: ${{ matrix.system.name }}
+      enable-security-scan: true
+      enable-sonar: false
+    secrets: inherit
+
+  sonarcloud:
+    name: "SonarCloud — Monorepo Analysis"
+    needs: [frontend, active-systems]
+    if: always() && needs.frontend.result != 'cancelled' && fromJson(needs.active-systems.outputs.active_count) > 0
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run SonarCloud Scan
+        uses: SonarSource/sonarqube-scan-action@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: https://sonarcloud.io
+        with:
+          args: >
+            -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
+            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
+
+  version-test:
+    name: "Version Tag — TEST"
+    needs: [frontend, active-systems, sonarcloud]
+    if: >-
+      always() &&
+      github.ref == 'refs/heads/test' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      (github.event_name != 'workflow_dispatch' || github.event.inputs.dry_run != 'true') &&
+      fromJson(needs.active-systems.outputs.active_count) > 0 &&
+      (needs.sonarcloud.result == 'success' || needs.sonarcloud.result == 'skipped') &&
+      (needs.frontend.result == 'success' || needs.frontend.result == 'skipped')
+    uses: ImplementSprint/CICD-Fe-Multi/.github/workflows/versioning.yml@main
+    with:
+      mode: test
+
+  deploy-test:
+    name: "TEST — ${{ matrix.system.name }}"
+    needs: [frontend, active-systems, sonarcloud]
+    if: >-
+      always() &&
+      github.ref == 'refs/heads/test' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      (github.event_name != 'workflow_dispatch' || (github.event.inputs.run_deploy == 'true' && github.event.inputs.dry_run != 'true')) &&
+      fromJson(needs.active-systems.outputs.active_count) > 0 &&
+      (needs.sonarcloud.result == 'success' || needs.sonarcloud.result == 'skipped') &&
+      (needs.frontend.result == 'success' || needs.frontend.result == 'skipped')
+    strategy:
+      fail-fast: false
+      matrix:
+        system: ${{ fromJson(needs.active-systems.outputs.active_systems_json) }}
+    uses: ImplementSprint/CICD-Fe-Multi/.github/workflows/vercel-deploy.yml@main
+    with:
+      working-directory: ${{ matrix.system.dir }}
+      environment: preview
+    secrets:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets[matrix.system.vercel_project_secret] }}
+
+  deploy-uat:
+    name: "UAT — ${{ matrix.system.name }}"
+    needs: [frontend, active-systems, sonarcloud]
+    if: >-
+      always() &&
+      github.ref == 'refs/heads/uat' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      (github.event_name != 'workflow_dispatch' || (github.event.inputs.run_deploy == 'true' && github.event.inputs.dry_run != 'true')) &&
+      fromJson(needs.active-systems.outputs.active_count) > 0 &&
+      (needs.sonarcloud.result == 'success' || needs.sonarcloud.result == 'skipped') &&
+      (needs.frontend.result == 'success' || needs.frontend.result == 'skipped')
+    strategy:
+      fail-fast: false
+      matrix:
+        system: ${{ fromJson(needs.active-systems.outputs.active_systems_json) }}
+    uses: ImplementSprint/CICD-Fe-Multi/.github/workflows/vercel-deploy.yml@main
+    with:
+      working-directory: ${{ matrix.system.dir }}
+      environment: preview
+    secrets:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets[matrix.system.vercel_project_secret] }}
+
+  production-gate:
+    name: "Production Readiness Gate"
+    needs: [frontend, active-systems, sonarcloud]
+    if: >-
+      always() &&
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      (github.event_name != 'workflow_dispatch' || (github.event.inputs.run_deploy == 'true' && github.event.inputs.dry_run != 'true')) &&
+      fromJson(needs.active-systems.outputs.active_count) > 0 &&
+      (needs.sonarcloud.result == 'success' || needs.sonarcloud.result == 'skipped') &&
+      (needs.frontend.result == 'success' || needs.frontend.result == 'skipped')
+    uses: ImplementSprint/CICD-Fe-Multi/.github/workflows/production-gate.yml@main
+    with:
+      system-dir: ${{ needs.active-systems.outputs.active_label }}
+      app-type: web
+    secrets: inherit
+
+  notify-pipeline:
+    name: "Notify Pipeline Status"
+    needs: [frontend, active-systems, deploy-test, deploy-uat]
+    if: always()
+    uses: ImplementSprint/CICD-Fe-Multi/.github/workflows/notifications.yml@main
+    with:
+      status: ${{ (needs.frontend.result == 'success' || needs.frontend.result == 'skipped') && 'success' || (needs.frontend.result == 'cancelled' && 'cancelled' || 'failure') }}
+      system-dir: ${{ needs.active-systems.outputs.active_label }}
+      pipeline-type: FE Multi Master
+      error-details: ${{ needs.frontend.result != 'success' && needs.frontend.result != 'skipped' && 'Pipeline reported failures.' || '' }}
+      deployment-url: ''
+      success-image-url: ${{ vars.DISCORD_SUCCESS_IMAGE_URL != '' && vars.DISCORD_SUCCESS_IMAGE_URL || vars.DISCORD_SUCCESS }}
+      failure-image-url: ${{ vars.DISCORD_FAIL_IMAGE_URL != '' && vars.DISCORD_FAIL_IMAGE_URL || vars.DISCORD_FAIL }}
+      cancelled-image-url: ${{ vars.DISCORD_CANCELLED_IMAGE_URL != '' && vars.DISCORD_CANCELLED_IMAGE_URL || vars.DISCORD_CANCELLED }}
+    secrets:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}

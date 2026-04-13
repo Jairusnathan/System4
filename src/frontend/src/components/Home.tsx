@@ -79,7 +79,7 @@ export default function Home() {
 
   return (
     <main className="flex-1 bg-white">
-      <section className="bg-emerald-50/50 py-20 lg:py-32">
+      <section className="bg-blue-50/50 py-20 lg:py-32">
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -87,7 +87,7 @@ export default function Home() {
             transition={{ duration: 0.6 }}
           >
             <h1 className="text-5xl lg:text-7xl font-black text-slate-900 leading-tight mb-6 tracking-tight">
-              Your Health, <span className="text-emerald-600">Delivered Fast</span>
+              Your Health, <span className="text-blue-600">Delivered Fast</span>
             </h1>
             <p className="text-lg text-slate-500 max-w-2xl mx-auto mb-10 leading-relaxed font-medium">
               Get your medicines, vitamins, and daily essentials delivered right to your doorstep with PharmaQuick. Safe, reliable, and fast.
@@ -95,13 +95,13 @@ export default function Home() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button
                 onClick={() => setView('shop')}
-                className="px-10 py-4 bg-emerald-600 text-white rounded-full font-bold text-lg hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200"
+                className="px-10 py-4 bg-blue-600 text-white rounded-full font-bold text-lg hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
               >
                 Shop Now
               </button>
               <button
                 onClick={() => setIsBranchModalOpen(true)}
-                className="px-10 py-4 bg-white text-emerald-600 border-2 border-emerald-600 rounded-full font-bold text-lg hover:bg-emerald-50 transition-all flex items-center justify-center gap-2"
+                className="px-10 py-4 bg-white text-blue-600 border-2 border-blue-600 rounded-full font-bold text-lg hover:bg-blue-50 transition-all flex items-center justify-center gap-2"
               >
                 <MapPin className="w-5 h-5" />
                 Choose Branch
@@ -136,7 +136,7 @@ export default function Home() {
             </div>
             <button
               onClick={() => setView('shop')}
-              className="text-emerald-600 font-bold text-sm flex items-center gap-2 hover:gap-3 transition-all"
+              className="text-blue-600 font-bold text-sm flex items-center gap-2 hover:gap-3 transition-all"
             >
               View All <ArrowRight className="w-4 h-4" />
             </button>
@@ -194,14 +194,14 @@ export default function Home() {
                   )}
 
                   <div className="flex items-center justify-between">
-                    <p className="text-lg font-black text-emerald-600">PHP {product.price.toFixed(2)}</p>
+                    <p className="text-lg font-black text-slate-900">PHP {product.price.toFixed(2)}</p>
                     <button
                       onClick={() => {
                         setSelectedProduct(product);
                         addToCart(product);
                       }}
                       disabled={isOutOfStock}
-                      className="px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl font-bold text-xs hover:bg-emerald-100 transition-all flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="px-4 py-2 bg-blue-50 text-blue-600 rounded-xl font-bold text-xs hover:bg-blue-100 transition-all flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <ShoppingBag className="w-3 h-3" /> Add to Cart
                     </button>

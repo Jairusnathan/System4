@@ -60,9 +60,9 @@ export default function ProductDetailsModal() {
                   exit={{ opacity: 0, scale: 0.92, y: 20 }}
                   className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[80] w-[min(92vw,26rem)]"
                 >
-                  <div className="bg-white rounded-[2rem] border border-emerald-100 shadow-2xl p-8 text-center">
-                    <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-5">
-                      <CheckCircle2 className="w-10 h-10 text-emerald-600" />
+                  <div className="bg-white rounded-[2rem] border border-blue-100 shadow-2xl p-8 text-center">
+                    <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-5">
+                      <CheckCircle2 className="w-10 h-10 text-blue-600" />
                     </div>
                     <h3 className="text-2xl font-black text-slate-900 tracking-tight mb-2">
                       Added to cart
@@ -111,7 +111,7 @@ export default function ProductDetailsModal() {
                   </div>
                   {selectedProduct.images && selectedProduct.images.length > 0 && (
                     <div className="flex gap-2 overflow-x-auto pb-2 hide-scrollbar">
-                      <button className="w-20 h-20 shrink-0 rounded-xl overflow-hidden border-2 border-emerald-500">
+                      <button className="w-20 h-20 shrink-0 rounded-xl overflow-hidden border-2 border-blue-500">
                         <img src={selectedProduct.image} alt="Thumbnail" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       </button>
                       {selectedProduct.images.map((img, idx) => (
@@ -126,18 +126,18 @@ export default function ProductDetailsModal() {
                 {/* Product Info */}
                 <div className="flex flex-col">
                   <div className="mb-6">
-                    <div className="inline-block bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold mb-3">
+                    <div className="inline-block bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold mb-3">
                       {selectedProduct.category}
                     </div>
                     <h1 className="text-3xl font-bold text-slate-900 mb-2">{selectedProduct.name}</h1>
-                    <div className="text-2xl font-bold text-emerald-600 mb-4">₱{selectedProduct.price.toFixed(2)}</div>
+                    <div className="text-2xl font-bold text-slate-900 mb-4">₱{selectedProduct.price.toFixed(2)}</div>
                     
                     {/* Stock Availability */}
                     <div className="mb-6">
                       {!selectedBranch ? (
                         <span className="text-sm text-slate-500">Select a branch to view stock availability.</span>
                       ) : stock > 0 ? (
-                        <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 px-3 py-2 rounded-lg inline-flex">
+                        <div className="flex items-center gap-2 text-blue-600 bg-blue-50 px-3 py-2 rounded-lg inline-flex">
                           <CheckCircle2 className="w-5 h-5" />
                           <span className="font-medium">In Stock</span>
                           <span className="text-sm opacity-80">({stock} items available)</span>
@@ -185,7 +185,7 @@ export default function ProductDetailsModal() {
                       className={`flex-1 py-4 rounded-xl font-bold text-lg transition-colors flex items-center justify-center gap-2 ${
                         selectedBranch && stock === 0 
                           ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
-                          : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                          : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
                       }`}
                     >
                       <Plus className="w-5 h-5" />
@@ -206,7 +206,7 @@ export default function ProductDetailsModal() {
                       className={`flex-1 py-4 rounded-xl font-bold text-lg transition-colors shadow-md hover:shadow-lg flex items-center justify-center gap-2 ${
                         selectedBranch && stock === 0 
                           ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
-                          : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                          : 'bg-blue-600 text-white hover:bg-blue-700'
                       }`}
                     >
                       Buy Now

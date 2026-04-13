@@ -34,7 +34,7 @@ export default function Page() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-white selection:bg-emerald-100 selection:text-emerald-900">
+    <div className="min-h-screen flex flex-col bg-white selection:bg-blue-100 selection:text-blue-900">
       <Navbar />
       {renderView()}
       <Footer />

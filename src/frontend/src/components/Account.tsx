@@ -370,7 +370,7 @@ export default function Account() {
                 className="hidden"
                 onChange={handleProfileImageChange}
               />
-              <div className="h-28 w-28 overflow-hidden rounded-full border-4 border-white bg-emerald-100 text-emerald-600 shadow-md shadow-slate-200/70 sm:h-32 sm:w-32">
+              <div className="h-28 w-28 overflow-hidden rounded-full border-4 border-white bg-blue-100 text-blue-600 shadow-md shadow-slate-200/70 sm:h-32 sm:w-32">
                 {profileImageSrc ? (
                   <img
                     src={profileImageSrc}
@@ -388,7 +388,7 @@ export default function Account() {
                 <button
                   type="button"
                   onClick={() => profileImageInputRef.current?.click()}
-                  className="absolute bottom-0 right-0 rounded-full bg-emerald-600 p-2 text-white shadow-lg transition-colors hover:bg-emerald-700"
+                  className="absolute bottom-0 right-0 rounded-full bg-blue-600 p-2 text-white shadow-lg transition-colors hover:bg-blue-700"
                 >
                   <Camera className="w-4 h-4" />
                 </button>
@@ -431,7 +431,7 @@ export default function Account() {
                 setSaveStatus({ type: null, message: '' });
                 setIsEditingProfile(true);
               }}
-              className="inline-flex items-center justify-center self-start rounded-full bg-emerald-600 px-8 py-3 font-black text-white shadow-lg shadow-emerald-100 transition-all hover:bg-emerald-700 lg:self-center"
+              className="inline-flex items-center justify-center self-start rounded-full bg-blue-600 px-8 py-3 font-black text-white shadow-lg shadow-blue-100 transition-all hover:bg-blue-700 lg:self-center"
             >
               Edit Profile
             </button>
@@ -459,7 +459,7 @@ export default function Account() {
               <button 
                 onClick={handleSaveProfile}
                 disabled={isSaving}
-                className="flex items-center justify-center gap-2 rounded-full bg-emerald-600 px-10 py-3 font-black text-white shadow-lg shadow-emerald-100 transition-all hover:bg-emerald-700 disabled:opacity-70"
+                className="flex items-center justify-center gap-2 rounded-full bg-blue-600 px-10 py-3 font-black text-white shadow-lg shadow-blue-100 transition-all hover:bg-blue-700 disabled:opacity-70"
               >
                 {isSaving ? (
                   <>
@@ -485,7 +485,7 @@ export default function Account() {
             readOnly={!isEditingProfile}
             className={`w-full px-4 py-3 border rounded-xl transition-all font-medium ${
               isEditingProfile
-                ? 'bg-white border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500'
+                ? 'bg-white border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500'
                 : 'bg-slate-50 border-slate-100 text-slate-700 cursor-default'
             }`}
           />
@@ -510,7 +510,7 @@ export default function Account() {
             placeholder="09123456789 or +639123456789"
             className={`w-full px-4 py-3 border rounded-xl transition-all font-medium ${
               isEditingProfile
-                ? 'bg-white border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500'
+                ? 'bg-white border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500'
                 : 'bg-slate-50 border-slate-100 text-slate-700 cursor-default'
             }`}
           />
@@ -525,7 +525,7 @@ export default function Account() {
               readOnly={!isEditingProfile}
               className={`w-full px-4 py-3 border rounded-xl transition-all font-medium ${
                 isEditingProfile
-                  ? 'bg-white border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500'
+                  ? 'bg-white border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500'
                   : 'bg-slate-50 border-slate-100 text-slate-700 cursor-default'
               }`}
             />
@@ -538,7 +538,7 @@ export default function Account() {
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           className={`p-4 rounded-2xl flex items-center gap-3 text-sm font-bold ${
-            saveStatus.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-100' : 'bg-red-50 text-red-800 border border-red-100'
+            saveStatus.type === 'success' ? 'bg-blue-50 text-blue-800 border border-blue-100' : 'bg-red-50 text-red-800 border border-red-100'
           }`}
         >
           {saveStatus.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <X className="w-5 h-5" />}
@@ -670,7 +670,7 @@ export default function Account() {
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           className={`p-4 rounded-2xl flex items-center gap-3 text-sm font-bold ${
-            saveStatus.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-100' : 'bg-red-50 text-red-800 border border-red-100'
+            saveStatus.type === 'success' ? 'bg-blue-50 text-blue-800 border border-blue-100' : 'bg-red-50 text-red-800 border border-red-100'
           }`}
         >
           {saveStatus.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <X className="w-5 h-5" />}
@@ -1007,7 +1007,7 @@ export default function Account() {
           <p className="text-slate-500 mb-8 max-w-xs mx-auto">You haven't placed any orders yet. Start shopping to see your history!</p>
           <button 
             onClick={() => setView('shop')}
-            className="px-8 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100"
+            className="px-8 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"
           >
             Go to Shop
           </button>
@@ -1021,7 +1021,7 @@ export default function Account() {
                 setSelectedOrder(order);
                 setView('order-status');
               }}
-              className="group p-6 rounded-[2rem] border-2 border-slate-100 hover:border-emerald-200 hover:bg-slate-50 transition-all cursor-pointer"
+              className="group p-6 rounded-[2rem] border-2 border-slate-100 hover:border-blue-200 hover:bg-slate-50 transition-all cursor-pointer"
             >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                 <div>
@@ -1030,16 +1030,16 @@ export default function Account() {
                 </div>
                 <div className="flex items-center gap-3">
                   <div className={`px-4 py-1.5 rounded-full text-xs font-black flex items-center gap-2 ${
-                    order.status === 'Delivered' ? 'bg-emerald-100 text-emerald-700' : 
+                    order.status === 'Delivered' ? 'bg-blue-100 text-blue-700' : 
                     order.status === 'Processing' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'
                   }`}>
                     <span className={`w-2 h-2 rounded-full ${
-                      order.status === 'Delivered' ? 'bg-emerald-500' : 
+                      order.status === 'Delivered' ? 'bg-blue-500' : 
                       order.status === 'Processing' ? 'bg-blue-500' : 'bg-amber-500'
                     }`} />
                     {order.status}
                   </div>
-                  <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-emerald-500 group-hover:translate-x-1 transition-all" />
+                  <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
                 </div>
               </div>
               
@@ -1050,7 +1050,7 @@ export default function Account() {
                 </div>
                 <div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Total Amount</p>
-                  <p className="text-sm font-black text-emerald-600">₱{order.total.toFixed(2)}</p>
+                  <p className="text-sm font-black text-slate-900">₱{order.total.toFixed(2)}</p>
                 </div>
                 <div className="hidden sm:block">
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Items</p>
@@ -1074,7 +1074,7 @@ export default function Account() {
           </div>
           <button 
             onClick={() => setSettings({...settings, emailNotifications: !settings.emailNotifications})}
-            className={`w-12 h-6 rounded-full transition-all relative ${settings.emailNotifications ? 'bg-emerald-600' : 'bg-slate-200'}`}
+            className={`w-12 h-6 rounded-full transition-all relative ${settings.emailNotifications ? 'bg-blue-600' : 'bg-slate-200'}`}
           >
             <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${settings.emailNotifications ? 'left-7' : 'left-1'}`} />
           </button>
@@ -1086,7 +1086,7 @@ export default function Account() {
           </div>
           <button 
             onClick={() => setSettings({...settings, smsNotifications: !settings.smsNotifications})}
-            className={`w-12 h-6 rounded-full transition-all relative ${settings.smsNotifications ? 'bg-emerald-600' : 'bg-slate-200'}`}
+            className={`w-12 h-6 rounded-full transition-all relative ${settings.smsNotifications ? 'bg-blue-600' : 'bg-slate-200'}`}
           >
             <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${settings.smsNotifications ? 'left-7' : 'left-1'}`} />
           </button>
@@ -1123,7 +1123,7 @@ export default function Account() {
           <div className="lg:col-span-4 space-y-6">
             {/* User Info Card */}
             <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 flex items-center gap-4">
-                    <div className="w-16 h-16 overflow-hidden rounded-full border-2 border-white bg-emerald-100 text-emerald-600 shadow-sm shrink-0">
+                    <div className="w-16 h-16 overflow-hidden rounded-full border-2 border-white bg-blue-100 text-blue-600 shadow-sm shrink-0">
                       {profileImageSrc ? (
                         <img
                           src={profileImageSrc}
@@ -1157,7 +1157,7 @@ export default function Account() {
                     onClick={() => setAccountSubView(item.id as 'profile' | 'addresses' | 'orders' | 'settings')}
                     className={`w-full flex items-center justify-between p-4 rounded-2xl font-bold text-sm transition-all group ${
                       accountSubView === item.id 
-                        ? 'bg-emerald-50 text-emerald-600 border-l-4 border-emerald-600 rounded-l-none' 
+                        ? 'bg-blue-50 text-blue-600 border-l-4 border-blue-600 rounded-l-none' 
                         : 'text-slate-600 hover:bg-slate-50'
                     }`}
                   >
@@ -1165,7 +1165,7 @@ export default function Account() {
                       {item.icon}
                       {item.name}
                     </div>
-                    <ChevronRight className={`w-4 h-4 transition-transform ${accountSubView === item.id ? 'text-emerald-600 translate-x-1' : 'text-slate-300'}`} />
+                    <ChevronRight className={`w-4 h-4 transition-transform ${accountSubView === item.id ? 'text-blue-600 translate-x-1' : 'text-slate-300'}`} />
                   </button>
                 ))}
                 
@@ -1288,7 +1288,7 @@ export default function Account() {
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     className={`p-4 rounded-2xl mb-6 flex items-start gap-3 ${
-                      passwordStatus.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-100' : 'bg-red-50 text-red-800 border border-red-100'
+                      passwordStatus.type === 'success' ? 'bg-blue-50 text-blue-800 border border-blue-100' : 'bg-red-50 text-red-800 border border-red-100'
                     }`}
                   >
                     {passwordStatus.type === 'success' ? <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" /> : <X className="w-5 h-5 shrink-0 mt-0.5" />}
@@ -1304,7 +1304,7 @@ export default function Account() {
                       value={passwordData.newPassword}
                       onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
                       placeholder="••••••••"
-                      className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium"
+                      className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
                     />
                   </div>
                   <div>
@@ -1314,7 +1314,7 @@ export default function Account() {
                       value={passwordData.confirmPassword}
                       onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
                       placeholder="••••••••"
-                      className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium"
+                      className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
                     />
                   </div>
 
@@ -1364,7 +1364,7 @@ export default function Account() {
                       }
                     }}
                     disabled={isUpdatingPassword || !passwordData.newPassword || !passwordData.confirmPassword}
-                    className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black text-lg hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-lg hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
                     {isUpdatingPassword ? (
                       <div className="w-6 h-6 border-4 border-white border-t-transparent rounded-full animate-spin" />

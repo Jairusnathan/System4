@@ -169,14 +169,14 @@ export default function Register() {
         animate={{ opacity: 1, y: 0 }}
         className="bg-white p-10 lg:p-16 rounded-[4rem] shadow-2xl border border-slate-100 w-full max-w-xl relative overflow-hidden"
       >
-        <div className="absolute top-0 left-0 w-full h-2 bg-emerald-500" />
-        <div className="absolute -top-24 -right-24 w-64 h-64 bg-emerald-50 rounded-full blur-3xl opacity-50" />
+        <div className="absolute top-0 left-0 w-full h-2 bg-blue-500" />
+        <div className="absolute -top-24 -right-24 w-64 h-64 bg-blue-50 rounded-full blur-3xl opacity-50" />
 
         <div
           onClick={() => setView('home')}
           className="flex items-center gap-2 mb-12 cursor-pointer group justify-center"
         >
-          <div className="bg-emerald-600 p-2 rounded-xl group-hover:rotate-12 transition-transform">
+          <div className="bg-blue-600 p-2 rounded-xl group-hover:rotate-12 transition-transform">
             <Pill className="w-6 h-6 text-white" />
           </div>
           <span className="text-3xl font-black text-slate-900 tracking-tight">PharmaQuick</span>
@@ -201,7 +201,7 @@ export default function Register() {
         )}
 
         {successMessage && (
-          <div className="mb-8 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3 text-emerald-700 text-sm font-bold">
+          <div className="mb-8 p-4 bg-blue-50 border border-blue-100 rounded-2xl flex items-center gap-3 text-blue-700 text-sm font-bold">
             <CheckCircle2 className="w-5 h-5 shrink-0" />
             {successMessage}
           </div>
@@ -219,7 +219,7 @@ export default function Register() {
                   value={formData.fullName}
                   onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                   placeholder="Juan Dela Cruz"
-                  className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium"
+                  className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
                 />
               </div>
             </div>
@@ -233,7 +233,7 @@ export default function Register() {
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   placeholder="09123456789 or +639123456789"
-                  className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium"
+                  className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
                 />
               </div>
             </div>
@@ -247,7 +247,7 @@ export default function Register() {
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   placeholder="name@example.com"
-                  className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium"
+                  className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
                 />
               </div>
             </div>
@@ -261,7 +261,7 @@ export default function Register() {
                     required
                     value={formData.birthday}
                     onChange={(e) => setFormData({ ...formData, birthday: e.target.value })}
-                    className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium text-slate-500"
+                    className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-500"
                   />
                 </div>
               </div>
@@ -273,7 +273,7 @@ export default function Register() {
                     required
                     value={formData.gender}
                     onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                    className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium text-slate-500 appearance-none"
+                    className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-500 appearance-none"
                   >
                     <option value="" disabled>
                       Select gender
@@ -295,7 +295,7 @@ export default function Register() {
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     placeholder="........"
-                    className="w-full pl-14 pr-12 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium"
+                    className="w-full pl-14 pr-12 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
                   />
                   <button
                     type="button"
@@ -315,7 +315,7 @@ export default function Register() {
                     value={formData.confirmPassword}
                     onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                     placeholder="........"
-                    className="w-full pl-14 pr-12 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium"
+                    className="w-full pl-14 pr-12 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
                   />
                   <button
                     type="button"
@@ -330,7 +330,7 @@ export default function Register() {
 
             <div className="px-2">
               <label className="flex items-center gap-2 cursor-pointer group">
-                <input type="checkbox" required className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
+                <input type="checkbox" required className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
                 <span className="text-sm font-bold text-slate-500 group-hover:text-slate-700 transition-colors">I agree to the Terms of Service and Privacy Policy</span>
               </label>
             </div>
@@ -338,7 +338,7 @@ export default function Register() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black text-lg hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-100 flex items-center justify-center gap-2 group disabled:opacity-70 disabled:cursor-not-allowed"
+              className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-lg hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 flex items-center justify-center gap-2 group disabled:opacity-70 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <Loader2 className="w-6 h-6 animate-spin" />
@@ -352,9 +352,9 @@ export default function Register() {
           </form>
         ) : (
           <form onSubmit={handleVerifyEmail} className="space-y-6">
-            <div className="rounded-3xl border border-emerald-100 bg-emerald-50 px-5 py-4">
-              <p className="text-sm font-black text-emerald-800">Check your email</p>
-              <p className="mt-1 text-sm text-emerald-700">
+            <div className="rounded-3xl border border-blue-100 bg-blue-50 px-5 py-4">
+              <p className="text-sm font-black text-blue-800">Check your email</p>
+              <p className="mt-1 text-sm text-blue-700">
                 We sent a 6-digit verification code to <span className="font-bold">{formData.email}</span>.
               </p>
             </div>
@@ -369,14 +369,14 @@ export default function Register() {
                 value={verificationCode}
                 onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 placeholder="Enter 6-digit code"
-                className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium tracking-[0.3em]"
+                className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium tracking-[0.3em]"
               />
             </div>
 
             <button
               type="submit"
               disabled={isLoading || verificationCode.length !== 6}
-              className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black text-lg hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-100 flex items-center justify-center gap-2 group disabled:opacity-70 disabled:cursor-not-allowed"
+              className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-lg hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 flex items-center justify-center gap-2 group disabled:opacity-70 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <Loader2 className="w-6 h-6 animate-spin" />
@@ -392,7 +392,7 @@ export default function Register() {
               type="button"
               onClick={handleResendCode}
               disabled={isLoading}
-              className="w-full py-3 text-sm font-black text-emerald-700 bg-emerald-50 rounded-2xl hover:bg-emerald-100 transition-colors disabled:opacity-70"
+              className="w-full py-3 text-sm font-black text-blue-700 bg-blue-50 rounded-2xl hover:bg-blue-100 transition-colors disabled:opacity-70"
             >
               Resend Code
             </button>
@@ -401,7 +401,7 @@ export default function Register() {
 
         <div className="mt-12 pt-8 border-t border-slate-100 text-center">
           <p className="text-slate-500 font-bold">
-            Already have an account? <button onClick={() => setView('login')} className="text-emerald-600 hover:text-emerald-700 transition-colors">Sign In</button>
+            Already have an account? <button onClick={() => setView('login')} className="text-blue-600 hover:text-blue-700 transition-colors">Sign In</button>
           </p>
         </div>
       </motion.div>
@@ -411,10 +411,10 @@ export default function Register() {
           <motion.div
             initial={{ opacity: 0, scale: 0.96, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            className="w-full max-w-md rounded-[2rem] border border-emerald-100 bg-white p-8 shadow-2xl"
+            className="w-full max-w-md rounded-[2rem] border border-blue-100 bg-white p-8 shadow-2xl"
           >
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
-              <CheckCircle2 className="h-8 w-8 text-emerald-600" />
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-blue-100">
+              <CheckCircle2 className="h-8 w-8 text-blue-600" />
             </div>
 
             <div className="mt-6 text-center">
@@ -428,7 +428,7 @@ export default function Register() {
             <button
               type="button"
               onClick={handleAccountCreatedContinue}
-              className="mt-8 w-full rounded-2xl bg-emerald-600 py-4 text-lg font-black text-white transition-all hover:bg-emerald-700"
+              className="mt-8 w-full rounded-2xl bg-blue-600 py-4 text-lg font-black text-white transition-all hover:bg-blue-700"
             >
               Continue to Home
             </button>

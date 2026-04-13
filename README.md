@@ -2,11 +2,17 @@
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
-# Run and deploy your AI Studio app
+# Run the frontend and NestJS backend
 
 This contains everything you need to run your app locally.
 
 View your app in AI Studio: https://ai.studio/apps/9736117b-8e38-4e67-b7fd-41f53d7dcbab
+
+## Architecture
+
+- Frontend: Next.js in [`src/frontend`](./src/frontend)
+- Backend: NestJS in [`src/backend`](./src/backend)
+- Data: Supabase plus the optional second Supabase connection for product/order data
 
 ## Run Locally
 
@@ -14,19 +20,19 @@ View your app in AI Studio: https://ai.studio/apps/9736117b-8e38-4e67-b7fd-41f53
 
 1. Install dependencies:
    `npm install`
-2. Configure Supabase and JWT values in `.env`:
-   `NEXT_PUBLIC_SUPABASE_URL=...`
-   `NEXT_PUBLIC_SUPABASE_ANON_KEY=...`
-   `JWT_SECRET=...`
-   `SMTP_HOST=...`
-   `SMTP_PORT=...`
-   `SMTP_USER=...`
-   `SMTP_PASS=...`
-   `SMTP_FROM=...`
-3. Run the app:
+2. Configure `.env` using `.env.example`.
+3. Run the frontend and backend together:
    `npm run dev`
 
 Forgot-password email delivery requires valid SMTP credentials. If you use Gmail, create an App Password and use that as `SMTP_PASS`.
+
+The frontend expects the backend at `NEXT_PUBLIC_API_BASE_URL`, which defaults to `http://localhost:4000` in the example env file.
+
+## Helpful scripts
+
+- `npm run dev` starts both apps together from the project root
+- `npm run dev:frontend` starts only the Next.js app
+- `npm run dev:backend` starts only the NestJS app
 
 ## Account Creation Note
 

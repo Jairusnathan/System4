@@ -1,0 +1,10 @@
+node_modules
+dist
+src/backend/dist
+src/frontend/.next
+.git
+.gitignore
+README.md
+postman
+*.log
+.env

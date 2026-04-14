@@ -18,6 +18,7 @@ export default function Home() {
     setIsBranchModalOpen,
     selectedBranch,
     branchInventory,
+    isLoggedIn,
     addToCart,
     setSelectedProduct,
   } = useAppContext();
@@ -170,7 +171,10 @@ export default function Home() {
                   transition={{ delay: idx * 0.1 }}
                   className="group"
                 >
-                  <div className="relative aspect-square rounded-2xl overflow-hidden mb-4 bg-slate-100">
+                  <div
+                    onClick={() => setSelectedProduct(product)}
+                    className="relative mb-4 aspect-square cursor-pointer overflow-hidden rounded-2xl bg-slate-100"
+                  >
                     <img
                       src={product.image}
                       alt={product.name}
@@ -184,8 +188,13 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <h3 className="font-bold text-slate-900 mb-1">{product.name}</h3>
-                  <p className="text-xs text-slate-500 mb-4 line-clamp-2">{product.description}</p>
+                  <div
+                    onClick={() => setSelectedProduct(product)}
+                    className="mb-4 cursor-pointer"
+                  >
+                    <h3 className="mb-1 font-bold text-slate-900">{product.name}</h3>
+                    <p className="line-clamp-2 text-xs text-slate-500">{product.description}</p>
+                  </div>
 
                   {isOutOfStock && (
                     <div className="flex items-center gap-1 text-[10px] font-bold text-red-500 mb-4">
@@ -197,8 +206,11 @@ export default function Home() {
                     <p className="text-lg font-black text-emerald-600">PHP {product.price.toFixed(2)}</p>
                     <button
                       onClick={() => {
-                        setSelectedProduct(product);
-                        addToCart(product);
+                        if (isLoggedIn) {
+                          addToCart(product);
+                        } else {
+                          setView('login');
+                        }
                       }}
                       disabled={isOutOfStock}
                       className="px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl font-bold text-xs hover:bg-emerald-100 transition-all flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"

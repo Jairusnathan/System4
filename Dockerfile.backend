@@ -1,0 +1,20 @@
+FROM node:22-alpine AS builder
+WORKDIR /app
+
+COPY package*.json ./
+COPY src/frontend/package.json src/frontend/package.json
+COPY src/backend/package.json src/backend/package.json
+RUN npm ci
+
+COPY . .
+RUN npm run build --workspace=src/backend
+
+FROM node:22-alpine AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/src/backend ./src/backend
+
+CMD ["node", "src/backend/dist/apps/api-gateway/main.js"]

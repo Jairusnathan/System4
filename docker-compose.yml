@@ -1,0 +1,186 @@
+name: system4
+
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    command: node src/backend/dist/apps/api-gateway/main.js
+    env_file:
+      - .env
+    environment:
+      API_GATEWAY_PORT: 4000
+      AUTH_SERVICE_URL: http://auth-service:4101
+      CATALOG_SERVICE_URL: http://catalog-service:4102
+      CART_SERVICE_URL: http://cart-service:4103
+      PROMO_SERVICE_URL: http://promo-service:4104
+      ORDER_SERVICE_URL: http://order-service:4105
+      DELIVERY_SERVICE_URL: http://delivery-service:4106
+      ANALYTICS_SERVICE_URL: http://analytics-service:4107
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      catalog-service:
+        condition: service_healthy
+      cart-service:
+        condition: service_healthy
+      promo-service:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+      delivery-service:
+        condition: service_healthy
+      analytics-service:
+        condition: service_healthy
+    ports:
+      - "4000:4000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    command: node src/backend/dist/apps/auth-service/main.js
+    env_file:
+      - .env
+    environment:
+      AUTH_SERVICE_PORT: 4101
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4101/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  catalog-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    command: node src/backend/dist/apps/catalog-service/main.js
+    env_file:
+      - .env
+    environment:
+      CATALOG_SERVICE_PORT: 4102
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4102/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  cart-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    command: node src/backend/dist/apps/cart-service/main.js
+    env_file:
+      - .env
+    environment:
+      CART_SERVICE_PORT: 4103
+      CATALOG_SERVICE_URL: http://catalog-service:4102
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4103/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  promo-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    command: node src/backend/dist/apps/promo-service/main.js
+    env_file:
+      - .env
+    environment:
+      PROMO_SERVICE_PORT: 4104
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4104/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  order-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    command: node src/backend/dist/apps/order-service/main.js
+    env_file:
+      - .env
+    environment:
+      ORDER_SERVICE_PORT: 4105
+      CATALOG_SERVICE_URL: http://catalog-service:4102
+      PROMO_SERVICE_URL: http://promo-service:4104
+      CART_SERVICE_URL: http://cart-service:4103
+    depends_on:
+      catalog-service:
+        condition: service_healthy
+      promo-service:
+        condition: service_healthy
+      cart-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4105/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  delivery-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    command: node src/backend/dist/apps/delivery-service/main.js
+    env_file:
+      - .env
+    environment:
+      DELIVERY_SERVICE_PORT: 4106
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4106/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  analytics-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    command: node src/backend/dist/apps/analytics-service/main.js
+    env_file:
+      - .env
+    environment:
+      ANALYTICS_SERVICE_PORT: 4107
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4107/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    env_file:
+      - .env
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:4000
+      BACKEND_PROXY_BASE_URL: http://gateway:4000
+    depends_on:
+      gateway:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 20s

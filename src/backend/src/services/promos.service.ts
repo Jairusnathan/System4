@@ -127,6 +127,31 @@ export class PromosService {
     };
   }
 
+  async incrementPromoUsage(promoId: number) {
+    const { data, error } = await this.supabaseService.secondSupabaseAdmin
+      .from('promo_codes')
+      .select('id, times_used')
+      .eq('id', promoId)
+      .maybeSingle<Pick<PromoCodeRecord, 'id' | 'times_used'>>();
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data) {
+      throw new Error('Promo code not found.');
+    }
+
+    const { error: updateError } = await this.supabaseService.secondSupabaseAdmin
+      .from('promo_codes')
+      .update({ times_used: data.times_used + 1 })
+      .eq('id', promoId);
+
+    if (updateError) {
+      throw updateError;
+    }
+  }
+
   private getPromoDiscountAmount(promo: PromoCodeRecord, subtotal: number) {
     if (promo.discount_type === 'percent') {
       const rawDiscount = subtotal * (promo.discount_value / 100);

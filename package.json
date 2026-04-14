@@ -7,14 +7,18 @@
   ],
   "scripts": {
     "dev": "concurrently -n frontend,backend -c blue,green \"npm run dev --workspace=src/frontend\" \"npm run dev --workspace=src/backend\"",
+    "dev:microservices": "npm run dev --workspace=src/backend",
     "dev:frontend": "npm run dev --workspace=src/frontend",
     "dev:backend": "npm run dev --workspace=src/backend",
     "build": "npm run build --workspace=src/frontend && npm run build --workspace=src/backend",
     "build:frontend": "npm run build --workspace=src/frontend",
     "build:backend": "npm run build --workspace=src/backend",
     "start": "concurrently -n frontend,backend -c blue,green \"npm run start --workspace=src/frontend\" \"npm run start --workspace=src/backend\"",
+    "start:microservices": "npm run start --workspace=src/backend",
     "start:frontend": "npm run start --workspace=src/frontend",
-    "start:backend": "npm run start --workspace=src/backend"
+    "start:backend": "npm run start --workspace=src/backend",
+    "docker:up": "docker compose up --build",
+    "docker:down": "docker compose down"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

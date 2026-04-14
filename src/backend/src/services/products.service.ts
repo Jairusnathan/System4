@@ -114,6 +114,22 @@ export class ProductsService {
       .filter((product): product is Product => Boolean(product));
   }
 
+  async updateStock(productId: string, stock: number) {
+    const numericId = Number(productId);
+    if (!Number.isFinite(numericId)) {
+      throw new Error(`Invalid product id: ${productId}`);
+    }
+
+    const { error } = await this.supabaseService.secondSupabaseAdmin
+      .from('products')
+      .update({ stock: Math.max(0, Math.trunc(stock)) })
+      .eq('id', numericId);
+
+    if (error) {
+      throw error;
+    }
+  }
+
   private async fetchCatalogProducts(): Promise<Product[]> {
     const { data, error } = await this.supabaseService.secondSupabase
       .from('products')

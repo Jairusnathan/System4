@@ -50,7 +50,7 @@ export default function CartDrawer() {
             >
               <div className="flex items-center justify-between p-4 border-b border-slate-100">
                 <h2 className="text-xl font-bold flex items-center gap-2">
-                  <ShoppingCart className="w-5 h-5 text-emerald-600" />
+                  <ShoppingCart className="w-5 h-5 text-blue-600" />
                   Your Cart
                 </h2>
                 <div className="flex items-center gap-2">
@@ -80,7 +80,7 @@ export default function CartDrawer() {
                   <p className="text-slate-500 mb-6">Looks like you haven't added anything yet.</p>
                   <button 
                     onClick={() => setIsCartOpen(false)}
-                    className="px-6 py-2 bg-emerald-600 text-white rounded-full font-medium hover:bg-emerald-700 transition-colors"
+                    className="px-6 py-2 bg-blue-600 text-white rounded-full font-medium hover:bg-blue-700 transition-colors"
                   >
                     Start Shopping
                   </button>
@@ -99,7 +99,7 @@ export default function CartDrawer() {
                         <div className="flex-1 flex flex-col justify-between">
                           <div>
                             <h4 className="font-medium text-slate-900 line-clamp-1">{item.name}</h4>
-                            <p className="text-emerald-600 font-semibold">₱{item.price.toFixed(2)}</p>
+                            <p className="text-slate-900 font-semibold">₱{item.price.toFixed(2)}</p>
                           </div>
                           <div className="flex items-center gap-3 mt-2">
                             <button 
@@ -142,7 +142,7 @@ export default function CartDrawer() {
                     
                     <button 
                       onClick={handleProceedToCheckout}
-                      className="w-full py-3.5 bg-emerald-600 text-white rounded-xl font-bold text-lg hover:bg-emerald-700 transition-colors shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                      className="w-full py-3.5 bg-blue-600 text-white rounded-xl font-bold text-lg hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg flex items-center justify-center gap-2"
                     >
                       Proceed to Checkout
                     </button>

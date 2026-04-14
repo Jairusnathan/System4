@@ -68,14 +68,14 @@ export default function BranchModal() {
                         !isOpen 
                           ? 'border-slate-100 bg-slate-50 opacity-60 cursor-not-allowed' 
                           : isSelected 
-                            ? 'border-emerald-500 bg-emerald-50 cursor-pointer' 
-                            : 'border-slate-100 hover:border-emerald-200 hover:bg-slate-50 cursor-pointer'
+                            ? 'border-blue-500 bg-blue-50 cursor-pointer' 
+                            : 'border-slate-100 hover:border-blue-200 hover:bg-slate-50 cursor-pointer'
                       }`}
                     >
                       <div className="flex justify-between items-start mb-2">
                         <h3 className="font-bold text-lg text-slate-900">{branch.name}</h3>
                         <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                          isOpen ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
+                          isOpen ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'
                         }`}>
                           {isOpen ? 'Open Now' : 'Closed'}
                         </span>

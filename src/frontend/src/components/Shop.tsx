@@ -215,9 +215,9 @@ export default function Shop() {
               exit={{ opacity: 0, scale: 0.92, y: 20 }}
               className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[60] w-[min(92vw,26rem)]"
             >
-              <div className="bg-white rounded-[2rem] border border-emerald-100 shadow-2xl p-8 text-center">
-                <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-5">
-                  <CheckCircle2 className="w-10 h-10 text-emerald-600" />
+              <div className="bg-white rounded-[2rem] border border-blue-100 shadow-2xl p-8 text-center">
+                <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-5">
+                  <CheckCircle2 className="w-10 h-10 text-blue-600" />
                 </div>
                 <h3 className="text-2xl font-black text-slate-900 tracking-tight mb-2">
                   Added to cart
@@ -277,7 +277,7 @@ export default function Shop() {
                       onClick={() => togglePendingCategory(category)}
                       className={`flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left transition ${
                         pendingCategories.includes(category)
-                          ? 'border-emerald-600 bg-emerald-50 text-emerald-700'
+                          ? 'border-blue-600 bg-blue-50 text-blue-700'
                           : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
                       }`}
                     >
@@ -305,7 +305,7 @@ export default function Shop() {
                       setSelectedCategories(pendingCategories);
                       setIsFilterModalOpen(false);
                     }}
-                    className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-700"
+                    className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-blue-700"
                   >
                     Apply Filter
                   </button>
@@ -395,7 +395,7 @@ export default function Shop() {
                 onChange={(event) =>
                   setPriceRange({ ...priceRange, min: event.target.value })
                 }
-                className="w-24 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition focus:border-emerald-500 focus:bg-white lg:w-28"
+                className="w-24 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:bg-white lg:w-28"
               />
               <input
                 type="number"
@@ -404,7 +404,7 @@ export default function Shop() {
                 onChange={(event) =>
                   setPriceRange({ ...priceRange, max: event.target.value })
                 }
-                className="w-24 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition focus:border-emerald-500 focus:bg-white lg:w-28"
+                className="w-24 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:bg-white lg:w-28"
               />
             </div>
             <label className="flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700">
@@ -412,13 +412,13 @@ export default function Shop() {
                 type="checkbox"
                 checked={inStockOnly}
                 onChange={(event) => setInStockOnly(event.target.checked)}
-                className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
               />
               In Stock Only
             </label>
             <button
               onClick={clearAllFilters}
-              className="rounded-xl px-4 py-2.5 text-sm font-bold text-emerald-600 transition hover:bg-emerald-50"
+              className="rounded-xl px-4 py-2.5 text-sm font-bold text-blue-600 transition hover:bg-blue-50"
             >
               Clear All
             </button>
@@ -428,7 +428,7 @@ export default function Shop() {
         <div>
           {isLoading ? (
             <div className="rounded-[2rem] border border-slate-100 bg-white p-12 text-center shadow-sm lg:p-14">
-              <div className="mx-auto mb-6 h-12 w-12 animate-spin rounded-full border-4 border-emerald-200 border-t-emerald-600" />
+              <div className="mx-auto mb-6 h-12 w-12 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
               <h3 className="mb-2 text-2xl font-black tracking-tight text-slate-900">
                 Loading products
               </h3>
@@ -447,7 +447,7 @@ export default function Shop() {
               <p className="mx-auto mb-8 max-w-xs text-slate-500">{error}</p>
               <button
                 onClick={() => window.location.reload()}
-                className="rounded-xl bg-emerald-600 px-8 py-3 font-bold text-white shadow-lg shadow-emerald-100 transition-colors hover:bg-emerald-700"
+                className="rounded-xl bg-blue-600 px-8 py-3 font-bold text-white shadow-lg shadow-blue-100 transition-colors hover:bg-blue-700"
               >
                 Retry
               </button>
@@ -465,7 +465,7 @@ export default function Shop() {
               </p>
               <button
                 onClick={clearAllFilters}
-                className="rounded-xl bg-emerald-600 px-8 py-3 font-bold text-white shadow-lg shadow-emerald-100 transition-colors hover:bg-emerald-700"
+                className="rounded-xl bg-blue-600 px-8 py-3 font-bold text-white shadow-lg shadow-blue-100 transition-colors hover:bg-blue-700"
               >
                 Clear All Filters
               </button>
@@ -503,14 +503,14 @@ export default function Shop() {
                           referrerPolicy="no-referrer"
                         />
                         <div className="absolute left-3 top-3">
-                          <span className="rounded-full bg-white/90 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-600 shadow-sm backdrop-blur-sm">
+                          <span className="rounded-full bg-white/90 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-blue-600 shadow-sm backdrop-blur-sm">
                             {product.category}
                           </span>
                         </div>
                         {selectedBranch && (
                           <div className="absolute bottom-3 left-3 right-3">
                             {stock > 0 ? (
-                              <span className="flex w-fit items-center gap-1.5 rounded-full bg-emerald-500/90 px-3 py-1.5 text-[10px] font-bold text-white shadow-lg backdrop-blur-sm">
+                              <span className="flex w-fit items-center gap-1.5 rounded-full bg-blue-500/90 px-3 py-1.5 text-[10px] font-bold text-white shadow-lg backdrop-blur-sm">
                                 <CheckCircle2 className="h-3 w-3" /> In Stock ({stock})
                               </span>
                             ) : (
@@ -527,7 +527,7 @@ export default function Shop() {
                           onClick={() => setSelectedProduct(product)}
                           className="mb-2 cursor-pointer"
                         >
-                          <h3 className="line-clamp-1 text-sm font-black tracking-tight text-slate-900 transition-colors group-hover:text-emerald-600 lg:text-[15px]">
+                          <h3 className="line-clamp-1 text-sm font-black tracking-tight text-slate-900 transition-colors group-hover:text-blue-600 lg:text-[15px]">
                             {product.name}
                           </h3>
                           <p className="h-8 line-clamp-2 text-[11px] leading-relaxed text-slate-500 lg:text-xs">
@@ -552,7 +552,7 @@ export default function Shop() {
                             className={`rounded-xl p-2 shadow-md transition-all hover:shadow-lg ${
                               selectedBranch && stock === 0
                                 ? 'cursor-not-allowed bg-slate-100 text-slate-300'
-                                : 'bg-emerald-600 text-white hover:scale-105 hover:bg-emerald-700'
+                                : 'bg-blue-600 text-white hover:scale-105 hover:bg-blue-700'
                             }`}
                           >
                             <Plus className="h-5 w-5" />
@@ -580,7 +580,7 @@ export default function Shop() {
                       onClick={() => handlePageChange(idx + 1)}
                       className={`h-12 w-12 rounded-xl text-sm font-bold shadow-sm transition-all ${
                         currentPage === idx + 1
-                          ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-100'
+                          ? 'bg-blue-600 text-white shadow-lg shadow-blue-100'
                           : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                       }`}
                     >

@@ -1,55 +1,45 @@
-# Call_Template_Single (Next.js)
+# nexOOS Frontend
 
-Minimal Next.js + TypeScript project that **calls reusable CI/CD workflows** from the `CICD-Fe_Single-test` repository.
+This folder now contains the `System 4` frontend adapted to the main group repo structure.
 
-## Local Commands
+## What is included
+
+- Next.js frontend app
+- Frontend-side API routes under `src/app/api`
+- Dockerfile compatible with this folder structure
+
+## What is not included
+
+- Backend source code
+- Root-level shared `.env` assumptions from the original `System4` workspace
+
+## Environment variables
+
+Create `.env.local` in this folder and provide the values your deployment uses.
+
+```bash
+NEXT_PUBLIC_API_BASE_URL=http://localhost:4000
+BACKEND_PROXY_BASE_URL=http://localhost:4000
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+NEXT_PUBLIC_SECOND_SUPABASE_URL=
+NEXT_PUBLIC_SECOND_SUPABASE_ANON_KEY=
+SECOND_SUPABASE_URL=
+SECOND_SUPABASE_ANON_KEY=
+SECOND_SUPABASE_SERVICE_ROLE_KEY=
+JWT_SECRET=
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+MAIL_USER=
+MAIL_PASS=
+GOOGLE_GENAI_API_KEY=
+```
+
+## Local commands
 
 ```bash
 npm install
 npm run dev
-npm run test
-npm run lint
 npm run build
+npm run lint
+npm test
 ```
-
-## CI/CD Setup Required
-
-This repository does **not** contain its own workflow definitions.  
-Instead, `.github/workflows/master-pipeline-fe-single.yml` calls the reusable workflows hosted in `CICD-Fe_Single-test`.
-
-### 1) Required Branches
-
-- `test`
-- `uat`
-- `main`
-
-### 2) Required Repository Secrets
-
-- `VERCEL_TOKEN`
-- `VERCEL_ORG_ID`
-- A secret that stores your Vercel Project ID (for example: `VERCEL_PROJECT_ID_FE_SINGLE`)
-
-For PR auto-creation jobs, also provide one of:
-
-- `GH_PR_TOKEN` (preferred), or
-- `GHPR_TOKEN` (legacy)
-
-### 3) Required Repository Variable
-
-- `FE_SINGLE_SYSTEM_JSON`
-  - A JSON object (or one-item array) with keys: `name`, `dir`, `image`, `vercel_project_secret`.
-  - Example: `{"name":"Frontend-Root","dir":".","image":"fe-single-web","vercel_project_secret":"VERCEL_PROJECT_ID_FE_SINGLE"}`
-
-### 4) Update Workflow Reference
-
-In `.github/workflows/master-pipeline-fe-single.yml`, replace `OWNER/CICD-Fe_Single-test` with the actual GitHub owner/org and repo name where the reusable workflows are hosted.
-
-### 5) Vercel Project Settings
-
-- Link this repository to a Vercel project.
-- Set Vercel Root Directory to `.` for this single frontend setup.
-
-## Notes
-
-- Unit tests generate `coverage/coverage-summary.json` for the test workflow.
-- `Dockerfile` is included so the existing Docker build workflow on `main` can run.

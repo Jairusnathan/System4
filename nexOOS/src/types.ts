@@ -1,0 +1,59 @@
+export interface Order {
+  id: string;
+  orderNumber?: string;
+  txNo?: string;
+  date: string;
+  items: CartItem[];
+  subtotal?: number;
+  deliveryFee?: number;
+  discountAmount?: number;
+  promoCode?: string;
+  total: number;
+  status: 'Processing' | 'In Transit' | 'Delivered';
+  shippingAddress: string;
+  paymentMethod: string;
+}
+
+export interface Product {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  category: string;
+  image: string;
+  images?: string[];
+  specifications?: Record<string, string>;
+  stock?: number;
+}
+
+export interface CartItem extends Product {
+  quantity: number;
+}
+
+export interface Branch {
+  id: number;
+  name: string;
+  address: string;
+  phone: string;
+  opening_time: string;
+  closing_time: string;
+  is_active: boolean;
+}
+
+export interface BranchInventory {
+  branch_id: number;
+  product_id: string;
+  stock: number;
+}
+
+export interface User {
+  id: string;
+  full_name: string;
+  email: string;
+  phone?: string;
+  birthday?: string;
+  gender?: string;
+  dob?: string;
+  address?: string;
+  profile_image?: string;
+}

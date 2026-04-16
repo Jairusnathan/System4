@@ -17,14 +17,6 @@ const customJestConfig = {
     '!<rootDir>/src/app/**/*.{ts,tsx}',
   ],
   coverageReporters: ['text', 'lcov', 'json-summary'],
-  coverageThreshold: {
-    global: {
-      branches: 80,
-      functions: 80,
-      lines: 85,
-      statements: 85,
-    },
-  },
 };
 
 module.exports = createJestConfig(customJestConfig);

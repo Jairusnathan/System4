@@ -53,7 +53,7 @@ export default function Navbar() {
     }
 
     const controller = new AbortController();
-    const timeout = window.setTimeout(async () => {
+    const timeout = globalThis.setTimeout(async () => {
       try {
         const response = await fetch(
           buildApiUrl(`/api/products/suggestions?q=${encodeURIComponent(trimmedQuery)}&limit=6`),
@@ -76,7 +76,7 @@ export default function Navbar() {
 
     return () => {
       controller.abort();
-      window.clearTimeout(timeout);
+      globalThis.clearTimeout(timeout);
     };
   }, [searchQuery]);
 

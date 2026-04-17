@@ -2,7 +2,7 @@
 
 import React, { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { User, Package, MapPin, LogOut, ChevronRight, Clock, CheckCircle2, Truck, X, Settings, Bell, Lock, Calendar, Phone, Mail, Camera, ArrowLeft, Trash2 } from 'lucide-react';
+import { User, Package, MapPin, LogOut, ChevronRight, Clock, CheckCircle2, X, Settings, Lock, Camera, ArrowLeft, Trash2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import {
   ensureAccessToken,
@@ -199,7 +199,7 @@ export default function Account() {
       } else {
         setSaveStatus({ type: 'error', message: data.error || 'Failed to update profile' });
       }
-    } catch (error) {
+    } catch {
       setSaveStatus({ type: 'error', message: 'An error occurred' });
     } finally {
       setIsSaving(false);
@@ -272,7 +272,7 @@ export default function Account() {
       setSaveStatus({ type: 'success', message: successMessage });
       setTimeout(() => setSaveStatus({ type: null, message: '' }), 3000);
       return true;
-    } catch (error) {
+    } catch {
       setSaveStatus({ type: 'error', message: 'An error occurred' });
       return false;
     } finally {
@@ -477,8 +477,9 @@ export default function Account() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <label className="block text-sm font-bold text-slate-700 mb-2">Full Name</label>
+          <label htmlFor="account-profile-full-name" className="block text-sm font-bold text-slate-700 mb-2">Full Name</label>
           <input 
+            id="account-profile-full-name"
             type="text"
             value={profileData.fullName}
             onChange={(e) => setProfileData({...profileData, fullName: e.target.value})}
@@ -491,8 +492,9 @@ export default function Account() {
           />
         </div>
         <div>
-          <label className="block text-sm font-bold text-slate-700 mb-2">Email Address</label>
+          <label htmlFor="account-profile-email" className="block text-sm font-bold text-slate-700 mb-2">Email Address</label>
           <input 
+            id="account-profile-email"
             type="email"
             value={profileData.email}
             readOnly
@@ -501,8 +503,9 @@ export default function Account() {
           <p className="mt-2 text-xs font-bold text-slate-400 uppercase tracking-wider">Email can’t be edited here</p>
         </div>
         <div>
-          <label className="block text-sm font-bold text-slate-700 mb-2">Phone Number</label>
+          <label htmlFor="account-profile-phone" className="block text-sm font-bold text-slate-700 mb-2">Phone Number</label>
           <input 
+            id="account-profile-phone"
             type="tel"
             value={profileData.phone}
             onChange={(e) => setProfileData({...profileData, phone: e.target.value})}
@@ -516,9 +519,10 @@ export default function Account() {
           />
         </div>
         <div>
-          <label className="block text-sm font-bold text-slate-700 mb-2">Date of Birth</label>
+          <label htmlFor="account-profile-birthday" className="block text-sm font-bold text-slate-700 mb-2">Date of Birth</label>
           <div className="relative">
             <input 
+              id="account-profile-birthday"
               type="date"
               value={profileData.birthday}
               onChange={(e) => setProfileData({...profileData, birthday: e.target.value})}
@@ -708,8 +712,9 @@ export default function Account() {
 
                 <div className="grid grid-cols-1 gap-4 mb-4 md:grid-cols-2">
                   <div className="relative rounded-2xl border border-slate-200 bg-slate-50/70 px-4 pt-6 pb-3 shadow-sm shadow-slate-100/70 transition-colors focus-within:border-orange-400 focus-within:bg-white focus-within:shadow-orange-100">
-                    <label className="absolute -top-2 left-4 bg-white px-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Full Name</label>
+                    <label htmlFor="account-address-full-name" className="absolute -top-2 left-4 bg-white px-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Full Name</label>
                     <input
+                      id="account-address-full-name"
                       type="text"
                       value={addressFormData.fullName}
                       onChange={(e) => setAddressFormData((prev) => ({ ...prev, fullName: e.target.value }))}
@@ -717,8 +722,9 @@ export default function Account() {
                     />
                   </div>
                   <div className="relative rounded-2xl border border-slate-200 bg-slate-50/70 px-4 pt-6 pb-3 shadow-sm shadow-slate-100/70 transition-colors focus-within:border-orange-400 focus-within:bg-white focus-within:shadow-orange-100">
-                    <label className="absolute -top-2 left-4 bg-white px-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Phone Number</label>
+                    <label htmlFor="account-address-phone" className="absolute -top-2 left-4 bg-white px-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Phone Number</label>
                     <input
+                      id="account-address-phone"
                       type="text"
                       value={addressFormData.phoneNumber}
                       onChange={(e) => setAddressFormData((prev) => ({ ...prev, phoneNumber: e.target.value }))}
@@ -731,7 +737,7 @@ export default function Account() {
                 <div className="grid grid-cols-1 gap-4 mb-4 md:grid-cols-2">
                   <div className="relative">
                     <div className="relative rounded-2xl border border-slate-200 bg-slate-50/70 px-4 pt-6 pb-3 shadow-sm shadow-slate-100/70 transition-colors focus-within:border-orange-400 focus-within:bg-white focus-within:shadow-orange-100">
-                      <label className="absolute -top-2 left-4 bg-white px-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Province</label>
+                      <label htmlFor="account-address-province" className="absolute -top-2 left-4 bg-white px-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Province</label>
                       <button
                         type="button"
                         onClick={() => {
@@ -741,6 +747,7 @@ export default function Account() {
                         className="flex w-full items-center gap-3 text-left"
                       >
                         <input
+                          id="account-address-province"
                           type="text"
                           readOnly
                           value={addressFormData.province}
@@ -779,7 +786,7 @@ export default function Account() {
 
                   <div className="relative">
                     <div className="relative rounded-2xl border border-slate-200 bg-slate-50/70 px-4 pt-6 pb-3 shadow-sm shadow-slate-100/70 transition-colors focus-within:border-orange-400 focus-within:bg-white focus-within:shadow-orange-100">
-                      <label className="absolute -top-2 left-4 bg-white px-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">City</label>
+                      <label htmlFor="account-address-city" className="absolute -top-2 left-4 bg-white px-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">City</label>
                       <button
                         type="button"
                         onClick={() => {
@@ -789,6 +796,7 @@ export default function Account() {
                         className="flex w-full items-center gap-3 text-left"
                       >
                         <input
+                          id="account-address-city"
                           type="text"
                           readOnly
                           value={addressFormData.city}
@@ -829,8 +837,9 @@ export default function Account() {
                 </div>
 
                 <div className="relative mb-4 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 pt-6 pb-3 shadow-sm shadow-slate-100/70 transition-colors focus-within:border-orange-400 focus-within:bg-white focus-within:shadow-orange-100">
-                  <label className="absolute -top-2 left-4 bg-white px-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Postal Code</label>
+                  <label htmlFor="account-address-postal-code" className="absolute -top-2 left-4 bg-white px-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Postal Code</label>
                   <input
+                    id="account-address-postal-code"
                     type="text"
                     value={addressFormData.postalCode}
                     onChange={(e) => setAddressFormData((prev) => ({ ...prev, postalCode: e.target.value }))}
@@ -839,8 +848,9 @@ export default function Account() {
                 </div>
 
                 <div className="relative mb-8 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 pt-6 pb-3 shadow-sm shadow-slate-100/70 transition-colors focus-within:border-orange-400 focus-within:bg-white focus-within:shadow-orange-100">
-                  <label className="absolute -top-2 left-4 bg-white px-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Street Name, Building, House No.</label>
+                  <label htmlFor="account-address-street" className="absolute -top-2 left-4 bg-white px-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Street Name, Building, House No.</label>
                   <textarea
+                    id="account-address-street"
                     rows={4}
                     value={addressFormData.streetAddress}
                     onChange={(e) => setAddressFormData((prev) => ({ ...prev, streetAddress: e.target.value }))}
@@ -848,8 +858,9 @@ export default function Account() {
                   />
                 </div>
 
-                <label className="mb-6 flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-slate-700 transition-colors hover:border-slate-300 hover:bg-white">
+                <label htmlFor="account-address-default" className="mb-6 flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-slate-700 transition-colors hover:border-slate-300 hover:bg-white">
                   <input
+                    id="account-address-default"
                     type="checkbox"
                     checked={makeAddressDefault}
                     onChange={(e) => setMakeAddressDefault(e.target.checked)}
@@ -1192,7 +1203,11 @@ export default function Account() {
             >
               {accountSubView !== 'addresses' && (
                 <h2 className="text-2xl font-black text-slate-900 mb-10 tracking-tight">
-                  {accountSubView === 'profile' ? 'Profile Details' : accountSubView === 'orders' ? 'Order History' : 'Account Settings'}
+                  {accountSubView === 'profile'
+                    ? 'Profile Details'
+                    : accountSubView === 'orders'
+                      ? 'Order History'
+                      : 'Account Settings'}
                 </h2>
               )}
               
@@ -1357,7 +1372,7 @@ export default function Account() {
                         } else {
                           setPasswordStatus({ type: 'error', message: data.error || 'Failed to update password' });
                         }
-                      } catch (err) {
+                      } catch {
                         setPasswordStatus({ type: 'error', message: 'An error occurred. Please try again.' });
                       } finally {
                         setIsUpdatingPassword(false);

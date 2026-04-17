@@ -123,7 +123,7 @@ export default function Shop() {
       return;
     }
 
-    const timeout = window.setTimeout(() => {
+    const timeout = globalThis.setTimeout(() => {
       fetch(buildApiUrl('/api/analytics/search'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -136,7 +136,7 @@ export default function Shop() {
       lastTrackedQuery.current = trimmedQuery;
     }, 400);
 
-    return () => window.clearTimeout(timeout);
+    return () => globalThis.clearTimeout(timeout);
   }, [searchQuery]);
 
   const totalPages = Math.ceil(products.length / productsPerPage);
@@ -154,7 +154,7 @@ export default function Shop() {
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    globalThis.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const clearAllFilters = () => {
@@ -190,11 +190,11 @@ export default function Shop() {
       return;
     }
 
-    const timeout = window.setTimeout(() => {
+    const timeout = globalThis.setTimeout(() => {
       setAddedProductName('');
     }, 1800);
 
-    return () => window.clearTimeout(timeout);
+    return () => globalThis.clearTimeout(timeout);
   }, [addedProductName]);
 
   return (
@@ -354,7 +354,7 @@ export default function Shop() {
 
               <div className="hidden h-9 w-px bg-slate-200 sm:block" />
 
-              <label className="flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-500">
+              <div className="flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-500">
                 <span className="font-medium">Sort by</span>
                 <div className="relative">
                   <select
@@ -370,7 +370,7 @@ export default function Shop() {
                   </select>
                   <ChevronDown className="pointer-events-none absolute right-0 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
                 </div>
-              </label>
+              </div>
             </div>
           </div>
         </div>
@@ -407,8 +407,9 @@ export default function Shop() {
                 className="w-24 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:bg-white lg:w-28"
               />
             </div>
-            <label className="flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700">
+            <label htmlFor="shop-in-stock-only" className="flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700">
               <input
+                id="shop-in-stock-only"
                 type="checkbox"
                 checked={inStockOnly}
                 onChange={(event) => setInStockOnly(event.target.checked)}
@@ -446,7 +447,7 @@ export default function Shop() {
               </h3>
               <p className="mx-auto mb-8 max-w-xs text-slate-500">{error}</p>
               <button
-                onClick={() => window.location.reload()}
+                onClick={() => globalThis.location.reload()}
                 className="rounded-xl bg-blue-600 px-8 py-3 font-bold text-white shadow-lg shadow-blue-100 transition-colors hover:bg-blue-700"
               >
                 Retry
@@ -548,7 +549,7 @@ export default function Shop() {
                                 setView('login');
                               }
                             }}
-                            disabled={selectedBranch && stock === 0}
+                            disabled={Boolean(selectedBranch && stock === 0)}
                             className={`rounded-xl p-2 shadow-md transition-all hover:shadow-lg ${
                               selectedBranch && stock === 0
                                 ? 'cursor-not-allowed bg-slate-100 text-slate-300'
@@ -574,7 +575,7 @@ export default function Shop() {
                     <ChevronLeft className="h-5 w-5" />
                   </button>
 
-                  {[...Array(totalPages)].map((_, idx) => (
+                  {Array.from({ length: totalPages }, (_, idx) => (
                     <button
                       key={idx}
                       onClick={() => handlePageChange(idx + 1)}

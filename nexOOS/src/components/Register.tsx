@@ -29,6 +29,17 @@ export default function Register() {
   const [showAccountCreatedModal, setShowAccountCreatedModal] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const registerFieldIds = {
+    fullName: 'register-full-name',
+    phone: 'register-phone',
+    email: 'register-email',
+    birthday: 'register-birthday',
+    gender: 'register-gender',
+    password: 'register-password',
+    confirmPassword: 'register-confirm-password',
+    agreeToTerms: 'register-agree-terms',
+    verificationCode: 'register-verification-code',
+  } as const;
 
   useBodyScrollLock(showAccountCreatedModal);
 
@@ -129,7 +140,7 @@ export default function Register() {
       } else {
         setError(data.error || 'Verification failed');
       }
-    } catch (err) {
+    } catch {
       setError('Something went wrong. Please try again.');
     } finally {
       setIsLoading(false);
@@ -210,10 +221,11 @@ export default function Register() {
         {registerStep === 'form' ? (
           <form onSubmit={handleRegister} className="space-y-6">
             <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Full Name</label>
+              <label htmlFor={registerFieldIds.fullName} className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Full Name</label>
               <div className="relative">
                 <User className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                 <input
+                  id={registerFieldIds.fullName}
                   type="text"
                   required
                   value={formData.fullName}
@@ -224,10 +236,11 @@ export default function Register() {
               </div>
             </div>
             <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Phone Number</label>
+              <label htmlFor={registerFieldIds.phone} className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Phone Number</label>
               <div className="relative">
                 <User className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                 <input
+                  id={registerFieldIds.phone}
                   type="tel"
                   required
                   value={formData.phone}
@@ -238,10 +251,11 @@ export default function Register() {
               </div>
             </div>
             <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Email Address</label>
+              <label htmlFor={registerFieldIds.email} className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Email Address</label>
               <div className="relative">
                 <Mail className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                 <input
+                  id={registerFieldIds.email}
                   type="email"
                   required
                   value={formData.email}
@@ -253,10 +267,11 @@ export default function Register() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Birthday</label>
+                <label htmlFor={registerFieldIds.birthday} className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Birthday</label>
                 <div className="relative">
                   <Calendar className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
                   <input
+                    id={registerFieldIds.birthday}
                     type="date"
                     required
                     value={formData.birthday}
@@ -266,10 +281,11 @@ export default function Register() {
                 </div>
               </div>
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Gender</label>
+                <label htmlFor={registerFieldIds.gender} className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Gender</label>
                 <div className="relative">
                   <User className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
                   <select
+                    id={registerFieldIds.gender}
                     required
                     value={formData.gender}
                     onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
@@ -287,9 +303,10 @@ export default function Register() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Password</label>
+                <label htmlFor={registerFieldIds.password} className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Password</label>
                 <div className="relative">
                   <input
+                    id={registerFieldIds.password}
                     type={showPassword ? 'text' : 'password'}
                     required
                     value={formData.password}
@@ -300,6 +317,7 @@ export default function Register() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                     className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-slate-400"
                   >
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
@@ -307,9 +325,10 @@ export default function Register() {
                 </div>
               </div>
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Confirm Password</label>
+                <label htmlFor={registerFieldIds.confirmPassword} className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Confirm Password</label>
                 <div className="relative">
                   <input
+                    id={registerFieldIds.confirmPassword}
                     type={showConfirmPassword ? 'text' : 'password'}
                     required
                     value={formData.confirmPassword}
@@ -320,6 +339,7 @@ export default function Register() {
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
                     className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-slate-400"
                   >
                     {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
@@ -329,8 +349,8 @@ export default function Register() {
             </div>
 
             <div className="px-2">
-              <label className="flex items-center gap-2 cursor-pointer group">
-                <input type="checkbox" required className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+              <label htmlFor={registerFieldIds.agreeToTerms} className="flex items-center gap-2 cursor-pointer group">
+                <input id={registerFieldIds.agreeToTerms} type="checkbox" required className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
                 <span className="text-sm font-bold text-slate-500 group-hover:text-slate-700 transition-colors">I agree to the Terms of Service and Privacy Policy</span>
               </label>
             </div>
@@ -360,8 +380,9 @@ export default function Register() {
             </div>
 
             <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Verification Code</label>
+              <label htmlFor={registerFieldIds.verificationCode} className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Verification Code</label>
               <input
+                id={registerFieldIds.verificationCode}
                 type="text"
                 inputMode="numeric"
                 maxLength={6}

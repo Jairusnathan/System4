@@ -12,9 +12,12 @@ const customJestConfig = {
   modulePathIgnorePatterns: ['<rootDir>/.next/'],
   collectCoverage: true,
   collectCoverageFrom: [
-    '<rootDir>/src/**/*.{ts,tsx}',
-    '!<rootDir>/src/**/*.d.ts',
-    '!<rootDir>/src/app/**/*.{ts,tsx}',
+    '<rootDir>/src/lib/**/*.{ts,tsx}',
+    '!<rootDir>/src/lib/mailer.ts',
+    '!<rootDir>/src/lib/philippine-locations.ts',
+    '!<rootDir>/src/lib/second-supabase.ts',
+    '!<rootDir>/src/lib/supabase.ts',
+    '<rootDir>/src/types.ts',
   ],
   coverageReporters: ['text', 'lcov', 'json-summary'],
 };

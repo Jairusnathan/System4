@@ -117,7 +117,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const token = getAccessToken();
     if (token) {
       setIsLoggedIn(true);
-      fetchUserProfile(token);
+      fetchUserProfile();
     }
 
     const savedCart = localStorage.getItem(CART_STORAGE_KEY);
@@ -140,6 +140,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     fetchBranches();
+    // These startup loaders intentionally run once during client hydration.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -177,7 +179,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const fetchUserProfile = async (token: string) => {
+  const fetchUserProfile = async () => {
     try {
       const res = await fetchWithAuth('/api/auth/me');
       const data = await res.json();

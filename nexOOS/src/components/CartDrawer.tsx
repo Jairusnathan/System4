@@ -9,7 +9,7 @@ import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 export default function CartDrawer() {
   const { 
     isLoggedIn,
-    view, setView,
+    setView,
     cart, setCart,
     isCartOpen, setIsCartOpen,
     updateQuantity,

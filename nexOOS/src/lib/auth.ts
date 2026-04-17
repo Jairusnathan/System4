@@ -38,7 +38,7 @@ export function verifyAccessToken(token: string) {
     }
 
     return decoded;
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -54,7 +54,7 @@ export function verifyRefreshToken(token: string) {
     }
 
     return decoded;
-  } catch (error) {
+  } catch {
     return null;
   }
 }

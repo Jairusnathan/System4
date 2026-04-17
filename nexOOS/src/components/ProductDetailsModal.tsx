@@ -181,7 +181,7 @@ export default function ProductDetailsModal() {
                           setView('login');
                         }
                       }}
-                      disabled={selectedBranch && stock === 0}
+                      disabled={Boolean(selectedBranch && stock === 0)}
                       className={`flex-1 py-4 rounded-xl font-bold text-lg transition-colors flex items-center justify-center gap-2 ${
                         selectedBranch && stock === 0 
                           ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
@@ -202,7 +202,7 @@ export default function ProductDetailsModal() {
                           setView('login');
                         }
                       }}
-                      disabled={selectedBranch && stock === 0}
+                      disabled={Boolean(selectedBranch && stock === 0)}
                       className={`flex-1 py-4 rounded-xl font-bold text-lg transition-colors shadow-md hover:shadow-lg flex items-center justify-center gap-2 ${
                         selectedBranch && stock === 0 
                           ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 

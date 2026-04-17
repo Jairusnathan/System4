@@ -182,7 +182,7 @@ export default function Checkout() {
   const discountAmount = appliedPromo?.discountAmount ?? 0;
   const orderTotal = Math.max(0, cartTotal + deliveryFee - discountAmount);
 
-  const applySavedAddress = (address: SavedAddress) => {
+  const applySavedAddress = React.useCallback((address: SavedAddress) => {
     setShippingInfo({
       fullName: address.fullName || user?.full_name || '',
       phone: address.phoneNumber || user?.phone || '',
@@ -192,7 +192,7 @@ export default function Checkout() {
       postalCode: address.postalCode || '',
     });
     setShippingError('');
-  };
+  }, [user?.full_name, user?.phone]);
 
   const persistCheckoutAddresses = async (nextAddresses: SavedAddress[]) => {
     if (!user) {
@@ -275,7 +275,7 @@ export default function Checkout() {
       fullName: user?.full_name || prev.fullName,
       phone: user?.phone || prev.phone,
     }));
-  }, [user?.address, user?.full_name, user?.phone]);
+  }, [applySavedAddress, user, user?.address, user?.full_name, user?.phone]);
 
   React.useEffect(() => {
     const address = shippingInfo.address.trim();
@@ -294,7 +294,7 @@ export default function Checkout() {
     setDeliveryEstimateStatus('loading');
     setDeliveryEstimateError('');
 
-    const timeoutId = window.setTimeout(async () => {
+    const timeoutId = globalThis.setTimeout(async () => {
       try {
         const res = await fetch(buildApiUrl('/api/delivery/estimate'), {
           method: 'POST',
@@ -337,7 +337,7 @@ export default function Checkout() {
 
     return () => {
       cancelled = true;
-      window.clearTimeout(timeoutId);
+      globalThis.clearTimeout(timeoutId);
     };
   }, [shippingInfo.address, shippingInfo.city, shippingInfo.province]);
 
@@ -356,7 +356,7 @@ export default function Checkout() {
     setPromoStatus('checking');
     setPromoMessage('');
 
-    const timeoutId = window.setTimeout(async () => {
+    const timeoutId = globalThis.setTimeout(async () => {
       try {
         const res = await fetch(buildApiUrl('/api/promos/validate'), {
           method: 'POST',
@@ -399,7 +399,7 @@ export default function Checkout() {
 
     return () => {
       cancelled = true;
-      window.clearTimeout(timeoutId);
+      globalThis.clearTimeout(timeoutId);
     };
   }, [promoCodeInput, cartTotal]);
 
@@ -776,8 +776,9 @@ export default function Checkout() {
                             <div className="mt-6">
                               <div className="grid grid-cols-1 gap-4 mb-4 md:grid-cols-2">
                                 <div className="relative rounded-2xl border border-slate-200 bg-slate-50/70 px-4 pt-6 pb-3 shadow-sm shadow-slate-100/70 transition-colors focus-within:border-blue-400 focus-within:bg-white focus-within:shadow-blue-100">
-                                  <label className="absolute -top-2 left-4 bg-white px-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Full Name</label>
+                                  <label htmlFor="checkout-address-full-name" className="absolute -top-2 left-4 bg-white px-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Full Name</label>
                                   <input
+                                    id="checkout-address-full-name"
                                     type="text"
                                     value={checkoutAddressForm.fullName}
                                     onChange={(e) => setCheckoutAddressForm((prev) => ({ ...prev, fullName: e.target.value }))}
@@ -785,8 +786,9 @@ export default function Checkout() {
                                   />
                                 </div>
                                 <div className="relative rounded-2xl border border-slate-200 bg-slate-50/70 px-4 pt-6 pb-3 shadow-sm shadow-slate-100/70 transition-colors focus-within:border-blue-400 focus-within:bg-white focus-within:shadow-blue-100">
-                                  <label className="absolute -top-2 left-4 bg-white px-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Phone Number</label>
+                                  <label htmlFor="checkout-address-phone" className="absolute -top-2 left-4 bg-white px-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Phone Number</label>
                                   <input
+                                    id="checkout-address-phone"
                                     type="text"
                                     value={checkoutAddressForm.phoneNumber}
                                     onChange={(e) => setCheckoutAddressForm((prev) => ({ ...prev, phoneNumber: e.target.value }))}
@@ -799,7 +801,7 @@ export default function Checkout() {
                               <div className="grid grid-cols-1 gap-4 mb-4 md:grid-cols-2">
                                 <div className="relative">
                                   <div className="relative rounded-2xl border border-slate-200 bg-slate-50/70 px-4 pt-6 pb-3 shadow-sm shadow-slate-100/70 transition-colors focus-within:border-blue-400 focus-within:bg-white focus-within:shadow-blue-100">
-                                    <label className="absolute -top-2 left-4 bg-white px-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Province</label>
+                                    <label htmlFor="checkout-address-province" className="absolute -top-2 left-4 bg-white px-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Province</label>
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -808,8 +810,9 @@ export default function Checkout() {
                                       }}
                                       className="flex w-full items-center gap-3 text-left"
                                     >
-                                      <input
-                                        type="text"
+                                        <input
+                                          id="checkout-address-province"
+                                          type="text"
                                         readOnly
                                         value={checkoutAddressForm.province}
                                         placeholder="Select province"
@@ -847,7 +850,7 @@ export default function Checkout() {
 
                                 <div className="relative">
                                   <div className="relative rounded-2xl border border-slate-200 bg-slate-50/70 px-4 pt-6 pb-3 shadow-sm shadow-slate-100/70 transition-colors focus-within:border-blue-400 focus-within:bg-white focus-within:shadow-blue-100">
-                                    <label className="absolute -top-2 left-4 bg-white px-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">City</label>
+                                    <label htmlFor="checkout-address-city" className="absolute -top-2 left-4 bg-white px-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">City</label>
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -856,8 +859,9 @@ export default function Checkout() {
                                       }}
                                       className="flex w-full items-center gap-3 text-left"
                                     >
-                                      <input
-                                        type="text"
+                                        <input
+                                          id="checkout-address-city"
+                                          type="text"
                                         readOnly
                                         value={checkoutAddressForm.city}
                                         placeholder="Select city"
@@ -897,8 +901,9 @@ export default function Checkout() {
                               </div>
 
                               <div className="relative mb-4 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 pt-6 pb-3 shadow-sm shadow-slate-100/70 transition-colors focus-within:border-blue-400 focus-within:bg-white focus-within:shadow-blue-100">
-                                <label className="absolute -top-2 left-4 bg-white px-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Postal Code</label>
+                                <label htmlFor="checkout-address-postal-code" className="absolute -top-2 left-4 bg-white px-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Postal Code</label>
                                 <input
+                                  id="checkout-address-postal-code"
                                   type="text"
                                   value={checkoutAddressForm.postalCode}
                                   onChange={(e) => setCheckoutAddressForm((prev) => ({ ...prev, postalCode: e.target.value }))}
@@ -907,8 +912,9 @@ export default function Checkout() {
                               </div>
 
                               <div className="relative mb-8 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 pt-6 pb-3 shadow-sm shadow-slate-100/70 transition-colors focus-within:border-blue-400 focus-within:bg-white focus-within:shadow-blue-100">
-                                <label className="absolute -top-2 left-4 bg-white px-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Street Name, Building, House No.</label>
+                                <label htmlFor="checkout-address-street" className="absolute -top-2 left-4 bg-white px-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Street Name, Building, House No.</label>
                                 <textarea
+                                  id="checkout-address-street"
                                   rows={4}
                                   value={checkoutAddressForm.streetAddress}
                                   onChange={(e) => setCheckoutAddressForm((prev) => ({ ...prev, streetAddress: e.target.value }))}
@@ -916,8 +922,9 @@ export default function Checkout() {
                                 />
                               </div>
 
-                              <label className="mb-6 flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-slate-700 transition-colors hover:border-slate-300 hover:bg-white">
+                              <label htmlFor="checkout-address-default" className="mb-6 flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-slate-700 transition-colors hover:border-slate-300 hover:bg-white">
                                 <input
+                                  id="checkout-address-default"
                                   type="checkbox"
                                   checked={checkoutMakeDefault}
                                   onChange={(e) => setCheckoutMakeDefault(e.target.checked)}
@@ -1082,8 +1089,9 @@ export default function Checkout() {
                       className="space-y-4 overflow-hidden mt-6"
                     >
                       <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-1.5">Card Number *</label>
+                        <label htmlFor="checkout-card-number" className="block text-sm font-bold text-slate-700 mb-1.5">Card Number *</label>
                         <input 
+                          id="checkout-card-number"
                           type="text"
                           placeholder="0000 0000 0000 0000"
                           value={cardInfo.number}
@@ -1092,8 +1100,9 @@ export default function Checkout() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-1.5">Cardholder Name *</label>
+                        <label htmlFor="checkout-cardholder-name" className="block text-sm font-bold text-slate-700 mb-1.5">Cardholder Name *</label>
                         <input 
+                          id="checkout-cardholder-name"
                           type="text"
                           placeholder="JUAN DELA CRUZ"
                           value={cardInfo.name}
@@ -1103,8 +1112,9 @@ export default function Checkout() {
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-sm font-bold text-slate-700 mb-1.5">Expiry Date *</label>
+                          <label htmlFor="checkout-card-expiry" className="block text-sm font-bold text-slate-700 mb-1.5">Expiry Date *</label>
                           <input 
+                            id="checkout-card-expiry"
                             type="text"
                             placeholder="MM/YY"
                             value={cardInfo.expiry}
@@ -1113,8 +1123,9 @@ export default function Checkout() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-bold text-slate-700 mb-1.5">CVV *</label>
+                          <label htmlFor="checkout-card-cvv" className="block text-sm font-bold text-slate-700 mb-1.5">CVV *</label>
                           <input 
+                            id="checkout-card-cvv"
                             type="text"
                             placeholder="123"
                             value={cardInfo.cvv}
@@ -1143,8 +1154,9 @@ export default function Checkout() {
 
                       <div className="space-y-4">
                         <div>
-                          <label className="block text-sm font-bold text-slate-700 mb-1.5">Your GCash Number *</label>
+                          <label htmlFor="checkout-gcash-number" className="block text-sm font-bold text-slate-700 mb-1.5">Your GCash Number *</label>
                           <input 
+                            id="checkout-gcash-number"
                             type="text"
                             placeholder="09XX-XXX-XXXX"
                             value={gcashInfo.number}
@@ -1153,8 +1165,9 @@ export default function Checkout() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-bold text-slate-700 mb-1.5">GCash Reference Number *</label>
+                          <label htmlFor="checkout-gcash-reference" className="block text-sm font-bold text-slate-700 mb-1.5">GCash Reference Number *</label>
                           <input 
+                            id="checkout-gcash-reference"
                             type="text"
                             placeholder="Enter reference number"
                             value={gcashInfo.reference}
@@ -1183,8 +1196,9 @@ export default function Checkout() {
 
                       <div className="space-y-4">
                         <div>
-                          <label className="block text-sm font-bold text-slate-700 mb-1.5">Your Maya Number *</label>
+                          <label htmlFor="checkout-maya-number" className="block text-sm font-bold text-slate-700 mb-1.5">Your Maya Number *</label>
                           <input 
+                            id="checkout-maya-number"
                             type="text"
                             placeholder="09XX-XXX-XXXX"
                             value={mayaInfo.number}
@@ -1193,8 +1207,9 @@ export default function Checkout() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-bold text-slate-700 mb-1.5">Maya Reference Number *</label>
+                          <label htmlFor="checkout-maya-reference" className="block text-sm font-bold text-slate-700 mb-1.5">Maya Reference Number *</label>
                           <input 
+                            id="checkout-maya-reference"
                             type="text"
                             placeholder="Enter reference number"
                             value={mayaInfo.reference}

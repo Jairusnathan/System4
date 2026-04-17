@@ -35,6 +35,15 @@ export default function Login() {
     new: false,
     confirm: false
   });
+  const loginFieldIds = {
+    email: 'login-email',
+    password: 'login-password',
+    rememberMe: 'login-remember-me',
+    forgotEmail: 'forgot-email',
+    forgotCode: 'forgot-code',
+    forgotPassword: 'forgot-password',
+    forgotConfirmPassword: 'forgot-confirm-password',
+  } as const;
 
   useBodyScrollLock(isForgotModalOpen);
 
@@ -73,7 +82,7 @@ export default function Login() {
       } else {
         setError(data.error || 'Invalid credentials');
       }
-    } catch (error) {
+    } catch {
       setError('Something went wrong. Please try again.');
     } finally {
       setIsLoading(false);
@@ -161,7 +170,7 @@ export default function Login() {
       } else {
         setResetStatus({ type: 'error', message: data.error || 'Failed to update password' });
       }
-    } catch (err) {
+    } catch {
       setResetStatus({ type: 'error', message: 'An error occurred. Please try again.' });
     } finally {
       setIsResetting(false);
@@ -193,7 +202,7 @@ export default function Login() {
       } else {
         setResetStatus({ type: 'error', message: data.error || 'Failed to resend code' });
       }
-    } catch (err) {
+    } catch {
       setResetStatus({ type: 'error', message: 'Unable to resend code right now.' });
     } finally {
       setIsResetting(false);
@@ -234,10 +243,11 @@ export default function Login() {
 
         <form onSubmit={handleLogin} className="space-y-6">
           <div>
-            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Email Address</label>
+            <label htmlFor={loginFieldIds.email} className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Email Address</label>
             <div className="relative">
               <Mail className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
               <input
+                id={loginFieldIds.email}
                 type="email"
                 required
                 value={formData.email}
@@ -248,9 +258,10 @@ export default function Login() {
             </div>
           </div>
           <div>
-            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Password</label>
+            <label htmlFor={loginFieldIds.password} className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Password</label>
             <div className="relative">
               <input
+                id={loginFieldIds.password}
                 type={showPassword ? 'text' : 'password'}
                 required
                 value={formData.password}
@@ -261,6 +272,7 @@ export default function Login() {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
                 className="absolute right-4 top-1/2 -translate-y-1/2 p-2 hover:bg-slate-200 rounded-xl transition-colors text-slate-400 hover:text-slate-600"
               >
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
@@ -269,8 +281,8 @@ export default function Login() {
           </div>
 
           <div className="flex items-center justify-between px-2">
-            <label className="flex items-center gap-2 cursor-pointer group">
-              <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+            <label htmlFor={loginFieldIds.rememberMe} className="flex items-center gap-2 cursor-pointer group">
+              <input id={loginFieldIds.rememberMe} type="checkbox" className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
               <span className="text-sm font-bold text-slate-500 group-hover:text-slate-700 transition-colors">Remember me</span>
             </label>
             <button
@@ -347,8 +359,9 @@ export default function Login() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-4">Email</label>
+                <label htmlFor={loginFieldIds.forgotEmail} className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-4">Email</label>
                 <input
+                  id={loginFieldIds.forgotEmail}
                   type="email"
                   value={forgotData.email}
                   onChange={(e) => setForgotData({ ...forgotData, email: e.target.value })}
@@ -360,8 +373,9 @@ export default function Login() {
 
               {resetStep !== 'email' && (
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-4">Verification Code</label>
+                  <label htmlFor={loginFieldIds.forgotCode} className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-4">Verification Code</label>
                   <input
+                    id={loginFieldIds.forgotCode}
                     type="text"
                     inputMode="numeric"
                     maxLength={6}
@@ -377,9 +391,10 @@ export default function Login() {
               {resetStep === 'password' && (
                 <>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-4">New Password</label>
+                    <label htmlFor={loginFieldIds.forgotPassword} className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-4">New Password</label>
                     <div className="relative">
                       <input
+                        id={loginFieldIds.forgotPassword}
                         type={showForgotPasswords.new ? 'text' : 'password'}
                         value={forgotData.newPassword}
                         onChange={(e) => setForgotData({ ...forgotData, newPassword: e.target.value })}
@@ -389,6 +404,7 @@ export default function Login() {
                       <button
                         type="button"
                         onClick={() => setShowForgotPasswords({ ...showForgotPasswords, new: !showForgotPasswords.new })}
+                        aria-label={showForgotPasswords.new ? 'Hide new password' : 'Show new password'}
                         className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-slate-400"
                       >
                         {showForgotPasswords.new ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -396,9 +412,10 @@ export default function Login() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-4">Confirm New Password</label>
+                    <label htmlFor={loginFieldIds.forgotConfirmPassword} className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-4">Confirm New Password</label>
                     <div className="relative">
                       <input
+                        id={loginFieldIds.forgotConfirmPassword}
                         type={showForgotPasswords.confirm ? 'text' : 'password'}
                         value={forgotData.confirmPassword}
                         onChange={(e) => setForgotData({ ...forgotData, confirmPassword: e.target.value })}
@@ -408,6 +425,7 @@ export default function Login() {
                       <button
                         type="button"
                         onClick={() => setShowForgotPasswords({ ...showForgotPasswords, confirm: !showForgotPasswords.confirm })}
+                        aria-label={showForgotPasswords.confirm ? 'Hide confirm password' : 'Show confirm password'}
                         className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-slate-400"
                       >
                         {showForgotPasswords.confirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}

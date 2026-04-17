@@ -1,8 +1,7 @@
 'use client';
 
 import React from 'react';
-import { motion } from 'motion/react';
-import { ChevronLeft, Package, Truck, CheckCircle2, MapPin, Clock, ShieldCheck, ArrowRight } from 'lucide-react';
+import { ChevronLeft, Package, Truck, CheckCircle2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 
 const getDisplayOrderNumber = (order: { orderNumber?: string; txNo?: string; id: string; date: string }) =>
@@ -86,7 +85,17 @@ export default function OrderStatus() {
                   }`}>
                     <Truck className="w-4 h-4" />
                   </div>
-                  <h3 className={`font-black tracking-tight ${selectedOrder.status === 'In Transit' ? 'text-blue-600' : selectedOrder.status === 'Delivered' ? 'text-slate-900' : 'text-slate-400'}`}>In Transit</h3>
+                  <h3
+                    className={`font-black tracking-tight ${
+                      selectedOrder.status === 'In Transit'
+                        ? 'text-blue-600'
+                        : selectedOrder.status === 'Delivered'
+                          ? 'text-slate-900'
+                          : 'text-slate-400'
+                    }`}
+                  >
+                    In Transit
+                  </h3>
                   <p className="text-sm text-slate-500">Your order is on the way to your delivery address.</p>
                   {selectedOrder.status === 'In Transit' && <p className="text-xs text-blue-500 mt-1 font-bold animate-pulse">Estimated arrival: 15-20 mins</p>}
                 </div>

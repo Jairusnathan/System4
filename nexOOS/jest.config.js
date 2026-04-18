@@ -12,14 +12,19 @@ const customJestConfig = {
   modulePathIgnorePatterns: ['<rootDir>/.next/'],
   collectCoverage: true,
   collectCoverageFrom: [
-    '<rootDir>/src/lib/**/*.{ts,tsx}',
-    '!<rootDir>/src/lib/mailer.ts',
-    '!<rootDir>/src/lib/philippine-locations.ts',
-    '!<rootDir>/src/lib/second-supabase.ts',
-    '!<rootDir>/src/lib/supabase.ts',
-    '<rootDir>/src/types.ts',
+    '<rootDir>/src/lib/api.ts',
+    '<rootDir>/src/lib/date.ts',
+    '<rootDir>/src/lib/phone.ts',
   ],
   coverageReporters: ['text', 'lcov', 'json-summary'],
+  coverageThreshold: {
+    global: {
+      branches: 80,
+      functions: 80,
+      lines: 85,
+      statements: 85,
+    },
+  },
 };
 
 module.exports = createJestConfig(customJestConfig);

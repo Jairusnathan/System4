@@ -37,9 +37,9 @@ on:
         type: string
         default: ""
       playwright_run_only_on_branch:
-        description: "Branch allowed for Playwright execution"
+        description: "Branch allowed for Playwright execution (* to always run when pipeline includes it)"
         type: string
-        default: "test,uat,nexOOS"
+        default: "*"
       enable_grafana_k6:
         description: "Run Grafana k6 cloud checks"
         type: boolean
@@ -53,9 +53,9 @@ on:
         type: string
         default: ""
       k6_run_only_on_branch:
-        description: "Branch allowed for k6 execution"
+        description: "Branch allowed for k6 execution (* to always run when pipeline includes it)"
         type: string
-        default: "test,uat,nexOOS"
+        default: "*"
       run_deploy:
         description: "Run deploy jobs"
         type: boolean
@@ -88,11 +88,11 @@ jobs:
       enable_playwright: ${{ github.event_name == 'workflow_dispatch' && fromJSON(github.event.inputs.enable_playwright || 'true') || true }}
       playwright_browsers: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.playwright_browsers || '["chromium"]' }}
       e2e_base_url: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.e2e_base_url || '' }}
-      playwright_run_only_on_branch: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.playwright_run_only_on_branch || 'test,uat,nexOOS' }}
+      playwright_run_only_on_branch: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.playwright_run_only_on_branch || '*' }}
       enable_grafana_k6: ${{ github.event_name == 'workflow_dispatch' && fromJSON(github.event.inputs.enable_grafana_k6 || 'true') || true }}
       k6_script_path: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.k6_script_path || 'tests/performance' }}
       k6_base_url: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.k6_base_url || '' }}
-      k6_run_only_on_branch: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.k6_run_only_on_branch || 'test,uat,nexOOS' }}
+      k6_run_only_on_branch: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.k6_run_only_on_branch || '*' }}
       run_deploy: ${{ github.event_name == 'workflow_dispatch' && fromJSON(github.event.inputs.run_deploy || 'true') || github.event_name == 'push' }}
       run_promotion: ${{ github.event_name == 'workflow_dispatch' && fromJSON(github.event.inputs.run_promotion || 'true') || github.event_name == 'push' }}
       dry_run: ${{ github.event_name == 'workflow_dispatch' && fromJSON(github.event.inputs.dry_run || 'false') || false }}

@@ -12,6 +12,9 @@ const partnerBrands = [
   'Sanofi', 'AstraZeneca', 'Unilab', 'Bioten', 'Centrum'
 ];
 
+const getPartnerBrandKey = (brand: string, prefix = 'brand') =>
+  `${prefix}-${brand.toLowerCase().replaceAll(' ', '-')}`;
+
 export default function Home() {
   const {
     setView,
@@ -118,11 +121,11 @@ export default function Home() {
         </div>
         <div className="relative flex overflow-hidden">
           <div className="animate-marquee flex items-center gap-24 whitespace-nowrap">
-            {partnerBrands.map((brand, i) => (
-              <span key={i} className="text-4xl font-black text-slate-200 uppercase tracking-tighter select-none">{brand}</span>
+            {partnerBrands.map((brand) => (
+              <span key={getPartnerBrandKey(brand)} className="text-4xl font-black text-slate-200 uppercase tracking-tighter select-none">{brand}</span>
             ))}
-            {partnerBrands.map((brand, i) => (
-              <span key={`dup-${i}`} className="text-4xl font-black text-slate-200 uppercase tracking-tighter select-none">{brand}</span>
+            {partnerBrands.map((brand) => (
+              <span key={getPartnerBrandKey(brand, 'dup')} className="text-4xl font-black text-slate-200 uppercase tracking-tighter select-none">{brand}</span>
             ))}
           </div>
         </div>
@@ -171,9 +174,10 @@ export default function Home() {
                   transition={{ delay: idx * 0.1 }}
                   className="group"
                 >
-                  <div
+                  <button
+                    type="button"
                     onClick={() => setSelectedProduct(product)}
-                    className="relative mb-4 aspect-square cursor-pointer overflow-hidden rounded-2xl bg-slate-100"
+                    className="relative mb-4 aspect-square w-full overflow-hidden rounded-2xl bg-slate-100 text-left"
                   >
                     <img
                       src={product.image}
@@ -186,15 +190,16 @@ export default function Home() {
                         {product.category}
                       </span>
                     </div>
-                  </div>
+                  </button>
 
-                  <div
+                  <button
+                    type="button"
                     onClick={() => setSelectedProduct(product)}
-                    className="mb-4 cursor-pointer"
+                    className="mb-4 text-left"
                   >
                     <h3 className="mb-1 font-bold text-slate-900">{product.name}</h3>
                     <p className="line-clamp-2 text-xs text-slate-500">{product.description}</p>
-                  </div>
+                  </button>
 
                   {isOutOfStock && (
                     <div className="flex items-center gap-1 text-[10px] font-bold text-red-500 mb-4">

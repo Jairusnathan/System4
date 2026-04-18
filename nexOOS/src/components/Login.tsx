@@ -10,6 +10,9 @@ import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 type ResetStep = 'email' | 'code' | 'password';
 
+const sanitizeVerificationCode = (value: string) =>
+  value.replaceAll(/\D/g, '').slice(0, 6);
+
 export default function Login() {
   const { setView, setIsLoggedIn, setUser } = useAppContext();
   const [formData, setFormData] = useState({ email: '', password: '' });
@@ -89,89 +92,111 @@ export default function Login() {
     }
   };
 
+  const requestPasswordReset = async () => {
+    const res = await fetch(buildApiUrl('/api/auth/request-password-reset'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: forgotData.email })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || 'Failed to send verification code');
+    }
+
+    setResetToken(data.resetToken);
+    return data;
+  };
+
+  const verifyResetCode = async () => {
+    const res = await fetch(buildApiUrl('/api/auth/verify-password-reset-code'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: forgotData.email,
+        verificationCode: forgotData.verificationCode,
+        resetToken
+      })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || 'Invalid verification code');
+    }
+  };
+
+  const updateForgotPassword = async () => {
+    const res = await fetch(buildApiUrl('/api/auth/update-password'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: forgotData.email,
+        verificationCode: forgotData.verificationCode,
+        resetToken,
+        newPassword: forgotData.newPassword
+      })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || 'Failed to update password');
+    }
+  };
+
+  const handleResetEmailStep = async () => {
+    await requestPasswordReset();
+    setResetStep('code');
+    setResetStatus({ type: 'success', message: 'Verification code sent. Please check your email.' });
+  };
+
+  const handleResetCodeStep = async () => {
+    if (forgotData.verificationCode.length !== 6) {
+      setResetStatus({ type: 'error', message: 'Please enter the 6-digit verification code.' });
+      return;
+    }
+
+    await verifyResetCode();
+    setResetStep('password');
+    setResetStatus({ type: 'success', message: 'Code accepted. You can now set a new password.' });
+  };
+
+  const handleResetPasswordStep = async () => {
+    if (forgotData.newPassword !== forgotData.confirmPassword) {
+      setResetStatus({ type: 'error', message: 'New passwords do not match' });
+      return;
+    }
+
+    if (forgotData.newPassword.length < 6) {
+      setResetStatus({ type: 'error', message: 'Password must be at least 6 characters' });
+      return;
+    }
+
+    await updateForgotPassword();
+    setResetStatus({ type: 'success', message: 'Password updated successfully!' });
+    globalThis.setTimeout(() => {
+      setIsForgotModalOpen(false);
+      resetForgotPasswordState();
+    }, 2000);
+  };
+
   const handleResetAction = async () => {
     setIsResetting(true);
     setResetStatus({ type: null, message: '' });
 
     try {
       if (resetStep === 'email') {
-        const res = await fetch(buildApiUrl('/api/auth/request-password-reset'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: forgotData.email })
-        });
-        const data = await res.json();
-
-        if (res.ok) {
-          setResetToken(data.resetToken);
-          setResetStep('code');
-          setResetStatus({ type: 'success', message: 'Verification code sent. Please check your email.' });
-        } else {
-          setResetStatus({ type: 'error', message: data.error || 'Failed to send verification code' });
-        }
-
+        await handleResetEmailStep();
         return;
       }
 
       if (resetStep === 'code') {
-        if (forgotData.verificationCode.length !== 6) {
-          setResetStatus({ type: 'error', message: 'Please enter the 6-digit verification code.' });
-          return;
-        }
-
-        const res = await fetch(buildApiUrl('/api/auth/verify-password-reset-code'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: forgotData.email,
-            verificationCode: forgotData.verificationCode,
-            resetToken
-          })
-        });
-        const data = await res.json();
-
-        if (res.ok) {
-          setResetStep('password');
-          setResetStatus({ type: 'success', message: 'Code accepted. You can now set a new password.' });
-        } else {
-          setResetStatus({ type: 'error', message: data.error || 'Invalid verification code' });
-        }
+        await handleResetCodeStep();
         return;
       }
 
-      if (forgotData.newPassword !== forgotData.confirmPassword) {
-        setResetStatus({ type: 'error', message: 'New passwords do not match' });
-        return;
-      }
-
-      if (forgotData.newPassword.length < 6) {
-        setResetStatus({ type: 'error', message: 'Password must be at least 6 characters' });
-        return;
-      }
-
-      const res = await fetch(buildApiUrl('/api/auth/update-password'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: forgotData.email,
-          verificationCode: forgotData.verificationCode,
-          resetToken,
-          newPassword: forgotData.newPassword
-        })
-      });
-      const data = await res.json();
-
-      if (res.ok) {
-        setResetStatus({ type: 'success', message: 'Password updated successfully!' });
-        setTimeout(() => {
-          setIsForgotModalOpen(false);
-          resetForgotPasswordState();
-        }, 2000);
-      } else {
-        setResetStatus({ type: 'error', message: data.error || 'Failed to update password' });
-      }
-    } catch {
-      setResetStatus({ type: 'error', message: 'An error occurred. Please try again.' });
+      await handleResetPasswordStep();
+    } catch (error) {
+      setResetStatus({ type: 'error', message: error instanceof Error ? error.message : 'An error occurred. Please try again.' });
     } finally {
       setIsResetting(false);
     }
@@ -182,28 +207,17 @@ export default function Login() {
     setResetStatus({ type: null, message: '' });
 
     try {
-      const res = await fetch(buildApiUrl('/api/auth/request-password-reset'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: forgotData.email })
-      });
-      const data = await res.json();
-
-      if (res.ok) {
-        setResetToken(data.resetToken);
-        setResetStep('code');
-        setForgotData(prev => ({
-          ...prev,
-          verificationCode: '',
-          newPassword: '',
-          confirmPassword: ''
-        }));
-        setResetStatus({ type: 'success', message: 'A new verification code has been sent.' });
-      } else {
-        setResetStatus({ type: 'error', message: data.error || 'Failed to resend code' });
-      }
-    } catch {
-      setResetStatus({ type: 'error', message: 'Unable to resend code right now.' });
+      await requestPasswordReset();
+      setResetStep('code');
+      setForgotData(prev => ({
+        ...prev,
+        verificationCode: '',
+        newPassword: '',
+        confirmPassword: ''
+      }));
+      setResetStatus({ type: 'success', message: 'A new verification code has been sent.' });
+    } catch (error) {
+      setResetStatus({ type: 'error', message: error instanceof Error ? error.message : 'Unable to resend code right now.' });
     } finally {
       setIsResetting(false);
     }
@@ -219,15 +233,16 @@ export default function Login() {
         <div className="absolute top-0 left-0 w-full h-2 bg-blue-500" />
         <div className="absolute -top-24 -right-24 w-64 h-64 bg-blue-50 rounded-full blur-3xl opacity-50" />
 
-        <div
+        <button
+          type="button"
           onClick={() => setView('home')}
-          className="flex items-center gap-2 mb-12 cursor-pointer group justify-center"
+          className="mb-12 flex items-center justify-center gap-2 group"
         >
           <div className="bg-blue-600 p-2 rounded-xl group-hover:rotate-12 transition-transform">
             <Pill className="w-6 h-6 text-white" />
           </div>
           <span className="text-3xl font-black text-slate-900 tracking-tight">PharmaQuick</span>
-        </div>
+        </button>
 
         <div className="text-center mb-10">
           <h2 className="text-4xl font-black text-slate-900 mb-2 tracking-tight">Welcome Back!</h2>
@@ -380,7 +395,7 @@ export default function Login() {
                     inputMode="numeric"
                     maxLength={6}
                     value={forgotData.verificationCode}
-                    onChange={(e) => setForgotData({ ...forgotData, verificationCode: e.target.value.replace(/\D/g, '').slice(0, 6) })}
+                    onChange={(e) => setForgotData({ ...forgotData, verificationCode: sanitizeVerificationCode(e.target.value) })}
                     placeholder="Enter 6-digit code"
                     disabled={resetStep === 'password' || isResetting}
                     className="w-full px-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium tracking-[0.3em] disabled:opacity-70"

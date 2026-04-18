@@ -92,6 +92,22 @@ const getDisplayOrderNumber = (order: { orderNumber?: string; txNo?: string; id:
   order.id || order.orderNumber || (order.txNo ? `TXN-${order.txNo}` : `TXN-${new Date(order.date).getTime()}`);
 
 const MAX_SAVED_ADDRESSES = 4;
+const passwordFieldIds = {
+  newPassword: 'account-new-password',
+  confirmPassword: 'account-confirm-password',
+} as const;
+
+const getAccountSectionTitle = (section: 'profile' | 'addresses' | 'orders' | 'settings') => {
+  if (section === 'profile') {
+    return 'Profile Details';
+  }
+
+  if (section === 'orders') {
+    return 'Order History';
+  }
+
+  return 'Account Settings';
+};
 
 export default function Account() {
   const { 
@@ -601,7 +617,7 @@ export default function Account() {
           const isDefault = index === 0;
 
           return (
-            <div key={index} className="p-6 sm:p-8">
+            <div key={`${address.label}-${address.streetAddress}-${address.postalCode}-${index}`} className="p-6 sm:p-8">
               <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
                 <div className="flex-1 min-w-0">
                   <h4 className="text-2xl font-black text-slate-900 mb-3">Address</h4>
@@ -1201,15 +1217,11 @@ export default function Account() {
               animate={{ opacity: 1, y: 0 }}
               className="bg-white p-10 rounded-[3rem] shadow-sm border border-slate-100 min-h-[600px]"
             >
-              {accountSubView !== 'addresses' && (
+              {accountSubView === 'profile' || accountSubView === 'orders' || accountSubView === 'settings' ? (
                 <h2 className="text-2xl font-black text-slate-900 mb-10 tracking-tight">
-                  {accountSubView === 'profile'
-                    ? 'Profile Details'
-                    : accountSubView === 'orders'
-                      ? 'Order History'
-                      : 'Account Settings'}
+                  {getAccountSectionTitle(accountSubView)}
                 </h2>
-              )}
+              ) : null}
               
               {accountSubView === 'profile' && renderProfileDetails()}
               {accountSubView === 'addresses' && renderAddresses()}
@@ -1313,8 +1325,9 @@ export default function Account() {
 
                 <div className="space-y-6">
                   <div>
-                    <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">New Password</label>
+                    <label htmlFor={passwordFieldIds.newPassword} className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">New Password</label>
                     <input 
+                      id={passwordFieldIds.newPassword}
                       type="password"
                       value={passwordData.newPassword}
                       onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
@@ -1323,8 +1336,9 @@ export default function Account() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Confirm New Password</label>
+                    <label htmlFor={passwordFieldIds.confirmPassword} className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Confirm New Password</label>
                     <input 
+                      id={passwordFieldIds.confirmPassword}
                       type="password"
                       value={passwordData.confirmPassword}
                       onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}

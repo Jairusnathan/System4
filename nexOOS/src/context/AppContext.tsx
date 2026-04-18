@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useRef, useMemo } from 'react';
 import { Product, Branch, BranchInventory, Order, CartItem, User } from '../types';
 import {
   clearAccessToken,
@@ -9,16 +9,18 @@ import {
 } from '@/lib/auth-client';
 import { buildApiUrl } from '@/lib/api';
 
+type AccountSubView = 'profile' | 'addresses' | 'orders' | 'settings';
+
 interface AppContextType {
   view: string;
   setView: (view: string) => void;
-  accountSubView: 'profile' | 'addresses' | 'orders' | 'settings';
-  setAccountSubView: React.Dispatch<React.SetStateAction<'profile' | 'addresses' | 'orders' | 'settings'>>;
+  accountSubView: AccountSubView;
+  setAccountSubView: React.Dispatch<React.SetStateAction<AccountSubView>>;
   isLoggedIn: boolean;
   setIsLoggedIn: (isLoggedIn: boolean) => void;
   user: User | null;
   setUser: (user: User | null) => void;
-  fetchUserProfile: (token: string) => Promise<void>;
+  fetchUserProfile: () => Promise<void>;
   cart: CartItem[];
   setCart: React.Dispatch<React.SetStateAction<CartItem[]>>;
   selectedBranch: Branch | null;
@@ -89,12 +91,16 @@ const mergeCartItems = (localItems: CartItem[], remoteItems: CartItem[]) => {
 const cartSnapshot = (items: CartItem[]) =>
   items
     .map((item) => `${item.id}:${item.quantity}`)
-    .sort()
+    .toSorted()
     .join('|');
 
-export function AppProvider({ children }: { children: ReactNode }) {
+type AppProviderProps = Readonly<{
+  children: ReactNode;
+}>;
+
+export function AppProvider({ children }: AppProviderProps) {
   const [view, setView] = useState('home');
-  const [accountSubView, setAccountSubView] = useState<'profile' | 'addresses' | 'orders' | 'settings'>('profile');
+  const [accountSubView, setAccountSubView] = useState<AccountSubView>('profile');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -321,6 +327,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     initialLocalCartSnapshotRef.current = '';
   };
 
+  const handleLoginStateChange = (nextIsLoggedIn: boolean) => {
+    if (nextIsLoggedIn) {
+      setIsLoggedIn(true);
+      return;
+    }
+
+    handleLogout();
+  };
+
   const addToCart = (
     product: Product,
     options?: { openCart?: boolean }
@@ -369,32 +384,47 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return currentTime >= openTime && currentTime <= closeTime;
   };
 
+  const contextValue = useMemo(() => ({
+    view, setView,
+    accountSubView, setAccountSubView,
+    isLoggedIn, setIsLoggedIn: handleLoginStateChange,
+    user, setUser,
+    fetchUserProfile,
+    cart, setCart,
+    selectedBranch, setSelectedBranch,
+    branches,
+    branchInventory,
+    isBranchModalOpen, setIsBranchModalOpen,
+    isCartOpen, setIsCartOpen,
+    selectedProduct, setSelectedProduct,
+    orders, setOrders,
+    selectedOrder, setSelectedOrder,
+    addToCart,
+    updateQuantity,
+    cartTotal,
+    isBranchOpen,
+    searchQuery,
+    setSearchQuery,
+  }), [
+    view,
+    accountSubView,
+    isLoggedIn,
+    user,
+    cart,
+    selectedBranch,
+    branches,
+    branchInventory,
+    isBranchModalOpen,
+    isCartOpen,
+    selectedProduct,
+    orders,
+    selectedOrder,
+    cartTotal,
+    searchQuery,
+  ]);
+
   return (
-    <AppContext.Provider value={{
-      view, setView,
-      accountSubView, setAccountSubView,
-      isLoggedIn, setIsLoggedIn: (val: boolean) => {
-        if (!val) handleLogout();
-        else setIsLoggedIn(true);
-      },
-      user, setUser,
-      fetchUserProfile,
-      cart, setCart,
-      selectedBranch, setSelectedBranch,
-      branches,
-      branchInventory,
-      isBranchModalOpen, setIsBranchModalOpen,
-      isCartOpen, setIsCartOpen,
-      selectedProduct, setSelectedProduct,
-      orders, setOrders,
-      selectedOrder, setSelectedOrder,
-      addToCart,
-      updateQuantity,
-      cartTotal,
-      isBranchOpen,
-      searchQuery,
-      setSearchQuery
-    }}>
+    <AppContext.Provider value={contextValue}>
       {children}
     </AppContext.Provider>
   );

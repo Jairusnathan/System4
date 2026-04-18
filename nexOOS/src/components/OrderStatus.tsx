@@ -7,6 +7,34 @@ import { useAppContext } from '../context/AppContext';
 const getDisplayOrderNumber = (order: { orderNumber?: string; txNo?: string; id: string; date: string }) =>
   order.id || order.orderNumber || (order.txNo ? `TXN-${order.txNo}` : `TXN-${new Date(order.date).getTime()}`);
 
+const getOrderStatusBadgeClass = (status: string) => {
+  if (status === 'Delivered' || status === 'Processing') {
+    return 'bg-blue-100 text-blue-700';
+  }
+
+  return 'bg-amber-100 text-amber-700';
+};
+
+const getOrderStatusDotClass = (status: string) => {
+  if (status === 'Delivered' || status === 'Processing') {
+    return 'bg-blue-500';
+  }
+
+  return 'bg-amber-500';
+};
+
+const getTransitHeadingClass = (status: string) => {
+  if (status === 'In Transit') {
+    return 'text-blue-600';
+  }
+
+  if (status === 'Delivered') {
+    return 'text-slate-900';
+  }
+
+  return 'text-slate-400';
+};
+
 export default function OrderStatus() {
   const { selectedOrder, setView } = useAppContext();
 
@@ -40,14 +68,8 @@ export default function OrderStatus() {
             Back to Orders
           </button>
           <div className="flex items-center gap-3">
-            <div className={`px-4 py-1.5 rounded-full text-xs font-black flex items-center gap-2 ${
-              selectedOrder.status === 'Delivered' ? 'bg-blue-100 text-blue-700' : 
-              selectedOrder.status === 'Processing' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'
-            }`}>
-              <span className={`w-2 h-2 rounded-full ${
-                selectedOrder.status === 'Delivered' ? 'bg-blue-500' : 
-                selectedOrder.status === 'Processing' ? 'bg-blue-500' : 'bg-amber-500'
-              }`} />
+            <div className={`px-4 py-1.5 rounded-full text-xs font-black flex items-center gap-2 ${getOrderStatusBadgeClass(selectedOrder.status)}`}>
+              <span className={`w-2 h-2 rounded-full ${getOrderStatusDotClass(selectedOrder.status)}`} />
               {selectedOrder.status}
             </div>
           </div>
@@ -85,15 +107,7 @@ export default function OrderStatus() {
                   }`}>
                     <Truck className="w-4 h-4" />
                   </div>
-                  <h3
-                    className={`font-black tracking-tight ${
-                      selectedOrder.status === 'In Transit'
-                        ? 'text-blue-600'
-                        : selectedOrder.status === 'Delivered'
-                          ? 'text-slate-900'
-                          : 'text-slate-400'
-                    }`}
-                  >
+                  <h3 className={`font-black tracking-tight ${getTransitHeadingClass(selectedOrder.status)}`}>
                     In Transit
                   </h3>
                   <p className="text-sm text-slate-500">Your order is on the way to your delivery address.</p>

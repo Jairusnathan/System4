@@ -115,6 +115,50 @@ const createEmptyCheckoutAddress = (user?: { full_name?: string; phone?: string 
   label: 'Home',
 });
 
+const getPaymentMethodLabel = (paymentMethod: string) => {
+  if (paymentMethod === 'cod') {
+    return 'Cash on Delivery';
+  }
+
+  if (paymentMethod === 'gcash') {
+    return 'GCash';
+  }
+
+  if (paymentMethod === 'maya') {
+    return 'Maya';
+  }
+
+  return 'Credit / Debit Card';
+};
+
+const getPaymentMethodIcon = (paymentMethod: string) => {
+  if (paymentMethod === 'cod') {
+    return <Banknote className="w-5 h-5 text-blue-600" />;
+  }
+
+  if (paymentMethod === 'gcash' || paymentMethod === 'maya') {
+    return <Wallet className="w-5 h-5 text-blue-600" />;
+  }
+
+  return <CreditCard className="w-5 h-5 text-blue-600" />;
+};
+
+const getAddressPickerCopy = (view: 'list' | 'form') => {
+  if (view === 'list') {
+    return {
+      eyebrow: 'Choose Address',
+      title: 'Saved Addresses',
+      description: 'Select an existing address for this order or add a new one.',
+    };
+  }
+
+  return {
+    eyebrow: 'Add Address',
+    title: 'Add Address',
+    description: 'Fill in the delivery details and use this address for the current checkout.',
+  };
+};
+
 export default function Checkout() {
   const { 
     cart, setCart,
@@ -181,6 +225,9 @@ export default function Checkout() {
   const deliveryFee = deliveryEstimate?.fee ?? 0;
   const discountAmount = appliedPromo?.discountAmount ?? 0;
   const orderTotal = Math.max(0, cartTotal + deliveryFee - discountAmount);
+  const paymentMethodLabel = getPaymentMethodLabel(paymentMethod);
+  const paymentMethodIcon = getPaymentMethodIcon(paymentMethod);
+  const addressPickerCopy = getAddressPickerCopy(addressPickerView);
 
   const applySavedAddress = React.useCallback((address: SavedAddress) => {
     setShippingInfo({
@@ -405,15 +452,6 @@ export default function Checkout() {
 
   const handlePlaceOrder = async () => {
     try {
-      const paymentMethodLabel =
-        paymentMethod === 'cod'
-          ? 'Cash on Delivery'
-          : paymentMethod === 'gcash'
-            ? 'GCash'
-            : paymentMethod === 'maya'
-              ? 'Maya'
-              : 'Credit / Debit Card';
-
       const shippingAddress = formatDeliveryAddress(shippingInfo);
 
       const res = await fetchWithAuth('/api/orders/place', {
@@ -655,16 +693,12 @@ export default function Checkout() {
                           <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-5">
                             <div>
                               <p className="text-sm font-black uppercase tracking-[0.22em] text-slate-400">
-                                {addressPickerView === 'list' ? 'Choose Address' : 'Add Address'}
+                                {addressPickerCopy.eyebrow}
                               </p>
                               <h3 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
-                                {addressPickerView === 'list' ? 'Saved Addresses' : 'Add Address'}
+                                {addressPickerCopy.title}
                               </h3>
-                              <p className="mt-2 text-sm text-slate-500">
-                                {addressPickerView === 'list'
-                                  ? 'Select an existing address for this order or add a new one.'
-                                  : 'Fill in the delivery details and use this address for the current checkout.'}
-                              </p>
+                              <p className="mt-2 text-sm text-slate-500">{addressPickerCopy.description}</p>
                             </div>
                             <button
                               type="button"
@@ -1271,16 +1305,9 @@ export default function Checkout() {
                         <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Payment Method</h3>
                         <div className="flex items-center gap-3">
                           <div className="bg-white p-2 rounded-xl shadow-sm border border-slate-100">
-                            {paymentMethod === 'cod' ? <Banknote className="w-5 h-5 text-blue-600" /> : 
-                             paymentMethod === 'gcash' ? <Wallet className="w-5 h-5 text-blue-600" /> :
-                             paymentMethod === 'maya' ? <Wallet className="w-5 h-5 text-blue-600" /> :
-                             <CreditCard className="w-5 h-5 text-blue-600" />}
+                            {paymentMethodIcon}
                           </div>
-                          <p className="font-black text-slate-900">
-                            {paymentMethod === 'cod' ? 'Cash on Delivery' : 
-                             paymentMethod === 'gcash' ? 'GCash' : 
-                             paymentMethod === 'maya' ? 'Maya' : 'Credit / Debit Card'}
-                          </p>
+                          <p className="font-black text-slate-900">{paymentMethodLabel}</p>
                         </div>
                       </div>
                     </div>

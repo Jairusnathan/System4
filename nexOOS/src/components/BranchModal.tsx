@@ -17,6 +17,29 @@ export default function BranchModal() {
 
   useBodyScrollLock(isBranchModalOpen);
 
+  const handleBranchSelect = (branch: (typeof branches)[number], isOpen: boolean) => {
+    if (isOpen) {
+      if (selectedBranch?.id !== branch.id) {
+        setCart([]);
+      }
+
+      setSelectedBranch(branch);
+      setIsBranchModalOpen(false);
+    }
+  };
+
+  const getBranchCardClassName = (isOpen: boolean, isSelected: boolean) => {
+    if (!isOpen) {
+      return 'border-slate-100 bg-slate-50 opacity-60 cursor-not-allowed';
+    }
+
+    if (isSelected) {
+      return 'border-blue-500 bg-blue-50 cursor-pointer';
+    }
+
+    return 'border-slate-100 hover:border-blue-200 hover:bg-slate-50 cursor-pointer';
+  };
+
   return (
     <AnimatePresence>
       {isBranchModalOpen && (
@@ -54,23 +77,12 @@ export default function BranchModal() {
                   const isSelected = selectedBranch?.id === branch.id;
                   
                   return (
-                    <div 
+                    <button
+                      type="button"
                       key={branch.id}
-                      onClick={() => {
-                        if (!isOpen) return;
-                        if (selectedBranch?.id !== branch.id) {
-                          setCart([]);
-                        }
-                        setSelectedBranch(branch);
-                        setIsBranchModalOpen(false);
-                      }}
-                      className={`p-4 rounded-2xl border-2 transition-all ${
-                        !isOpen 
-                          ? 'border-slate-100 bg-slate-50 opacity-60 cursor-not-allowed' 
-                          : isSelected 
-                            ? 'border-blue-500 bg-blue-50 cursor-pointer' 
-                            : 'border-slate-100 hover:border-blue-200 hover:bg-slate-50 cursor-pointer'
-                      }`}
+                      onClick={() => handleBranchSelect(branch, isOpen)}
+                      disabled={!isOpen}
+                      className={`p-4 rounded-2xl border-2 text-left transition-all ${getBranchCardClassName(isOpen, isSelected)}`}
                     >
                       <div className="flex justify-between items-start mb-2">
                         <h3 className="font-bold text-lg text-slate-900">{branch.name}</h3>
@@ -100,7 +112,7 @@ export default function BranchModal() {
                           </p>
                         </div>
                       )}
-                    </div>
+                    </button>
                   );
                 })}
               </div>

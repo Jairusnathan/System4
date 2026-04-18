@@ -20,6 +20,13 @@ export interface ProductSuggestion {
 }
 
 const normalize = (value: string) => value.trim().toLowerCase();
+const compareProductNames = (left: Product, right: Product) =>
+  left.name.localeCompare(right.name);
+
+const compareMatchedProductNames = (
+  left: { product: Product },
+  right: { product: Product }
+) => compareProductNames(left.product, right.product);
 
 type SecondDatabaseProductRow = {
   id: number | string;
@@ -130,20 +137,21 @@ const sortProducts = (
   sortBy: ProductQueryOptions['sortBy'] = 'popularity'
 ) => {
   const normalizedQuery = query?.trim();
+  const baseProducts = products.toSorted(compareProductNames);
 
   if (!normalizedQuery) {
     if (sortBy === 'price-asc') {
-      return [...products].sort((a, b) => a.price - b.price);
+      return baseProducts.toSorted((a, b) => a.price - b.price);
     }
 
     if (sortBy === 'price-desc') {
-      return [...products].sort((a, b) => b.price - a.price);
+      return baseProducts.toSorted((a, b) => b.price - a.price);
     }
 
-    return [...products].sort((a, b) => a.name.localeCompare(b.name));
+    return baseProducts;
   }
 
-  const matchedProducts = [...products]
+  const matchedProducts = products
     .map((product) => ({
       product,
       score: scoreProduct(product, normalizedQuery),
@@ -156,7 +164,7 @@ const sortProducts = (
 
   if (sortBy === 'price-asc') {
     return matchedProducts
-      .sort((a, b) => {
+      .toSorted((a, b) => {
         if (a.product.price !== b.product.price) {
           return a.product.price - b.product.price;
         }
@@ -165,14 +173,14 @@ const sortProducts = (
           return b.score - a.score;
         }
 
-        return a.product.name.localeCompare(b.product.name);
+        return compareMatchedProductNames(a, b);
       })
       .map(({ product }) => product);
   }
 
   if (sortBy === 'price-desc') {
     return matchedProducts
-      .sort((a, b) => {
+      .toSorted((a, b) => {
         if (b.product.price !== a.product.price) {
           return b.product.price - a.product.price;
         }
@@ -181,18 +189,18 @@ const sortProducts = (
           return b.score - a.score;
         }
 
-        return a.product.name.localeCompare(b.product.name);
+        return compareMatchedProductNames(a, b);
       })
       .map(({ product }) => product);
   }
 
   return matchedProducts
-    .sort((a, b) => {
+    .toSorted((a, b) => {
       if (b.score !== a.score) {
         return b.score - a.score;
       }
 
-      return a.product.name.localeCompare(b.product.name);
+      return compareMatchedProductNames(a, b);
     })
     .map(({ product }) => product);
 };

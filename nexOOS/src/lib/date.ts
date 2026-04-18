@@ -1,4 +1,5 @@
 const pad = (value: number) => value.toString().padStart(2, '0');
+const SLASH_DATE_PATTERN = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
 
 export function normalizeDateForInput(value?: string | null) {
   if (!value) {
@@ -11,7 +12,7 @@ export function normalizeDateForInput(value?: string | null) {
     return trimmed;
   }
 
-  const slashMatch = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  const slashMatch = SLASH_DATE_PATTERN.exec(trimmed);
   if (slashMatch) {
     const [, month, day, year] = slashMatch;
     return `${year}-${pad(Number(month))}-${pad(Number(day))}`;

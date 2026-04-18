@@ -9,9 +9,6 @@ import { buildApiUrl } from '@/lib/api';
 import { normalizePhilippinePhone, PH_PHONE_MESSAGE } from '@/lib/phone';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
-const sanitizeVerificationCode = (value: string) =>
-  value.replaceAll(/\D/g, '').slice(0, 6);
-
 export default function Register() {
   const { setView, setIsLoggedIn, setUser } = useAppContext();
   const [formData, setFormData] = useState({
@@ -76,20 +73,26 @@ export default function Register() {
     setError('');
     setSuccessMessage('');
 
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      setIsLoading(false);
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters');
+      setIsLoading(false);
+      return;
+    }
+
+    const normalizedPhone = normalizePhilippinePhone(formData.phone);
+    if (!normalizedPhone) {
+      setError(PH_PHONE_MESSAGE);
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      if (formData.password !== formData.confirmPassword) {
-        throw new Error('Passwords do not match');
-      }
-
-      if (formData.password.length < 6) {
-        throw new Error('Password must be at least 6 characters');
-      }
-
-      const normalizedPhone = normalizePhilippinePhone(formData.phone);
-      if (!normalizedPhone) {
-        throw new Error(PH_PHONE_MESSAGE);
-      }
-
       setFormData((prev) => ({ ...prev, phone: normalizedPhone }));
       await submitRegistrationRequest(normalizedPhone);
       setSuccessMessage('Check your email for the 6-digit verification code to finish creating your account.');
@@ -180,16 +183,15 @@ export default function Register() {
         <div className="absolute top-0 left-0 w-full h-2 bg-blue-500" />
         <div className="absolute -top-24 -right-24 w-64 h-64 bg-blue-50 rounded-full blur-3xl opacity-50" />
 
-        <button
-          type="button"
+        <div
           onClick={() => setView('home')}
-          className="mb-12 flex items-center justify-center gap-2 group"
+          className="flex items-center gap-2 mb-12 cursor-pointer group justify-center"
         >
           <div className="bg-blue-600 p-2 rounded-xl group-hover:rotate-12 transition-transform">
             <Pill className="w-6 h-6 text-white" />
           </div>
           <span className="text-3xl font-black text-slate-900 tracking-tight">PharmaQuick</span>
-        </button>
+        </div>
 
         <div className="text-center mb-10">
           <h2 className="text-4xl font-black text-slate-900 mb-2 tracking-tight">
@@ -386,7 +388,7 @@ export default function Register() {
                 maxLength={6}
                 required
                 value={verificationCode}
-                onChange={(e) => setVerificationCode(sanitizeVerificationCode(e.target.value))}
+                onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 placeholder="Enter 6-digit code"
                 className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium tracking-[0.3em]"
               />

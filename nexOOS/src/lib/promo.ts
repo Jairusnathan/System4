@@ -43,14 +43,6 @@ const getPromoDiscountAmount = (promo: PromoCodeRecord, subtotal: number) => {
   return toMoney(Math.min(promo.discount_value, subtotal));
 };
 
-const getPromoSuccessMessage = (promo: PromoCodeRecord) => {
-  if (promo.discount_type === 'percent') {
-    return `${promo.code} applied: ${promo.discount_value}% off.`;
-  }
-
-  return `${promo.code} applied: P${promo.discount_value.toFixed(2)} off.`;
-};
-
 export async function validatePromoCode(rawCode: string, subtotal: number): Promise<PromoValidationResult> {
   const normalizedCode = normalizePromoCode(rawCode);
   const normalizedSubtotal = Math.max(0, toMoney(Number.isFinite(subtotal) ? subtotal : 0));
@@ -134,11 +126,16 @@ export async function validatePromoCode(rawCode: string, subtotal: number): Prom
     };
   }
 
+  const message =
+    data.discount_type === 'percent'
+      ? `${data.code} applied: ${data.discount_value}% off.`
+      : `${data.code} applied: P${data.discount_value.toFixed(2)} off.`;
+
   return {
     valid: true,
     promo: data,
     normalizedCode,
     discountAmount,
-    message: getPromoSuccessMessage(data),
+    message,
   };
 }

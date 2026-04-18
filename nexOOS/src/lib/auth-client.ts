@@ -3,7 +3,7 @@ import { buildApiUrl } from './api';
 const ACCESS_TOKEN_KEY = 'token';
 
 export function getAccessToken() {
-  if (typeof globalThis.window === 'undefined') {
+  if (typeof window === 'undefined') {
     return null;
   }
 

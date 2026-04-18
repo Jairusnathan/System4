@@ -23,29 +23,22 @@ export default function ProductDetailsModal() {
       return;
     }
 
-    const timeout = globalThis.setTimeout(() => {
+    const timeout = window.setTimeout(() => {
       setAddedProductName('');
     }, 1800);
 
-    return () => globalThis.clearTimeout(timeout);
+    return () => window.clearTimeout(timeout);
   }, [addedProductName]);
 
   if (!selectedProduct) return null;
 
-  const inventoryItem = selectedBranch
-    ? branchInventory.find((inv) => inv.product_id === selectedProduct.id)
-    : null;
+  const inventoryItem = selectedBranch ? branchInventory.find(inv => inv.product_id === selectedProduct.id) : null;
   const stock =
     typeof selectedProduct.stock === 'number'
       ? selectedProduct.stock
-      : inventoryItem?.stock ?? 0;
-  const isOutOfStock = Boolean(selectedBranch && stock === 0);
-  const addToCartButtonClass = isOutOfStock
-    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-    : 'bg-blue-100 text-blue-700 hover:bg-blue-200';
-  const buyNowButtonClass = isOutOfStock
-    ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-    : 'bg-blue-600 text-white hover:bg-blue-700';
+      : inventoryItem
+        ? inventoryItem.stock
+        : 0;
 
   return (
     <AnimatePresence>
@@ -121,9 +114,9 @@ export default function ProductDetailsModal() {
                       <button className="w-20 h-20 shrink-0 rounded-xl overflow-hidden border-2 border-blue-500">
                         <img src={selectedProduct.image} alt="Thumbnail" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       </button>
-                      {selectedProduct.images.map((img) => (
-                        <button key={img} className="w-20 h-20 shrink-0 rounded-xl overflow-hidden border-2 border-transparent hover:border-slate-300 transition-colors">
-                          <img src={img} alt="Product thumbnail" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      {selectedProduct.images.map((img, idx) => (
+                        <button key={idx} className="w-20 h-20 shrink-0 rounded-xl overflow-hidden border-2 border-transparent hover:border-slate-300 transition-colors">
+                          <img src={img} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                         </button>
                       ))}
                     </div>
@@ -188,8 +181,12 @@ export default function ProductDetailsModal() {
                           setView('login');
                         }
                       }}
-                      disabled={isOutOfStock}
-                      className={`flex-1 py-4 rounded-xl font-bold text-lg transition-colors flex items-center justify-center gap-2 ${addToCartButtonClass}`}
+                      disabled={Boolean(selectedBranch && stock === 0)}
+                      className={`flex-1 py-4 rounded-xl font-bold text-lg transition-colors flex items-center justify-center gap-2 ${
+                        selectedBranch && stock === 0 
+                          ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
+                          : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                      }`}
                     >
                       <Plus className="w-5 h-5" />
                       Add to Cart
@@ -205,8 +202,12 @@ export default function ProductDetailsModal() {
                           setView('login');
                         }
                       }}
-                      disabled={isOutOfStock}
-                      className={`flex-1 py-4 rounded-xl font-bold text-lg transition-colors shadow-md hover:shadow-lg flex items-center justify-center gap-2 ${buyNowButtonClass}`}
+                      disabled={Boolean(selectedBranch && stock === 0)}
+                      className={`flex-1 py-4 rounded-xl font-bold text-lg transition-colors shadow-md hover:shadow-lg flex items-center justify-center gap-2 ${
+                        selectedBranch && stock === 0 
+                          ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
+                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                      }`}
                     >
                       Buy Now
                     </button>

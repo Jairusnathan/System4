@@ -493,10 +493,9 @@ export default function Shop() {
                       animate={{ opacity: 1, y: 0 }}
                       className="group flex flex-col overflow-hidden rounded-[1.3rem] border border-slate-100 bg-white shadow-sm transition-all hover:shadow-xl"
                     >
-                      <button
-                        type="button"
+                      <div
                         onClick={() => setSelectedProduct(product)}
-                        className="relative aspect-square overflow-hidden bg-slate-50 text-left"
+                        className="relative aspect-square cursor-pointer overflow-hidden bg-slate-50"
                       >
                         <img
                           src={product.image}
@@ -522,13 +521,12 @@ export default function Shop() {
                             )}
                           </div>
                         )}
-                      </button>
+                      </div>
 
                       <div className="flex flex-1 flex-col p-3.5">
-                        <button
-                          type="button"
+                        <div
                           onClick={() => setSelectedProduct(product)}
-                          className="mb-2 text-left"
+                          className="mb-2 cursor-pointer"
                         >
                           <h3 className="line-clamp-1 text-sm font-black tracking-tight text-slate-900 transition-colors group-hover:text-blue-600 lg:text-[15px]">
                             {product.name}
@@ -536,7 +534,7 @@ export default function Shop() {
                           <p className="h-8 line-clamp-2 text-[11px] leading-relaxed text-slate-500 lg:text-xs">
                             {product.description}
                           </p>
-                        </button>
+                        </div>
 
                         <div className="mt-auto flex items-center justify-between pt-3.5">
                           <div className="text-sm font-black tracking-tight text-slate-900 lg:text-base">
@@ -579,7 +577,7 @@ export default function Shop() {
 
                   {Array.from({ length: totalPages }, (_, idx) => (
                     <button
-                      key={`page-${idx + 1}`}
+                      key={idx}
                       onClick={() => handlePageChange(idx + 1)}
                       className={`h-12 w-12 rounded-xl text-sm font-bold shadow-sm transition-all ${
                         currentPage === idx + 1

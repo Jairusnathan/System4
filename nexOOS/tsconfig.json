@@ -9,7 +9,7 @@
     "skipLibCheck": true,
     "moduleDetection": "force",
     "allowImportingTsExtensions": true,
-    "strict": false,
+    "strict": true,
     "noEmit": true,
     "esModuleInterop": true,
     "moduleResolution": "bundler",

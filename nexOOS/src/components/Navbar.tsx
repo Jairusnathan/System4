@@ -33,8 +33,6 @@ export default function Navbar() {
 
   useBodyScrollLock(isLogoutModalOpen);
 
-  const handleGoHome = () => setView('home');
-
   useEffect(() => {
     const handleOutsideClick = (event: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
@@ -87,34 +85,30 @@ export default function Navbar() {
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-[4.5rem] gap-8">
           {/* Logo */}
-          <button
-            type="button"
-            onClick={handleGoHome}
+          <div 
+            onClick={() => setView('home')} 
             className="flex items-center gap-2 cursor-pointer group shrink-0"
           >
             <Pill className="w-6 h-6 text-blue-600" />
             <span className="text-[1.35rem] font-black text-slate-900 tracking-tight">PharmaQuick</span>
-          </button>
+          </div>
 
           {/* Desktop Navigation */}
           <div className="hidden lg:flex items-center gap-8 shrink-0">
-            <button
-              type="button"
+            <button 
               onClick={() => setView('home')} 
               className={`text-[0.95rem] font-bold transition-colors ${view === 'home' ? 'text-blue-600' : 'text-slate-600 hover:text-blue-600'}`}
             >
               Home
             </button>
-            <button
-              type="button"
+            <button 
               onClick={() => setView('shop')} 
               className={`text-[0.95rem] font-bold transition-colors ${view === 'shop' ? 'text-blue-600' : 'text-slate-600 hover:text-blue-600'}`}
             >
               Shop
             </button>
             {/* Branch Selector */}
-            <button
-              type="button"
+            <button 
               onClick={() => setIsBranchModalOpen(true)}
               className="flex items-center gap-2 text-[0.95rem] font-bold text-slate-600 hover:text-blue-600 transition-colors"
             >
@@ -170,8 +164,7 @@ export default function Navbar() {
           <div className="flex items-center gap-4 shrink-0">
             {/* Cart */}
             {isLoggedIn && (
-              <button
-                type="button"
+              <button 
                 onClick={() => setIsCartOpen(true)}
                 className="relative p-2.5 text-slate-600 hover:text-blue-600 transition-all"
               >
@@ -186,8 +179,7 @@ export default function Navbar() {
 
             {/* Auth */}
             {isLoggedIn ? (
-              <button
-                type="button"
+              <button 
                 onClick={() => {
                   setAccountSubView('profile');
                   setView('account');
@@ -206,8 +198,7 @@ export default function Navbar() {
                 )}
               </button>
             ) : (
-              <button
-                type="button"
+              <button 
                 onClick={() => setView('login')}
                 className="px-6 py-2.5 bg-blue-600 text-white rounded-full font-bold text-[0.95rem] hover:bg-blue-700 transition-all shadow-sm"
               >
@@ -217,8 +208,7 @@ export default function Navbar() {
 
             {/* Logout */}
             {isLoggedIn && (
-              <button
-                type="button"
+              <button 
                 onClick={() => setIsLogoutModalOpen(true)}
                 className="p-2.5 text-slate-600 hover:text-blue-600 transition-all"
               >

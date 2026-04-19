@@ -36,36 +36,9 @@ export default function ProductDetailsModal() {
   const stock =
     typeof selectedProduct.stock === 'number'
       ? selectedProduct.stock
-      : inventoryItem?.stock ?? 0;
-  const isSelectedBranchOutOfStock = Boolean(selectedBranch && stock === 0);
-  const secondaryActionClass = isSelectedBranchOutOfStock
-    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-    : 'bg-blue-100 text-blue-700 hover:bg-blue-200';
-  const primaryActionClass = isSelectedBranchOutOfStock
-    ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-    : 'bg-blue-600 text-white hover:bg-blue-700';
-  let stockStatusContent: React.ReactNode;
-
-  if (!selectedBranch) {
-    stockStatusContent = (
-      <span className="text-sm text-slate-500">Select a branch to view stock availability.</span>
-    );
-  } else if (stock > 0) {
-    stockStatusContent = (
-      <div className="flex items-center gap-2 text-blue-600 bg-blue-50 px-3 py-2 rounded-lg inline-flex">
-        <CheckCircle2 className="w-5 h-5" />
-        <span className="font-medium">In Stock</span>
-        <span className="text-sm opacity-80">({stock} items available)</span>
-      </div>
-    );
-  } else {
-    stockStatusContent = (
-      <div className="flex items-center gap-2 text-red-600 bg-red-50 px-3 py-2 rounded-lg inline-flex">
-        <X className="w-5 h-5" />
-        <span className="font-medium">Out of Stock</span>
-      </div>
-    );
-  }
+      : inventoryItem
+        ? inventoryItem.stock
+        : 0;
 
   return (
     <AnimatePresence>
@@ -138,11 +111,11 @@ export default function ProductDetailsModal() {
                   </div>
                   {selectedProduct.images && selectedProduct.images.length > 0 && (
                     <div className="flex gap-2 overflow-x-auto pb-2 hide-scrollbar">
-                      <button type="button" className="w-20 h-20 shrink-0 rounded-xl overflow-hidden border-2 border-blue-500">
+                      <button className="w-20 h-20 shrink-0 rounded-xl overflow-hidden border-2 border-blue-500">
                         <img src={selectedProduct.image} alt="Thumbnail" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       </button>
                       {selectedProduct.images.map((img, idx) => (
-                        <button type="button" key={idx} className="w-20 h-20 shrink-0 rounded-xl overflow-hidden border-2 border-transparent hover:border-slate-300 transition-colors">
+                        <button key={idx} className="w-20 h-20 shrink-0 rounded-xl overflow-hidden border-2 border-transparent hover:border-slate-300 transition-colors">
                           <img src={img} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                         </button>
                       ))}
@@ -160,7 +133,22 @@ export default function ProductDetailsModal() {
                     <div className="text-2xl font-bold text-slate-900 mb-4">₱{selectedProduct.price.toFixed(2)}</div>
                     
                     {/* Stock Availability */}
-                    <div className="mb-6">{stockStatusContent}</div>
+                    <div className="mb-6">
+                      {!selectedBranch ? (
+                        <span className="text-sm text-slate-500">Select a branch to view stock availability.</span>
+                      ) : stock > 0 ? (
+                        <div className="flex items-center gap-2 text-blue-600 bg-blue-50 px-3 py-2 rounded-lg inline-flex">
+                          <CheckCircle2 className="w-5 h-5" />
+                          <span className="font-medium">In Stock</span>
+                          <span className="text-sm opacity-80">({stock} items available)</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 text-red-600 bg-red-50 px-3 py-2 rounded-lg inline-flex">
+                          <X className="w-5 h-5" />
+                          <span className="font-medium">Out of Stock</span>
+                        </div>
+                      )}
+                    </div>
 
                     <p className="text-slate-600 leading-relaxed mb-8">
                       {selectedProduct.description}
@@ -183,8 +171,7 @@ export default function ProductDetailsModal() {
                   </div>
 
                   <div className="mt-auto pt-6 border-t border-slate-100 flex gap-4">
-                    <button
-                      type="button"
+                    <button 
                       onClick={() => {
                         if (isLoggedIn) {
                           addToCart(selectedProduct, { openCart: false });
@@ -194,14 +181,17 @@ export default function ProductDetailsModal() {
                           setView('login');
                         }
                       }}
-                      disabled={isSelectedBranchOutOfStock}
-                      className={`flex-1 py-4 rounded-xl font-bold text-lg transition-colors flex items-center justify-center gap-2 ${secondaryActionClass}`}
+                      disabled={Boolean(selectedBranch && stock === 0)}
+                      className={`flex-1 py-4 rounded-xl font-bold text-lg transition-colors flex items-center justify-center gap-2 ${
+                        selectedBranch && stock === 0 
+                          ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
+                          : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                      }`}
                     >
                       <Plus className="w-5 h-5" />
                       Add to Cart
                     </button>
-                    <button
-                      type="button"
+                    <button 
                       onClick={() => {
                         if (isLoggedIn) {
                           addToCart(selectedProduct);
@@ -212,8 +202,12 @@ export default function ProductDetailsModal() {
                           setView('login');
                         }
                       }}
-                      disabled={isSelectedBranchOutOfStock}
-                      className={`flex-1 py-4 rounded-xl font-bold text-lg transition-colors shadow-md hover:shadow-lg flex items-center justify-center gap-2 ${primaryActionClass}`}
+                      disabled={Boolean(selectedBranch && stock === 0)}
+                      className={`flex-1 py-4 rounded-xl font-bold text-lg transition-colors shadow-md hover:shadow-lg flex items-center justify-center gap-2 ${
+                        selectedBranch && stock === 0 
+                          ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
+                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                      }`}
                     >
                       Buy Now
                     </button>

@@ -152,18 +152,6 @@ export default function Shop() {
   const selectedSortLabel =
     SORT_OPTIONS.find((option) => option.value === sortBy)?.label ?? 'Price: Low to High';
 
-  const getProductStock = (product: Product) => {
-    if (typeof product.stock === 'number') {
-      return product.stock;
-    }
-
-    const inventoryItem = selectedBranch
-      ? branchInventory.find((inv) => inv.product_id === product.id)
-      : null;
-
-    return inventoryItem?.stock ?? 0;
-  };
-
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
     globalThis.scrollTo({ top: 0, behavior: 'smooth' });
@@ -427,10 +415,9 @@ export default function Shop() {
                 onChange={(event) => setInStockOnly(event.target.checked)}
                 className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
               />
-              <span>In Stock Only</span>
+              In Stock Only
             </label>
             <button
-              type="button"
               onClick={clearAllFilters}
               className="rounded-xl px-4 py-2.5 text-sm font-bold text-blue-600 transition hover:bg-blue-50"
             >
@@ -488,7 +475,15 @@ export default function Shop() {
             <>
               <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                 {currentProducts.map((product) => {
-                  const stock = getProductStock(product);
+                  const inventoryItem = selectedBranch
+                    ? branchInventory.find((inv) => inv.product_id === product.id)
+                    : null;
+                  const stock =
+                    typeof product.stock === 'number'
+                      ? product.stock
+                      : inventoryItem
+                        ? inventoryItem.stock
+                        : 0;
 
                   return (
                     <motion.div
@@ -498,8 +493,7 @@ export default function Shop() {
                       animate={{ opacity: 1, y: 0 }}
                       className="group flex flex-col overflow-hidden rounded-[1.3rem] border border-slate-100 bg-white shadow-sm transition-all hover:shadow-xl"
                     >
-                      <button
-                        type="button"
+                      <div
                         onClick={() => setSelectedProduct(product)}
                         className="relative aspect-square cursor-pointer overflow-hidden bg-slate-50"
                       >
@@ -527,11 +521,10 @@ export default function Shop() {
                             )}
                           </div>
                         )}
-                      </button>
+                      </div>
 
                       <div className="flex flex-1 flex-col p-3.5">
-                        <button
-                          type="button"
+                        <div
                           onClick={() => setSelectedProduct(product)}
                           className="mb-2 cursor-pointer"
                         >
@@ -541,14 +534,13 @@ export default function Shop() {
                           <p className="h-8 line-clamp-2 text-[11px] leading-relaxed text-slate-500 lg:text-xs">
                             {product.description}
                           </p>
-                        </button>
+                        </div>
 
                         <div className="mt-auto flex items-center justify-between pt-3.5">
                           <div className="text-sm font-black tracking-tight text-slate-900 lg:text-base">
                             PHP {product.price.toFixed(2)}
                           </div>
                           <button
-                            type="button"
                             onClick={() => {
                               if (isLoggedIn) {
                                 addToCart(product, { openCart: false });
@@ -586,7 +578,6 @@ export default function Shop() {
                   {Array.from({ length: totalPages }, (_, idx) => (
                     <button
                       key={idx}
-                      type="button"
                       onClick={() => handlePageChange(idx + 1)}
                       className={`h-12 w-12 rounded-xl text-sm font-bold shadow-sm transition-all ${
                         currentPage === idx + 1

@@ -11,16 +11,6 @@ type AuthPayload = {
   email: string;
 };
 
-const decodeToken = (token: string) => {
-  const decoded = jwt.verify(token, JWT_SECRET);
-
-  if (typeof decoded === 'string') {
-    return null;
-  }
-
-  return decoded;
-};
-
 export function signAccessToken(payload: AuthPayload) {
   return jwt.sign({ ...payload, tokenType: 'access' }, JWT_SECRET, {
     expiresIn: ACCESS_TOKEN_EXPIRES_IN,
@@ -39,9 +29,11 @@ export function signToken(payload: AuthPayload) {
 
 export function verifyAccessToken(token: string) {
   try {
-    const decoded = decodeToken(token);
+    const decoded = jwt.verify(token, JWT_SECRET) as jwt.JwtPayload & {
+      tokenType?: string;
+    };
 
-    if (!decoded || decoded.tokenType !== 'access') {
+    if (decoded.tokenType !== 'access') {
       return null;
     }
 
@@ -53,9 +45,11 @@ export function verifyAccessToken(token: string) {
 
 export function verifyRefreshToken(token: string) {
   try {
-    const decoded = decodeToken(token);
+    const decoded = jwt.verify(token, JWT_SECRET) as jwt.JwtPayload & {
+      tokenType?: string;
+    };
 
-    if (!decoded || decoded.tokenType !== 'refresh') {
+    if (decoded.tokenType !== 'refresh') {
       return null;
     }
 

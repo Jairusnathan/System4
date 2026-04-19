@@ -148,7 +148,11 @@ const sortProducts = (
       product,
       score: scoreProduct(product, normalizedQuery),
     }))
-    .filter(({ score }) => score > 0);
+    .filter(({ score }) => score > 0)
+    .map(({ product, score }) => ({
+      product,
+      score,
+    }));
 
   if (sortBy === 'price-asc') {
     return matchedProducts

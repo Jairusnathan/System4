@@ -18,8 +18,7 @@ export default function OrderStatus() {
         </div>
         <h2 className="text-3xl font-black text-slate-900 mb-2 tracking-tight">Order not found</h2>
         <p className="text-slate-500 mb-8 max-w-xs mx-auto">We couldn&apos;t find the order you&apos;re looking for.</p>
-        <button
-          type="button"
+        <button 
           onClick={() => setView('account')}
           className="px-10 py-4 bg-blue-600 text-white rounded-2xl font-bold text-lg hover:bg-blue-700 transition-all shadow-xl shadow-blue-100"
         >
@@ -29,25 +28,11 @@ export default function OrderStatus() {
     );
   }
 
-  const isProcessingLike =
-    selectedOrder.status === 'Delivered' || selectedOrder.status === 'Processing';
-  const statusBadgeClass = isProcessingLike
-    ? 'bg-blue-100 text-blue-700'
-    : 'bg-amber-100 text-amber-700';
-  const statusDotClass = isProcessingLike ? 'bg-blue-500' : 'bg-amber-500';
-  let inTransitTitleClass = 'text-slate-400';
-  if (selectedOrder.status === 'In Transit') {
-    inTransitTitleClass = 'text-blue-600';
-  } else if (selectedOrder.status === 'Delivered') {
-    inTransitTitleClass = 'text-slate-900';
-  }
-
   return (
     <main className="flex-1 bg-slate-50 py-12">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between mb-12">
-          <button
-            type="button"
+          <button 
             onClick={() => setView('account')}
             className="flex items-center gap-2 text-slate-500 hover:text-slate-900 font-bold transition-colors group"
           >
@@ -55,8 +40,14 @@ export default function OrderStatus() {
             Back to Orders
           </button>
           <div className="flex items-center gap-3">
-            <div className={`px-4 py-1.5 rounded-full text-xs font-black flex items-center gap-2 ${statusBadgeClass}`}>
-              <span className={`w-2 h-2 rounded-full ${statusDotClass}`} />
+            <div className={`px-4 py-1.5 rounded-full text-xs font-black flex items-center gap-2 ${
+              selectedOrder.status === 'Delivered' ? 'bg-blue-100 text-blue-700' : 
+              selectedOrder.status === 'Processing' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'
+            }`}>
+              <span className={`w-2 h-2 rounded-full ${
+                selectedOrder.status === 'Delivered' ? 'bg-blue-500' : 
+                selectedOrder.status === 'Processing' ? 'bg-blue-500' : 'bg-amber-500'
+              }`} />
               {selectedOrder.status}
             </div>
           </div>
@@ -95,7 +86,13 @@ export default function OrderStatus() {
                     <Truck className="w-4 h-4" />
                   </div>
                   <h3
-                    className={`font-black tracking-tight ${inTransitTitleClass}`}
+                    className={`font-black tracking-tight ${
+                      selectedOrder.status === 'In Transit'
+                        ? 'text-blue-600'
+                        : selectedOrder.status === 'Delivered'
+                          ? 'text-slate-900'
+                          : 'text-slate-400'
+                    }`}
                   >
                     In Transit
                   </h3>
@@ -187,7 +184,7 @@ export default function OrderStatus() {
             <div className="bg-blue-600 p-8 rounded-[3rem] shadow-xl shadow-blue-100 text-white">
               <h3 className="text-lg font-black mb-4 tracking-tight">Need Help?</h3>
               <p className="text-sm text-blue-100 leading-relaxed mb-6">If you have any issues with your order, our support team is available 24/7 to assist you.</p>
-              <button type="button" className="w-full py-3 bg-white text-blue-600 rounded-xl font-black text-sm hover:bg-blue-50 transition-all">
+              <button className="w-full py-3 bg-white text-blue-600 rounded-xl font-black text-sm hover:bg-blue-50 transition-all">
                 Contact Support
               </button>
             </div>

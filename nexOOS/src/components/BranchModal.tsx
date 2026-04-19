@@ -17,19 +17,6 @@ export default function BranchModal() {
 
   useBodyScrollLock(isBranchModalOpen);
 
-  const handleBranchSelect = (branch: (typeof branches)[number], isOpen: boolean) => {
-    if (!isOpen) {
-      return;
-    }
-
-    if (selectedBranch?.id !== branch.id) {
-      setCart([]);
-    }
-
-    setSelectedBranch(branch);
-    setIsBranchModalOpen(false);
-  };
-
   return (
     <AnimatePresence>
       {isBranchModalOpen && (
@@ -52,10 +39,8 @@ export default function BranchModal() {
                 <h2 className="text-2xl font-bold text-slate-900">Select a Branch</h2>
                 <p className="text-slate-500 text-sm mt-1">Choose an open branch to see available products</p>
               </div>
-              <button
-                type="button"
+              <button 
                 onClick={() => setIsBranchModalOpen(false)}
-                aria-label="Close branch selector"
                 className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
               >
                 <X className="w-6 h-6" />
@@ -69,11 +54,16 @@ export default function BranchModal() {
                   const isSelected = selectedBranch?.id === branch.id;
                   
                   return (
-                    <button
+                    <div 
                       key={branch.id}
-                      type="button"
-                      onClick={() => handleBranchSelect(branch, isOpen)}
-                      disabled={!isOpen}
+                      onClick={() => {
+                        if (!isOpen) return;
+                        if (selectedBranch?.id !== branch.id) {
+                          setCart([]);
+                        }
+                        setSelectedBranch(branch);
+                        setIsBranchModalOpen(false);
+                      }}
                       className={`p-4 rounded-2xl border-2 transition-all ${
                         !isOpen 
                           ? 'border-slate-100 bg-slate-50 opacity-60 cursor-not-allowed' 
@@ -110,7 +100,7 @@ export default function BranchModal() {
                           </p>
                         </div>
                       )}
-                    </button>
+                    </div>
                   );
                 })}
               </div>

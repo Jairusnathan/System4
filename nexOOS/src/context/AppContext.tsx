@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode, useRef, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { Product, Branch, BranchInventory, Order, CartItem, User } from '../types';
 import {
   clearAccessToken,
@@ -92,7 +92,7 @@ const cartSnapshot = (items: CartItem[]) =>
     .sort()
     .join('|');
 
-export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
+export function AppProvider({ children }: { children: ReactNode }) {
   const [view, setView] = useState('home');
   const [accountSubView, setAccountSubView] = useState<'profile' | 'addresses' | 'orders' | 'settings'>('profile');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -369,51 +369,32 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     return currentTime >= openTime && currentTime <= closeTime;
   };
 
-  const contextValue = useMemo(() => ({
-    view, setView,
-    accountSubView, setAccountSubView,
-    isLoggedIn,
-    setIsLoggedIn: (val: boolean) => {
-      if (!val) handleLogout();
-      else setIsLoggedIn(true);
-    },
-    user, setUser,
-    fetchUserProfile,
-    cart, setCart,
-    selectedBranch, setSelectedBranch,
-    branches,
-    branchInventory,
-    isBranchModalOpen, setIsBranchModalOpen,
-    isCartOpen, setIsCartOpen,
-    selectedProduct, setSelectedProduct,
-    orders, setOrders,
-    selectedOrder, setSelectedOrder,
-    addToCart,
-    updateQuantity,
-    cartTotal,
-    isBranchOpen,
-    searchQuery,
-    setSearchQuery
-  }), [
-    view,
-    accountSubView,
-    isLoggedIn,
-    user,
-    cart,
-    selectedBranch,
-    branches,
-    branchInventory,
-    isBranchModalOpen,
-    isCartOpen,
-    selectedProduct,
-    orders,
-    selectedOrder,
-    cartTotal,
-    searchQuery,
-  ]);
-
   return (
-    <AppContext.Provider value={contextValue}>
+    <AppContext.Provider value={{
+      view, setView,
+      accountSubView, setAccountSubView,
+      isLoggedIn, setIsLoggedIn: (val: boolean) => {
+        if (!val) handleLogout();
+        else setIsLoggedIn(true);
+      },
+      user, setUser,
+      fetchUserProfile,
+      cart, setCart,
+      selectedBranch, setSelectedBranch,
+      branches,
+      branchInventory,
+      isBranchModalOpen, setIsBranchModalOpen,
+      isCartOpen, setIsCartOpen,
+      selectedProduct, setSelectedProduct,
+      orders, setOrders,
+      selectedOrder, setSelectedOrder,
+      addToCart,
+      updateQuantity,
+      cartTotal,
+      isBranchOpen,
+      searchQuery,
+      setSearchQuery
+    }}>
       {children}
     </AppContext.Provider>
   );

@@ -171,8 +171,7 @@ export default function Home() {
                   transition={{ delay: idx * 0.1 }}
                   className="group"
                 >
-                  <button
-                    type="button"
+                  <div
                     onClick={() => setSelectedProduct(product)}
                     className="relative mb-4 aspect-square cursor-pointer overflow-hidden rounded-2xl bg-slate-100"
                   >
@@ -187,16 +186,15 @@ export default function Home() {
                         {product.category}
                       </span>
                     </div>
-                  </button>
+                  </div>
 
-                  <button
-                    type="button"
+                  <div
                     onClick={() => setSelectedProduct(product)}
                     className="mb-4 cursor-pointer"
                   >
                     <h3 className="mb-1 font-bold text-slate-900">{product.name}</h3>
                     <p className="line-clamp-2 text-xs text-slate-500">{product.description}</p>
-                  </button>
+                  </div>
 
                   {isOutOfStock && (
                     <div className="flex items-center gap-1 text-[10px] font-bold text-red-500 mb-4">
@@ -207,7 +205,6 @@ export default function Home() {
                   <div className="flex items-center justify-between">
                     <p className="text-lg font-black text-slate-900">PHP {product.price.toFixed(2)}</p>
                     <button
-                      type="button"
                       onClick={() => {
                         if (isLoggedIn) {
                           addToCart(product);

@@ -1,4 +1,4 @@
-import { appendFile } from 'node:fs/promises';
+import { appendFile } from 'fs/promises';
 import path from 'path';
 
 export async function trackSearchQuery(query: string, source: string) {

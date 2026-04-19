@@ -181,6 +181,13 @@ export default function Checkout() {
   const deliveryFee = deliveryEstimate?.fee ?? 0;
   const discountAmount = appliedPromo?.discountAmount ?? 0;
   const orderTotal = Math.max(0, cartTotal + deliveryFee - discountAmount);
+  const paymentMethods = [
+    { id: 'card', name: 'Credit / Debit Card', desc: 'Pay securely with card', icon: <CreditCard className="w-5 h-5 text-slate-500" /> },
+    { id: 'cod', name: 'Cash on Delivery', desc: 'Pay when you receive', icon: <Banknote className="w-5 h-5 text-slate-500" /> },
+    { id: 'gcash', name: 'GCash', desc: 'Pay via GCash', icon: <Wallet className="w-5 h-5 text-blue-600" /> },
+    { id: 'maya', name: 'Maya', desc: 'Pay via Maya', icon: <Wallet className="w-5 h-5 text-blue-600" /> }
+  ] as const;
+  const selectedPaymentMethod = paymentMethods.find((method) => method.id === paymentMethod) ?? paymentMethods[0];
 
   const applySavedAddress = React.useCallback((address: SavedAddress) => {
     setShippingInfo({
@@ -250,6 +257,59 @@ export default function Checkout() {
       postalCode: '',
     });
     setShippingError('');
+  };
+
+  const handleSaveCheckoutAddress = async () => {
+    const normalizedPhone = normalizePhilippinePhone(checkoutAddressForm.phoneNumber);
+    const hasRequiredFields =
+      checkoutAddressForm.fullName.trim() &&
+      normalizedPhone &&
+      checkoutAddressForm.province.trim() &&
+      checkoutAddressForm.city.trim() &&
+      checkoutAddressForm.streetAddress.trim();
+
+    if (!hasRequiredFields) {
+      setCheckoutAddressError(
+        !normalizedPhone && checkoutAddressForm.phoneNumber.trim()
+          ? PH_PHONE_MESSAGE
+          : 'Please complete Full Name, Phone Number, Province, City, and Street Address before saving.'
+      );
+      return;
+    }
+
+    const preparedAddress: SavedAddress = {
+      ...checkoutAddressForm,
+      phoneNumber: normalizedPhone,
+    };
+
+    let nextAddresses = [...savedAddresses, preparedAddress];
+    let nextSelectedIndex = nextAddresses.length - 1;
+
+    if (nextAddresses.length > MAX_SAVED_ADDRESSES) {
+      setCheckoutAddressError(`You can only save up to ${MAX_SAVED_ADDRESSES} addresses.`);
+      return;
+    }
+
+    if (checkoutMakeDefault) {
+      nextAddresses = [preparedAddress, ...savedAddresses];
+      nextSelectedIndex = 0;
+    }
+
+    const success = await persistCheckoutAddresses(nextAddresses);
+
+    if (!success) {
+      return;
+    }
+
+    setSelectedSavedAddressIndex(nextSelectedIndex);
+    applySavedAddress(preparedAddress);
+    setAddressPickerView('list');
+    setIsAddressPickerOpen(false);
+    setCheckoutAddressForm(createEmptyCheckoutAddress(user));
+    setCheckoutMakeDefault(false);
+    setCheckoutAddressError('');
+    setIsProvincePickerOpen(false);
+    setIsCityPickerOpen(false);
   };
 
   React.useEffect(() => {
@@ -922,7 +982,7 @@ export default function Checkout() {
                                 />
                               </div>
 
-                              <label htmlFor="checkout-address-default" className="mb-6 flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-slate-700 transition-colors hover:border-slate-300 hover:bg-white">
+                              <div className="mb-6 flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-slate-700 transition-colors hover:border-slate-300 hover:bg-white">
                                 <input
                                   id="checkout-address-default"
                                   type="checkbox"
@@ -930,11 +990,11 @@ export default function Checkout() {
                                   onChange={(e) => setCheckoutMakeDefault(e.target.checked)}
                                   className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-500 focus:ring-blue-400"
                                 />
-                                <span>
+                                <label htmlFor="checkout-address-default" className="cursor-pointer">
                                   <span className="block text-sm font-bold text-slate-800">Make this my default address</span>
                                   <span className="block text-sm text-slate-500">This address will be selected first during checkout.</span>
-                                </span>
-                              </label>
+                                </label>
+                              </div>
 
                               {checkoutAddressError && (
                                 <p className="mb-6 text-sm font-bold text-red-600">{checkoutAddressError}</p>
@@ -976,52 +1036,7 @@ export default function Checkout() {
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={async () => {
-                                      const normalizedPhone = normalizePhilippinePhone(checkoutAddressForm.phoneNumber);
-
-                                      if (!checkoutAddressForm.fullName.trim() || !normalizedPhone || !checkoutAddressForm.province.trim() || !checkoutAddressForm.city.trim() || !checkoutAddressForm.streetAddress.trim()) {
-                                        setCheckoutAddressError(
-                                          !normalizedPhone && checkoutAddressForm.phoneNumber.trim()
-                                            ? PH_PHONE_MESSAGE
-                                            : 'Please complete Full Name, Phone Number, Province, City, and Street Address before saving.'
-                                        );
-                                        return;
-                                      }
-
-                                      const preparedAddress: SavedAddress = {
-                                        ...checkoutAddressForm,
-                                        phoneNumber: normalizedPhone,
-                                      };
-
-                                      let nextAddresses = [...savedAddresses, preparedAddress];
-                                      let nextSelectedIndex = nextAddresses.length - 1;
-
-                                      if (nextAddresses.length > MAX_SAVED_ADDRESSES) {
-                                        setCheckoutAddressError(`You can only save up to ${MAX_SAVED_ADDRESSES} addresses.`);
-                                        return;
-                                      }
-
-                                      if (checkoutMakeDefault) {
-                                        nextAddresses = [preparedAddress, ...savedAddresses];
-                                        nextSelectedIndex = 0;
-                                      }
-
-                                      const success = await persistCheckoutAddresses(nextAddresses);
-
-                                      if (!success) {
-                                        return;
-                                      }
-
-                                      setSelectedSavedAddressIndex(nextSelectedIndex);
-                                      applySavedAddress(preparedAddress);
-                                      setAddressPickerView('list');
-                                      setIsAddressPickerOpen(false);
-                                      setCheckoutAddressForm(createEmptyCheckoutAddress(user));
-                                      setCheckoutMakeDefault(false);
-                                      setCheckoutAddressError('');
-                                      setIsProvincePickerOpen(false);
-                                      setIsCityPickerOpen(false);
-                                    }}
+                                    onClick={handleSaveCheckoutAddress}
                                     className="rounded-2xl bg-orange-500 px-8 py-3 text-base font-bold text-white shadow-lg shadow-orange-200 transition-colors hover:bg-orange-600 sm:text-lg"
                                   >
                                     Submit
@@ -1051,14 +1066,10 @@ export default function Checkout() {
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                    {[
-                      { id: 'card', name: 'Credit / Debit Card', desc: 'Pay securely with card', icon: <CreditCard className="w-5 h-5 text-slate-500" /> },
-                      { id: 'cod', name: 'Cash on Delivery', desc: 'Pay when you receive', icon: <Banknote className="w-5 h-5 text-slate-500" /> },
-                      { id: 'gcash', name: 'GCash', desc: 'Pay via GCash', icon: <Wallet className="w-5 h-5 text-blue-600" /> },
-                      { id: 'maya', name: 'Maya', desc: 'Pay via Maya', icon: <Wallet className="w-5 h-5 text-blue-600" /> }
-                    ].map(method => (
-                      <div 
+                    {paymentMethods.map(method => (
+                      <button
                         key={method.id}
+                        type="button"
                         onClick={() => setPaymentMethod(method.id)}
                         className={`p-4 rounded-xl border cursor-pointer transition-all flex items-center gap-4 ${
                           paymentMethod === method.id 
@@ -1078,7 +1089,7 @@ export default function Checkout() {
                             <p className="text-xs text-slate-500">{method.desc}</p>
                           </div>
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
 
@@ -1271,15 +1282,10 @@ export default function Checkout() {
                         <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Payment Method</h3>
                         <div className="flex items-center gap-3">
                           <div className="bg-white p-2 rounded-xl shadow-sm border border-slate-100">
-                            {paymentMethod === 'cod' ? <Banknote className="w-5 h-5 text-blue-600" /> : 
-                             paymentMethod === 'gcash' ? <Wallet className="w-5 h-5 text-blue-600" /> :
-                             paymentMethod === 'maya' ? <Wallet className="w-5 h-5 text-blue-600" /> :
-                             <CreditCard className="w-5 h-5 text-blue-600" />}
+                            {selectedPaymentMethod.icon}
                           </div>
                           <p className="font-black text-slate-900">
-                            {paymentMethod === 'cod' ? 'Cash on Delivery' : 
-                             paymentMethod === 'gcash' ? 'GCash' : 
-                             paymentMethod === 'maya' ? 'Maya' : 'Credit / Debit Card'}
+                            {selectedPaymentMethod.name}
                           </p>
                         </div>
                       </div>

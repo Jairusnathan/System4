@@ -39,6 +39,9 @@ const createEmptyAddress = (user?: { full_name?: string; phone?: string } | null
 const formatAddressPreview = (address: SavedAddress) =>
   [address.streetAddress, address.city, address.province, address.postalCode].filter(Boolean).join(', ');
 
+const buildAddressKey = (address: SavedAddress, fallbackIndex: number) =>
+  `${address.label}-${address.fullName}-${address.phoneNumber}-${address.streetAddress}-${address.city}-${address.province}-${address.postalCode}-${fallbackIndex}`;
+
 const parseAddresses = (
   address?: string,
   user?: { full_name?: string; phone?: string } | null
@@ -357,6 +360,152 @@ export default function Account() {
     setIsLogoutModalOpen(false);
   };
 
+  const resetAddressEditorState = () => {
+    setEditingAddressIndex(null);
+    setMakeAddressDefault(false);
+    setAddressValidationMessage('');
+    setIsProvincePickerOpen(false);
+    setIsCityPickerOpen(false);
+  };
+
+  const openAddressEditor = (index: number, address: SavedAddress) => {
+    setEditingAddressIndex(index);
+    setAddressFormData(address);
+    setMakeAddressDefault(index === 0);
+    setIsAddressModalOpen(true);
+    setAddressValidationMessage('');
+    setIsProvincePickerOpen(false);
+    setIsCityPickerOpen(false);
+    setSaveStatus({ type: null, message: '' });
+  };
+
+  const openNewAddressEditor = () => {
+    setEditingAddressIndex(addressEntries.length);
+    setAddressFormData(createEmptyAddress({
+      full_name: profileData.fullName,
+      phone: profileData.phone,
+    }));
+    setMakeAddressDefault(addressEntries.length === 0);
+    setIsAddressModalOpen(true);
+    setAddressValidationMessage('');
+    setIsProvincePickerOpen(false);
+    setIsCityPickerOpen(false);
+    setSaveStatus({ type: null, message: '' });
+  };
+
+  const closeAddressEditor = () => {
+    setIsAddressModalOpen(false);
+    resetAddressEditorState();
+  };
+
+  const handleSetDefaultAddress = async (index: number) => {
+    const nextAddresses = [addressEntries[index], ...addressEntries.filter((_: SavedAddress, entryIndex: number) => entryIndex !== index)];
+    await persistAddresses(nextAddresses, 'Default address updated successfully!');
+  };
+
+  const handleDeleteAddress = async (index: number) => {
+    const nextAddresses = addressEntries.filter((_: SavedAddress, entryIndex: number) => entryIndex !== index);
+    await persistAddresses(nextAddresses, 'Address deleted successfully!');
+  };
+
+  const handleSaveAddress = async () => {
+    const missingFields = [
+      !addressFormData.fullName.trim() ? 'Full Name' : null,
+      !addressFormData.phoneNumber.trim() ? 'Phone Number' : null,
+      !addressFormData.streetAddress.trim() ? 'Street Name, Building, House No.' : null,
+    ].filter(Boolean);
+
+    if (missingFields.length > 0) {
+      setAddressValidationMessage(`Please fill in the following before submitting: ${missingFields.join(', ')}.`);
+      return;
+    }
+
+    const normalizedAddressPhone = normalizePhilippinePhone(addressFormData.phoneNumber);
+
+    if (!normalizedAddressPhone) {
+      setAddressValidationMessage(PH_PHONE_MESSAGE);
+      return;
+    }
+
+    const nextAddresses = [...addressEntries];
+    const targetIndex = editingAddressIndex ?? nextAddresses.length;
+    nextAddresses[targetIndex] = {
+      ...addressFormData,
+      phoneNumber: normalizedAddressPhone,
+    };
+
+    let orderedAddresses = [...nextAddresses];
+
+    if (makeAddressDefault) {
+      const [selectedAddress] = orderedAddresses.splice(targetIndex, 1);
+      orderedAddresses = selectedAddress ? [selectedAddress, ...orderedAddresses] : orderedAddresses;
+    } else if (targetIndex === 0 && orderedAddresses.length > 1) {
+      const [selectedAddress] = orderedAddresses.splice(0, 1);
+      orderedAddresses = selectedAddress
+        ? [orderedAddresses[0], selectedAddress, ...orderedAddresses.slice(1)]
+        : orderedAddresses;
+    }
+
+    const success = await persistAddresses(orderedAddresses, 'Address saved successfully!');
+    if (success) {
+      setAddressFormData(createEmptyAddress(user));
+      setMakeAddressDefault(false);
+    }
+  };
+
+  const handlePasswordUpdate = async () => {
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setPasswordStatus({ type: 'error', message: 'Passwords do not match' });
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      setPasswordStatus({ type: 'error', message: 'Password must be at least 6 characters' });
+      return;
+    }
+
+    setIsUpdatingPassword(true);
+    setPasswordStatus({ type: null, message: '' });
+
+    try {
+      const token = await ensureAccessToken();
+
+      if (!token) {
+        setPasswordStatus({ type: 'error', message: 'Your session expired. Please sign in again.' });
+        return;
+      }
+
+      const res = await fetch(buildApiUrl('/api/auth/update-password'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, newPassword: passwordData.newPassword })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setPasswordStatus({ type: 'success', message: 'Password updated successfully!' });
+        setTimeout(() => {
+          setIsPasswordModalOpen(false);
+          setPasswordData({ newPassword: '', confirmPassword: '' });
+          setPasswordStatus({ type: null, message: '' });
+        }, 2000);
+      } else {
+        setPasswordStatus({ type: 'error', message: data.error || 'Failed to update password' });
+      }
+    } catch {
+      setPasswordStatus({ type: 'error', message: 'An error occurred. Please try again.' });
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
+
+  const accountSectionTitles = {
+    profile: 'Profile Details',
+    orders: 'Order History',
+    settings: 'Account Settings',
+  } as const;
+  const accountSectionTitle = accountSectionTitles[accountSubView as keyof typeof accountSectionTitles] ?? 'Account Settings';
+
   const renderProfileDetails = () => (
     <div className="space-y-8">
       <div className="rounded-[2rem] border border-slate-100 bg-slate-50/70 p-6 sm:p-8">
@@ -563,19 +712,7 @@ export default function Account() {
         <button
           type="button"
           disabled={isSaving || addressEntries.length >= MAX_SAVED_ADDRESSES}
-          onClick={() => {
-            setEditingAddressIndex(addressEntries.length);
-            setAddressFormData(createEmptyAddress({
-              full_name: profileData.fullName,
-              phone: profileData.phone,
-            }));
-            setMakeAddressDefault(addressEntries.length === 0);
-            setIsAddressModalOpen(true);
-            setAddressValidationMessage('');
-            setIsProvincePickerOpen(false);
-            setIsCityPickerOpen(false);
-            setSaveStatus({ type: null, message: '' });
-          }}
+          onClick={openNewAddressEditor}
           className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-orange-500 text-white rounded-xl font-black hover:bg-orange-600 transition-all disabled:opacity-70"
         >
           <span className="text-xl leading-none">+</span>
@@ -601,7 +738,7 @@ export default function Account() {
           const isDefault = index === 0;
 
           return (
-            <div key={index} className="p-6 sm:p-8">
+            <div key={buildAddressKey(address, index)} className="p-6 sm:p-8">
               <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
                 <div className="flex-1 min-w-0">
                   <h4 className="text-2xl font-black text-slate-900 mb-3">Address</h4>
@@ -621,31 +758,19 @@ export default function Account() {
                 <div className="flex flex-row flex-wrap gap-3 lg:flex-col lg:items-end">
                   <button
                     type="button"
-                    onClick={() => {
-                      setEditingAddressIndex(index);
-                      setAddressFormData(address);
-                      setMakeAddressDefault(index === 0);
-                      setIsAddressModalOpen(true);
-                      setAddressValidationMessage('');
-                      setIsProvincePickerOpen(false);
-                      setIsCityPickerOpen(false);
-                      setSaveStatus({ type: null, message: '' });
-                    }}
+                    onClick={() => openAddressEditor(index, address)}
                     className="text-lg font-medium text-blue-600 hover:text-blue-700 transition-colors"
                   >
                     Edit
                   </button>
 
                   {!isDefault && (
-                    <button
-                      type="button"
-                      disabled={isSaving}
-                      onClick={async () => {
-                        const nextAddresses = [addressEntries[index], ...addressEntries.filter((_, entryIndex) => entryIndex !== index)];
-                        await persistAddresses(nextAddresses, 'Default address updated successfully!');
-                      }}
-                      className="px-5 py-2.5 border border-slate-300 text-slate-700 rounded-lg font-bold hover:bg-slate-50 transition-colors disabled:opacity-70"
-                    >
+                      <button
+                        type="button"
+                        disabled={isSaving}
+                        onClick={() => handleSetDefaultAddress(index)}
+                        className="px-5 py-2.5 border border-slate-300 text-slate-700 rounded-lg font-bold hover:bg-slate-50 transition-colors disabled:opacity-70"
+                      >
                       Set as default
                     </button>
                   )}
@@ -653,10 +778,7 @@ export default function Account() {
                   <button
                     type="button"
                     disabled={isSaving}
-                    onClick={async () => {
-                      const nextAddresses = addressEntries.filter((_, entryIndex) => entryIndex !== index);
-                      await persistAddresses(nextAddresses, 'Address deleted successfully!');
-                    }}
+                    onClick={() => handleDeleteAddress(index)}
                     className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-500 disabled:opacity-70"
                     aria-label="Delete address"
                   >
@@ -691,9 +813,7 @@ export default function Account() {
               exit={{ opacity: 0 }}
               onClick={() => {
                 if (!isSaving) {
-                  setIsAddressModalOpen(false);
-                  setEditingAddressIndex(null);
-                  setAddressValidationMessage('');
+                  closeAddressEditor();
                 }
               }}
               className="fixed inset-0 bg-slate-900/35 z-50"
@@ -858,7 +978,7 @@ export default function Account() {
                   />
                 </div>
 
-                <label htmlFor="account-address-default" className="mb-6 flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-slate-700 transition-colors hover:border-slate-300 hover:bg-white">
+                <div className="mb-6 flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-slate-700 transition-colors hover:border-slate-300 hover:bg-white">
                   <input
                     id="account-address-default"
                     type="checkbox"
@@ -866,11 +986,11 @@ export default function Account() {
                     onChange={(e) => setMakeAddressDefault(e.target.checked)}
                     className="mt-1 h-4 w-4 rounded border-slate-300 text-orange-500 focus:ring-orange-400"
                   />
-                  <span>
+                  <label htmlFor="account-address-default" className="cursor-pointer">
                     <span className="block text-sm font-bold text-slate-800">Make this my default address</span>
                     <span className="block text-sm text-slate-500">This address will be selected first during checkout.</span>
-                  </span>
-                </label>
+                  </label>
+                </div>
 
                 <div className="flex flex-col gap-6 border-t border-slate-100 pt-6 sm:flex-row sm:items-end sm:justify-between">
                   <div>
@@ -896,14 +1016,7 @@ export default function Account() {
                   <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:gap-4">
                     <button
                       type="button"
-                      onClick={() => {
-                        setIsAddressModalOpen(false);
-                        setEditingAddressIndex(null);
-                        setMakeAddressDefault(false);
-                        setAddressValidationMessage('');
-                        setIsProvincePickerOpen(false);
-                        setIsCityPickerOpen(false);
-                      }}
+                      onClick={closeAddressEditor}
                       className="rounded-2xl border border-slate-200 px-6 py-3 text-base font-bold text-slate-600 transition-colors hover:bg-slate-50 sm:text-lg"
                     >
                       Cancel
@@ -911,49 +1024,7 @@ export default function Account() {
                     <button
                       type="button"
                       disabled={isSaving}
-                      onClick={async () => {
-                        const missingFields = [
-                          !addressFormData.fullName.trim() ? 'Full Name' : null,
-                          !addressFormData.phoneNumber.trim() ? 'Phone Number' : null,
-                          !addressFormData.streetAddress.trim() ? 'Street Name, Building, House No.' : null,
-                        ].filter(Boolean);
-
-                        if (missingFields.length > 0) {
-                          setAddressValidationMessage(`Please fill in the following before submitting: ${missingFields.join(', ')}.`);
-                          return;
-                        }
-
-                          const normalizedAddressPhone = normalizePhilippinePhone(addressFormData.phoneNumber);
-
-                          if (!normalizedAddressPhone) {
-                            setAddressValidationMessage(PH_PHONE_MESSAGE);
-                            return;
-                          }
-
-                          const nextAddresses = [...addressEntries];
-                          const targetIndex = editingAddressIndex ?? nextAddresses.length;
-                          nextAddresses[targetIndex] = {
-                            ...addressFormData,
-                            phoneNumber: normalizedAddressPhone,
-                          };
-                        let orderedAddresses = [...nextAddresses];
-
-                        if (makeAddressDefault) {
-                          const [selectedAddress] = orderedAddresses.splice(targetIndex, 1);
-                          orderedAddresses = selectedAddress ? [selectedAddress, ...orderedAddresses] : orderedAddresses;
-                        } else if (targetIndex === 0 && orderedAddresses.length > 1) {
-                          const [selectedAddress] = orderedAddresses.splice(0, 1);
-                          orderedAddresses = selectedAddress
-                            ? [orderedAddresses[0], selectedAddress, ...orderedAddresses.slice(1)]
-                            : orderedAddresses;
-                        }
-
-                        const success = await persistAddresses(orderedAddresses, 'Address saved successfully!');
-                        if (success) {
-                          setAddressFormData(createEmptyAddress(user));
-                          setMakeAddressDefault(false);
-                        }
-                      }}
+                      onClick={handleSaveAddress}
                       className="rounded-2xl bg-orange-500 px-8 py-3 text-base font-bold text-white shadow-lg shadow-orange-200 transition-colors hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-70 sm:text-lg"
                     >
                       Submit
@@ -1025,14 +1096,23 @@ export default function Account() {
         </div>
       ) : (
         <div className="space-y-6">
-          {orders.map(order => (
-            <div 
+          {orders.map(order => {
+            const isOrderProcessingLike =
+              order.status === 'Delivered' || order.status === 'Processing';
+            const orderStatusBadgeClass = isOrderProcessingLike
+              ? 'bg-blue-100 text-blue-700'
+              : 'bg-amber-100 text-amber-700';
+            const orderStatusDotClass = isOrderProcessingLike ? 'bg-blue-500' : 'bg-amber-500';
+
+            return (
+            <button
+              type="button"
               key={order.id}
               onClick={() => {
                 setSelectedOrder(order);
                 setView('order-status');
               }}
-              className="group p-6 rounded-[2rem] border-2 border-slate-100 hover:border-blue-200 hover:bg-slate-50 transition-all cursor-pointer"
+              className="group w-full p-6 rounded-[2rem] border-2 border-slate-100 hover:border-blue-200 hover:bg-slate-50 transition-all cursor-pointer text-left"
             >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                 <div>
@@ -1040,14 +1120,8 @@ export default function Account() {
                   <p className="font-black text-slate-900 tracking-tight">{getDisplayOrderNumber(order)}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className={`px-4 py-1.5 rounded-full text-xs font-black flex items-center gap-2 ${
-                    order.status === 'Delivered' ? 'bg-blue-100 text-blue-700' : 
-                    order.status === 'Processing' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'
-                  }`}>
-                    <span className={`w-2 h-2 rounded-full ${
-                      order.status === 'Delivered' ? 'bg-blue-500' : 
-                      order.status === 'Processing' ? 'bg-blue-500' : 'bg-amber-500'
-                    }`} />
+                  <div className={`px-4 py-1.5 rounded-full text-xs font-black flex items-center gap-2 ${orderStatusBadgeClass}`}>
+                    <span className={`w-2 h-2 rounded-full ${orderStatusDotClass}`} />
                     {order.status}
                   </div>
                   <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
@@ -1068,8 +1142,9 @@ export default function Account() {
                   <p className="text-sm font-bold text-slate-900">{order.items.length} Product{order.items.length > 1 ? 's' : ''}</p>
                 </div>
               </div>
-            </div>
-          ))}
+            </button>
+            );
+          })}
         </div>
       )}
     </div>
@@ -1203,11 +1278,7 @@ export default function Account() {
             >
               {accountSubView !== 'addresses' && (
                 <h2 className="text-2xl font-black text-slate-900 mb-10 tracking-tight">
-                  {accountSubView === 'profile'
-                    ? 'Profile Details'
-                    : accountSubView === 'orders'
-                      ? 'Order History'
-                      : 'Account Settings'}
+                  {accountSectionTitle}
                 </h2>
               )}
               
@@ -1290,7 +1361,8 @@ export default function Account() {
                     </div>
                     <h3 className="text-2xl font-black text-slate-900 tracking-tight">Update Password</h3>
                   </div>
-                  <button 
+                  <button
+                    type="button"
                     onClick={() => setIsPasswordModalOpen(false)}
                     className="p-2 hover:bg-slate-100 rounded-xl transition-colors"
                   >
@@ -1313,71 +1385,31 @@ export default function Account() {
 
                 <div className="space-y-6">
                   <div>
-                    <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">New Password</label>
+                    <label htmlFor="account-password-new" className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">New Password</label>
                     <input 
+                      id="account-password-new"
                       type="password"
                       value={passwordData.newPassword}
                       onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
-                      placeholder="••••••••"
+                      placeholder="Enter new password"
                       className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Confirm New Password</label>
+                    <label htmlFor="account-password-confirm" className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Confirm New Password</label>
                     <input 
+                      id="account-password-confirm"
                       type="password"
                       value={passwordData.confirmPassword}
                       onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
-                      placeholder="••••••••"
+                      placeholder="Confirm new password"
                       className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
                     />
                   </div>
 
-                  <button 
-                    onClick={async () => {
-                      if (passwordData.newPassword !== passwordData.confirmPassword) {
-                        setPasswordStatus({ type: 'error', message: 'Passwords do not match' });
-                        return;
-                      }
-                      if (passwordData.newPassword.length < 6) {
-                        setPasswordStatus({ type: 'error', message: 'Password must be at least 6 characters' });
-                        return;
-                      }
-
-                      setIsUpdatingPassword(true);
-                      setPasswordStatus({ type: null, message: '' });
-
-                      try {
-                        const token = await ensureAccessToken();
-
-                        if (!token) {
-                          setPasswordStatus({ type: 'error', message: 'Your session expired. Please sign in again.' });
-                          return;
-                        }
-
-                        const res = await fetch(buildApiUrl('/api/auth/update-password'), {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ token, newPassword: passwordData.newPassword })
-                        });
-
-                        const data = await res.json();
-                        if (res.ok) {
-                          setPasswordStatus({ type: 'success', message: 'Password updated successfully!' });
-                          setTimeout(() => {
-                            setIsPasswordModalOpen(false);
-                            setPasswordData({ newPassword: '', confirmPassword: '' });
-                            setPasswordStatus({ type: null, message: '' });
-                          }, 2000);
-                        } else {
-                          setPasswordStatus({ type: 'error', message: data.error || 'Failed to update password' });
-                        }
-                      } catch {
-                        setPasswordStatus({ type: 'error', message: 'An error occurred. Please try again.' });
-                      } finally {
-                        setIsUpdatingPassword(false);
-                      }
-                    }}
+                  <button
+                    type="button"
+                    onClick={handlePasswordUpdate}
                     disabled={isUpdatingPassword || !passwordData.newPassword || !passwordData.confirmPassword}
                     className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-lg hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >

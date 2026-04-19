@@ -11,7 +11,8 @@ export function normalizeDateForInput(value?: string | null) {
     return trimmed;
   }
 
-  const slashMatch = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  const slashPattern = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+  const slashMatch = slashPattern.exec(trimmed);
   if (slashMatch) {
     const [, month, day, year] = slashMatch;
     return `${year}-${pad(Number(month))}-${pad(Number(day))}`;

@@ -37,15 +37,23 @@ export default function Login() {
   });
   const loginFieldIds = {
     email: 'login-email',
-    password: 'login-password',
+    password: 'login-secret',
     rememberMe: 'login-remember-me',
     forgotEmail: 'forgot-email',
     forgotCode: 'forgot-code',
-    forgotPassword: 'forgot-password',
-    forgotConfirmPassword: 'forgot-confirm-password',
+    forgotPassword: 'forgot-secret',
+    forgotConfirmPassword: 'forgot-confirm-secret',
   } as const;
 
   useBodyScrollLock(isForgotModalOpen);
+
+  const handleBackHome = () => setView('home');
+  let resetActionLabel = 'Update Password';
+  if (resetStep === 'email') {
+    resetActionLabel = 'Send Code';
+  } else if (resetStep === 'code') {
+    resetActionLabel = 'Verify Code';
+  }
 
   const resetForgotPasswordState = () => {
     setForgotData({
@@ -89,27 +97,66 @@ export default function Login() {
     }
   };
 
+  const requestResetCode = async () => {
+    const res = await fetch(buildApiUrl('/api/auth/request-password-reset'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: forgotData.email })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || 'Failed to send verification code');
+    }
+
+    return data;
+  };
+
+  const verifyResetCode = async () => {
+    const res = await fetch(buildApiUrl('/api/auth/verify-password-reset-code'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: forgotData.email,
+        verificationCode: forgotData.verificationCode,
+        resetToken
+      })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || 'Invalid verification code');
+    }
+  };
+
+  const updateForgotPassword = async () => {
+    const res = await fetch(buildApiUrl('/api/auth/update-password'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: forgotData.email,
+        verificationCode: forgotData.verificationCode,
+        resetToken,
+        newPassword: forgotData.newPassword
+      })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || 'Failed to update password');
+    }
+  };
+
   const handleResetAction = async () => {
     setIsResetting(true);
     setResetStatus({ type: null, message: '' });
 
     try {
       if (resetStep === 'email') {
-        const res = await fetch(buildApiUrl('/api/auth/request-password-reset'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: forgotData.email })
-        });
-        const data = await res.json();
-
-        if (res.ok) {
-          setResetToken(data.resetToken);
-          setResetStep('code');
-          setResetStatus({ type: 'success', message: 'Verification code sent. Please check your email.' });
-        } else {
-          setResetStatus({ type: 'error', message: data.error || 'Failed to send verification code' });
-        }
-
+        const data = await requestResetCode();
+        setResetToken(data.resetToken);
+        setResetStep('code');
+        setResetStatus({ type: 'success', message: 'Verification code sent. Please check your email.' });
         return;
       }
 
@@ -119,23 +166,9 @@ export default function Login() {
           return;
         }
 
-        const res = await fetch(buildApiUrl('/api/auth/verify-password-reset-code'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: forgotData.email,
-            verificationCode: forgotData.verificationCode,
-            resetToken
-          })
-        });
-        const data = await res.json();
-
-        if (res.ok) {
-          setResetStep('password');
-          setResetStatus({ type: 'success', message: 'Code accepted. You can now set a new password.' });
-        } else {
-          setResetStatus({ type: 'error', message: data.error || 'Invalid verification code' });
-        }
+        await verifyResetCode();
+        setResetStep('password');
+        setResetStatus({ type: 'success', message: 'Code accepted. You can now set a new password.' });
         return;
       }
 
@@ -149,29 +182,17 @@ export default function Login() {
         return;
       }
 
-      const res = await fetch(buildApiUrl('/api/auth/update-password'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: forgotData.email,
-          verificationCode: forgotData.verificationCode,
-          resetToken,
-          newPassword: forgotData.newPassword
-        })
+      await updateForgotPassword();
+      setResetStatus({ type: 'success', message: 'Password updated successfully!' });
+      setTimeout(() => {
+        setIsForgotModalOpen(false);
+        resetForgotPasswordState();
+      }, 2000);
+    } catch (error) {
+      setResetStatus({
+        type: 'error',
+        message: error instanceof Error ? error.message : 'An error occurred. Please try again.'
       });
-      const data = await res.json();
-
-      if (res.ok) {
-        setResetStatus({ type: 'success', message: 'Password updated successfully!' });
-        setTimeout(() => {
-          setIsForgotModalOpen(false);
-          resetForgotPasswordState();
-        }, 2000);
-      } else {
-        setResetStatus({ type: 'error', message: data.error || 'Failed to update password' });
-      }
-    } catch {
-      setResetStatus({ type: 'error', message: 'An error occurred. Please try again.' });
     } finally {
       setIsResetting(false);
     }
@@ -182,28 +203,21 @@ export default function Login() {
     setResetStatus({ type: null, message: '' });
 
     try {
-      const res = await fetch(buildApiUrl('/api/auth/request-password-reset'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: forgotData.email })
+      const data = await requestResetCode();
+      setResetToken(data.resetToken);
+      setResetStep('code');
+      setForgotData(prev => ({
+        ...prev,
+        verificationCode: '',
+        newPassword: '',
+        confirmPassword: ''
+      }));
+      setResetStatus({ type: 'success', message: 'A new verification code has been sent.' });
+    } catch (error) {
+      setResetStatus({
+        type: 'error',
+        message: error instanceof Error ? error.message : 'Unable to resend code right now.'
       });
-      const data = await res.json();
-
-      if (res.ok) {
-        setResetToken(data.resetToken);
-        setResetStep('code');
-        setForgotData(prev => ({
-          ...prev,
-          verificationCode: '',
-          newPassword: '',
-          confirmPassword: ''
-        }));
-        setResetStatus({ type: 'success', message: 'A new verification code has been sent.' });
-      } else {
-        setResetStatus({ type: 'error', message: data.error || 'Failed to resend code' });
-      }
-    } catch {
-      setResetStatus({ type: 'error', message: 'Unable to resend code right now.' });
     } finally {
       setIsResetting(false);
     }
@@ -219,15 +233,16 @@ export default function Login() {
         <div className="absolute top-0 left-0 w-full h-2 bg-blue-500" />
         <div className="absolute -top-24 -right-24 w-64 h-64 bg-blue-50 rounded-full blur-3xl opacity-50" />
 
-        <div
-          onClick={() => setView('home')}
+        <button
+          type="button"
+          onClick={handleBackHome}
           className="flex items-center gap-2 mb-12 cursor-pointer group justify-center"
         >
           <div className="bg-blue-600 p-2 rounded-xl group-hover:rotate-12 transition-transform">
             <Pill className="w-6 h-6 text-white" />
           </div>
           <span className="text-3xl font-black text-slate-900 tracking-tight">PharmaQuick</span>
-        </div>
+        </button>
 
         <div className="text-center mb-10">
           <h2 className="text-4xl font-black text-slate-900 mb-2 tracking-tight">Welcome Back!</h2>
@@ -266,7 +281,7 @@ export default function Login() {
                 required
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                placeholder="........"
+                placeholder="Enter your password"
                 className="w-full pl-14 pr-12 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
               />
               <button
@@ -315,7 +330,7 @@ export default function Login() {
 
         <div className="mt-12 pt-8 border-t border-slate-100 text-center">
           <p className="text-slate-500 font-bold">
-            Don&apos;t have an account? <button onClick={() => setView('register')} className="text-blue-600 hover:text-blue-700 transition-colors font-black">Create Account</button>
+            Don&apos;t have an account? <button type="button" onClick={() => setView('register')} className="text-blue-600 hover:text-blue-700 transition-colors font-black">Create Account</button>
           </p>
         </div>
       </motion.div>
@@ -328,6 +343,7 @@ export default function Login() {
             className="bg-white p-8 sm:p-10 rounded-[3rem] shadow-2xl border border-slate-100 w-full max-w-lg relative"
           >
             <button
+              type="button"
               onClick={() => {
                 setIsForgotModalOpen(false);
                 resetForgotPasswordState();
@@ -398,7 +414,7 @@ export default function Login() {
                         type={showForgotPasswords.new ? 'text' : 'password'}
                         value={forgotData.newPassword}
                         onChange={(e) => setForgotData({ ...forgotData, newPassword: e.target.value })}
-                        placeholder="........"
+                        placeholder="Enter new password"
                         className="w-full px-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
                       />
                       <button
@@ -419,7 +435,7 @@ export default function Login() {
                         type={showForgotPasswords.confirm ? 'text' : 'password'}
                         value={forgotData.confirmPassword}
                         onChange={(e) => setForgotData({ ...forgotData, confirmPassword: e.target.value })}
-                        placeholder="........"
+                        placeholder="Confirm new password"
                         className="w-full px-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
                       />
                       <button
@@ -448,12 +464,8 @@ export default function Login() {
               >
                 {isResetting ? (
                   <Loader2 className="w-6 h-6 animate-spin" />
-                ) : resetStep === 'email' ? (
-                  'Send Code'
-                ) : resetStep === 'code' ? (
-                  'Verify Code'
                 ) : (
-                  'Update Password'
+                  resetActionLabel
                 )}
               </button>
 

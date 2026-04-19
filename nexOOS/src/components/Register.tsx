@@ -35,13 +35,15 @@ export default function Register() {
     email: 'register-email',
     birthday: 'register-birthday',
     gender: 'register-gender',
-    password: 'register-password',
-    confirmPassword: 'register-confirm-password',
+    password: 'register-secret',
+    confirmPassword: 'register-confirm-secret',
     agreeToTerms: 'register-agree-terms',
     verificationCode: 'register-verification-code',
   } as const;
 
   useBodyScrollLock(showAccountCreatedModal);
+
+  const handleBackHome = () => setView('home');
 
   const submitRegistrationRequest = async (normalizedPhone: string) => {
     const res = await fetch(buildApiUrl('/api/auth/register'), {
@@ -183,15 +185,16 @@ export default function Register() {
         <div className="absolute top-0 left-0 w-full h-2 bg-blue-500" />
         <div className="absolute -top-24 -right-24 w-64 h-64 bg-blue-50 rounded-full blur-3xl opacity-50" />
 
-        <div
-          onClick={() => setView('home')}
+        <button
+          type="button"
+          onClick={handleBackHome}
           className="flex items-center gap-2 mb-12 cursor-pointer group justify-center"
         >
           <div className="bg-blue-600 p-2 rounded-xl group-hover:rotate-12 transition-transform">
             <Pill className="w-6 h-6 text-white" />
           </div>
           <span className="text-3xl font-black text-slate-900 tracking-tight">PharmaQuick</span>
-        </div>
+        </button>
 
         <div className="text-center mb-10">
           <h2 className="text-4xl font-black text-slate-900 mb-2 tracking-tight">
@@ -311,7 +314,7 @@ export default function Register() {
                     required
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    placeholder="........"
+                    placeholder="Create a password"
                     className="w-full pl-14 pr-12 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
                   />
                   <button
@@ -333,7 +336,7 @@ export default function Register() {
                     required
                     value={formData.confirmPassword}
                     onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                    placeholder="........"
+                    placeholder="Confirm your password"
                     className="w-full pl-14 pr-12 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
                   />
                   <button
@@ -422,7 +425,7 @@ export default function Register() {
 
         <div className="mt-12 pt-8 border-t border-slate-100 text-center">
           <p className="text-slate-500 font-bold">
-            Already have an account? <button onClick={() => setView('login')} className="text-blue-600 hover:text-blue-700 transition-colors">Sign In</button>
+                Already have an account? <button type="button" onClick={() => setView('login')} className="text-blue-600 hover:text-blue-700 transition-colors">Sign In</button>
           </p>
         </div>
       </motion.div>

@@ -2,8 +2,10 @@ import { buildApiUrl } from './api';
 
 const ACCESS_TOKEN_KEY = 'token';
 
+const isBrowser = globalThis.window !== undefined;
+
 export function getAccessToken() {
-  if (typeof globalThis.window === 'undefined') {
+  if (!isBrowser) {
     return null;
   }
 
@@ -11,10 +13,18 @@ export function getAccessToken() {
 }
 
 export function storeAccessToken(token: string) {
+  if (!isBrowser) {
+    return;
+  }
+
   localStorage.setItem(ACCESS_TOKEN_KEY, token);
 }
 
 export function clearAccessToken() {
+  if (!isBrowser) {
+    return;
+  }
+
   localStorage.removeItem(ACCESS_TOKEN_KEY);
 }
 

@@ -59,12 +59,12 @@ const initialForgotPasswordVisibility: ForgotPasswordVisibility = {
 
 const loginFieldIds: LoginFieldIds = {
   email: 'login-email',
-  password: 'login-pass-input',
+  password: 'login-credential-input',
   rememberMe: 'login-remember-me',
   forgotEmail: 'forgot-email',
   forgotCode: 'forgot-code',
-  forgotPassword: 'forgot-pass-input',
-  forgotConfirmPassword: 'forgot-pass-confirm-input',
+  forgotPassword: 'forgot-reset-input',
+  forgotConfirmPassword: 'forgot-reset-confirm-input',
 };
 
 async function postJson<TBody>(path: string, body: TBody) {
@@ -137,14 +137,14 @@ function PasswordToggleButton({
   hiddenLabel,
   className,
   iconClassName,
-}: {
+}: Readonly<{
   isVisible: boolean;
   onToggle: () => void;
   visibleLabel: string;
   hiddenLabel: string;
   className: string;
   iconClassName: string;
-}) {
+}>) {
   return (
     <button
       type="button"
@@ -157,7 +157,7 @@ function PasswordToggleButton({
   );
 }
 
-function ResetStatusBanner({ resetStatus }: { resetStatus: ResetStatus }) {
+function ResetStatusBanner({ resetStatus }: Readonly<{ resetStatus: ResetStatus }>) {
   if (!resetStatus.type) {
     return null;
   }
@@ -184,7 +184,7 @@ function ForgotPasswordModal({
   onToggleForgotPassword,
   onResetAction,
   onResendCode,
-}: {
+}: Readonly<{
   loginFieldIds: LoginFieldIds;
   forgotData: ForgotData;
   resetStep: ResetStep;
@@ -196,7 +196,7 @@ function ForgotPasswordModal({
   onToggleForgotPassword: (field: keyof ForgotPasswordVisibility) => void;
   onResetAction: () => void;
   onResendCode: () => void;
-}) {
+}>) {
   const showVerificationCode = resetStep !== 'email';
   const showPasswordFields = resetStep === 'password';
 
@@ -246,7 +246,7 @@ function ForgotPasswordModal({
                 inputMode="numeric"
                 maxLength={6}
                 value={forgotData.verificationCode}
-                onChange={(e) => onForgotDataChange('verificationCode', e.target.value.replace(/\D/g, '').slice(0, 6))}
+                onChange={(e) => onForgotDataChange('verificationCode', e.target.value.replaceAll(/\D/g, '').slice(0, 6))}
                 placeholder="Enter 6-digit code"
                 disabled={resetStep === 'password' || isResetting}
                 className="w-full px-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium tracking-[0.3em] disabled:opacity-70"
@@ -342,7 +342,7 @@ function LoginCard({
   onOpenForgotPassword,
   onGoHome,
   onGoToRegister,
-}: {
+}: Readonly<{
   formData: LoginFormData;
   isLoading: boolean;
   error: string;
@@ -354,7 +354,7 @@ function LoginCard({
   onOpenForgotPassword: () => void;
   onGoHome: () => void;
   onGoToRegister: () => void;
-}) {
+}>) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -469,11 +469,11 @@ function useLoginForm({
   setView,
   setLoggedIn,
   setUser,
-}: {
+}: Readonly<{
   setView: (view: string) => void;
   setLoggedIn: () => void;
   setUser: (user: User | null) => void;
-}) {
+}>) {
   const [formData, setFormData] = useState<LoginFormData>({ email: '', password: '' });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');

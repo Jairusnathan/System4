@@ -31,14 +31,17 @@ type TokenPayload = jwt.JwtPayload & {
   tokenType?: string;
 };
 
+const isTokenPayload = (decoded: string | jwt.JwtPayload): decoded is TokenPayload =>
+  typeof decoded !== 'string';
+
 const decodeToken = (token: string) => {
   const decoded = jwt.verify(token, JWT_SECRET);
 
-  if (typeof decoded === 'string') {
+  if (!isTokenPayload(decoded)) {
     return null;
   }
 
-  return decoded as TokenPayload;
+  return decoded;
 };
 
 export function verifyAccessToken(token: string) {

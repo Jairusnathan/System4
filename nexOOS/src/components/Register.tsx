@@ -297,7 +297,7 @@ function RegisterVerificationSection({
           maxLength={6}
           required
           value={verificationCode}
-          onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+          onChange={(e) => setVerificationCode(e.target.value.replaceAll(/\D/g, '').slice(0, 6))}
           placeholder="Enter 6-digit code"
           className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium tracking-[0.3em]"
         />
@@ -391,8 +391,8 @@ export default function Register() {
     email: 'register-email',
     birthday: 'register-birthday',
     gender: 'register-gender',
-    password: 'register-pass-input',
-    confirmPassword: 'register-pass-confirm-input',
+    password: 'register-credential-input',
+    confirmPassword: 'register-credential-confirm-input',
     agreeToTerms: 'register-agree-terms',
     verificationCode: 'register-verification-code',
   } as const;

@@ -139,6 +139,34 @@ const stringifyAddresses = (addresses: SavedAddress[]) =>
 const getDisplayOrderNumber = (order: { orderNumber?: string; txNo?: string; id: string; date: string }) =>
   order.id || order.orderNumber || (order.txNo ? `TXN-${order.txNo}` : `TXN-${new Date(order.date).getTime()}`);
 
+const getOrderStatusBadgeClassName = (status: string) => {
+  if (status === 'Delivered' || status === 'Processing') {
+    return 'bg-blue-100 text-blue-700';
+  }
+
+  return 'bg-amber-100 text-amber-700';
+};
+
+const getOrderStatusDotClassName = (status: string) => {
+  if (status === 'Delivered' || status === 'Processing') {
+    return 'bg-blue-500';
+  }
+
+  return 'bg-amber-500';
+};
+
+const getAccountSubViewTitle = (accountSubView: string) => {
+  if (accountSubView === 'profile') {
+    return 'Profile Details';
+  }
+
+  if (accountSubView === 'orders') {
+    return 'Order History';
+  }
+
+  return 'Account Settings';
+};
+
 const MAX_SAVED_ADDRESSES = 4;
 
 const moveAddressToFront = (entries: SavedAddress[], index: number) => {
@@ -1207,14 +1235,8 @@ export default function Account() {
                   <p className="font-black text-slate-900 tracking-tight">{getDisplayOrderNumber(order)}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className={`px-4 py-1.5 rounded-full text-xs font-black flex items-center gap-2 ${
-                    order.status === 'Delivered' ? 'bg-blue-100 text-blue-700' : 
-                    order.status === 'Processing' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'
-                  }`}>
-                    <span className={`w-2 h-2 rounded-full ${
-                      order.status === 'Delivered' ? 'bg-blue-500' : 
-                      order.status === 'Processing' ? 'bg-blue-500' : 'bg-amber-500'
-                    }`} />
+                  <div className={`px-4 py-1.5 rounded-full text-xs font-black flex items-center gap-2 ${getOrderStatusBadgeClassName(order.status)}`}>
+                    <span className={`w-2 h-2 rounded-full ${getOrderStatusDotClassName(order.status)}`} />
                     {order.status}
                   </div>
                   <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
@@ -1370,11 +1392,7 @@ export default function Account() {
             >
               {accountSubView !== 'addresses' && (
                 <h2 className="text-2xl font-black text-slate-900 mb-10 tracking-tight">
-                  {accountSubView === 'profile'
-                    ? 'Profile Details'
-                    : accountSubView === 'orders'
-                      ? 'Order History'
-                      : 'Account Settings'}
+                  {getAccountSubViewTitle(accountSubView)}
                 </h2>
               )}
               

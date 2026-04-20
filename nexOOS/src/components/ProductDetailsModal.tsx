@@ -17,6 +17,33 @@ const getAvailableStock = (
   return fallbackStock ?? 0;
 };
 
+const renderStockAvailability = (
+  selectedBranch: unknown,
+  hasStock: boolean,
+  stock: number
+) => {
+  if (!selectedBranch) {
+    return <span className="text-sm text-slate-500">Select a branch to view stock availability.</span>;
+  }
+
+  if (hasStock) {
+    return (
+      <div className="flex items-center gap-2 text-blue-600 bg-blue-50 px-3 py-2 rounded-lg inline-flex">
+        <CheckCircle2 className="w-5 h-5" />
+        <span className="font-medium">In Stock</span>
+        <span className="text-sm opacity-80">({stock} items available)</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2 text-red-600 bg-red-50 px-3 py-2 rounded-lg inline-flex">
+      <X className="w-5 h-5" />
+      <span className="font-medium">Out of Stock</span>
+    </div>
+  );
+};
+
 export default function ProductDetailsModal() {
   const { 
     selectedProduct, setSelectedProduct,
@@ -141,22 +168,7 @@ export default function ProductDetailsModal() {
                     
                     {/* Stock Availability */}
                     <div className="mb-6">
-                      {selectedBranch ? (
-                        hasStock ? (
-                          <div className="flex items-center gap-2 text-blue-600 bg-blue-50 px-3 py-2 rounded-lg inline-flex">
-                            <CheckCircle2 className="w-5 h-5" />
-                            <span className="font-medium">In Stock</span>
-                            <span className="text-sm opacity-80">({stock} items available)</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2 text-red-600 bg-red-50 px-3 py-2 rounded-lg inline-flex">
-                            <X className="w-5 h-5" />
-                            <span className="font-medium">Out of Stock</span>
-                          </div>
-                        )
-                      ) : (
-                        <span className="text-sm text-slate-500">Select a branch to view stock availability.</span>
-                      )}
+                      {renderStockAvailability(selectedBranch, hasStock, stock)}
                     </div>
 
                     <p className="text-slate-600 leading-relaxed mb-8">

@@ -175,6 +175,20 @@ export default function Shop() {
   const selectedSortLabel =
     SORT_OPTIONS.find((option) => option.value === sortBy)?.label ?? 'Price: Low to High';
 
+  function handlePageChange(page: number) {
+    setCurrentPage(page);
+    globalThis.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function clearAllFilters() {
+    setSelectedCategories(['All']);
+    setPendingCategories(['All']);
+    setPriceRange({ min: '', max: '' });
+    setInStockOnly(false);
+    setSortBy('price-asc');
+    setSearchQuery('');
+  }
+
   let content: React.ReactNode;
 
   if (isLoading) {
@@ -352,20 +366,6 @@ export default function Shop() {
       </>
     );
   }
-
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-    globalThis.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const clearAllFilters = () => {
-    setSelectedCategories(['All']);
-    setPendingCategories(['All']);
-    setPriceRange({ min: '', max: '' });
-    setInStockOnly(false);
-    setSortBy('price-asc');
-    setSearchQuery('');
-  };
 
   const togglePendingCategory = (category: string) => {
     if (category === 'All') {

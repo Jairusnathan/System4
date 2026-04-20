@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Pill, Mail, ArrowRight, AlertCircle, Loader2, Eye, EyeOff, X, CheckCircle2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import { User } from '../types';
 import { storeAccessToken } from '@/lib/auth-client';
 import { buildApiUrl } from '@/lib/api';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
@@ -471,7 +472,7 @@ function useLoginForm({
 }: {
   setView: (view: string) => void;
   setLoggedIn: () => void;
-  setUser: (user: unknown) => void;
+  setUser: (user: User | null) => void;
 }) {
   const [formData, setFormData] = useState<LoginFormData>({ email: '', password: '' });
   const [isLoading, setIsLoading] = useState(false);

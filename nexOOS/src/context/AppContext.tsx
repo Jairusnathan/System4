@@ -116,52 +116,6 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
   const skipNextCartSyncRef = useRef(false);
   const initialLocalCartSnapshotRef = useRef('');
 
-  useEffect(() => {
-    const token = getAccessToken();
-    if (token) {
-      setIsLoggedIn(true);
-      fetchUserProfile();
-    }
-
-    const savedCart = localStorage.getItem(CART_STORAGE_KEY);
-    if (savedCart) {
-      const parsedCart = JSON.parse(savedCart) as CartItem[];
-      setCart(parsedCart);
-      initialLocalCartSnapshotRef.current = cartSnapshot(parsedCart);
-    }
-
-    setIsCartHydrated(true);
-
-    const savedBranch = localStorage.getItem('selectedBranch');
-    if (savedBranch) {
-      setSelectedBranch(JSON.parse(savedBranch));
-    }
-
-    const savedOrders = localStorage.getItem('orders');
-    if (savedOrders) {
-      setOrders(JSON.parse(savedOrders));
-    }
-
-    fetchBranches();
-    // These startup loaders intentionally run once during client hydration.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
-  }, [cart]);
-
-  useEffect(() => {
-    if (selectedBranch) {
-      localStorage.setItem('selectedBranch', JSON.stringify(selectedBranch));
-      fetchBranchInventory(selectedBranch.id);
-    }
-  }, [fetchBranchInventory, selectedBranch]);
-
-  useEffect(() => {
-    localStorage.setItem('orders', JSON.stringify(orders));
-  }, [orders]);
-
   const fetchBranches = useCallback(async () => {
     try {
       const res = await fetch(buildApiUrl('/api/branches'));
@@ -240,6 +194,52 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
       throw new Error(payload?.error || 'Failed to sync cart.');
     }
   }, []);
+
+  useEffect(() => {
+    const token = getAccessToken();
+    if (token) {
+      setIsLoggedIn(true);
+      fetchUserProfile();
+    }
+
+    const savedCart = localStorage.getItem(CART_STORAGE_KEY);
+    if (savedCart) {
+      const parsedCart = JSON.parse(savedCart) as CartItem[];
+      setCart(parsedCart);
+      initialLocalCartSnapshotRef.current = cartSnapshot(parsedCart);
+    }
+
+    setIsCartHydrated(true);
+
+    const savedBranch = localStorage.getItem('selectedBranch');
+    if (savedBranch) {
+      setSelectedBranch(JSON.parse(savedBranch));
+    }
+
+    const savedOrders = localStorage.getItem('orders');
+    if (savedOrders) {
+      setOrders(JSON.parse(savedOrders));
+    }
+
+    fetchBranches();
+    // These startup loaders intentionally run once during client hydration.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+  }, [cart]);
+
+  useEffect(() => {
+    if (selectedBranch) {
+      localStorage.setItem('selectedBranch', JSON.stringify(selectedBranch));
+      fetchBranchInventory(selectedBranch.id);
+    }
+  }, [fetchBranchInventory, selectedBranch]);
+
+  useEffect(() => {
+    localStorage.setItem('orders', JSON.stringify(orders));
+  }, [orders]);
 
   useEffect(() => {
     if (!isCartHydrated) {

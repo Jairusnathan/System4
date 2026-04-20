@@ -59,12 +59,12 @@ const initialForgotPasswordVisibility: ForgotPasswordVisibility = {
 
 const loginFieldIds: LoginFieldIds = {
   email: 'login-email',
-  password: 'login-password-field',
+  password: 'login-pass-input',
   rememberMe: 'login-remember-me',
   forgotEmail: 'forgot-email',
   forgotCode: 'forgot-code',
-  forgotPassword: 'forgot-password-field',
-  forgotConfirmPassword: 'forgot-password-confirm-field',
+  forgotPassword: 'forgot-pass-input',
+  forgotConfirmPassword: 'forgot-pass-confirm-input',
 };
 
 async function postJson<TBody>(path: string, body: TBody) {

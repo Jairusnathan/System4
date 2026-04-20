@@ -29,12 +29,23 @@ const normalizeKey = (value?: string) =>
     .trim()
     .toLowerCase();
 
+const stripPrefix = (value: string, prefix: string) =>
+  value.startsWith(prefix) ? value.slice(prefix.length) : value;
+
+const stripSuffix = (value: string, suffix: string) =>
+  value.endsWith(suffix) ? value.slice(0, -suffix.length) : value;
+
 const normalizeLocationName = (value?: string) =>
-  normalizeKey(value)
-    .replace(/^city of\s+/i, '')
-    .replace(/^municipality of\s+/i, '')
-    .replace(/\s+city$/i, '')
-    .replace(/\s+municipality$/i, '');
+  stripSuffix(
+    stripSuffix(
+      stripPrefix(
+        stripPrefix(normalizeKey(value), 'city of '),
+        'municipality of '
+      ),
+      ' city'
+    ),
+    ' municipality'
+  );
 
 const provinceRecords = [...psgc.provinces].sort((left, right) => collator.compare(left.name, right.name));
 

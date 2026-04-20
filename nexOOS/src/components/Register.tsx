@@ -391,8 +391,8 @@ export default function Register() {
     email: 'register-email',
     birthday: 'register-birthday',
     gender: 'register-gender',
-    password: 'register-password-field',
-    confirmPassword: 'register-password-confirm-field',
+    password: 'register-pass-input',
+    confirmPassword: 'register-pass-confirm-input',
     agreeToTerms: 'register-agree-terms',
     verificationCode: 'register-verification-code',
   } as const;

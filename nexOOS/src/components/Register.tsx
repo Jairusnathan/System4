@@ -27,8 +27,8 @@ type RegisterFieldIds = {
   email: string;
   birthday: string;
   gender: string;
-  password: string;
-  confirmPassword: string;
+  primarySecret: string;
+  confirmSecret: string;
   agreeToTerms: string;
   verificationCode: string;
 };
@@ -203,10 +203,10 @@ function RegisterFormSection({
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         <div>
-          <label htmlFor={fieldIds.password} className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Password</label>
+          <label htmlFor={fieldIds.primarySecret} className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Password</label>
           <div className="relative">
             <input
-              id={fieldIds.password}
+              id={fieldIds.primarySecret}
               type={showPassword ? 'text' : 'password'}
               required
               value={formData.password}
@@ -225,10 +225,10 @@ function RegisterFormSection({
           </div>
         </div>
         <div>
-          <label htmlFor={fieldIds.confirmPassword} className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Confirm Password</label>
+          <label htmlFor={fieldIds.confirmSecret} className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Confirm Password</label>
           <div className="relative">
             <input
-              id={fieldIds.confirmPassword}
+              id={fieldIds.confirmSecret}
               type={showConfirmPassword ? 'text' : 'password'}
               required
               value={formData.confirmPassword}
@@ -386,15 +386,15 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const registerFieldIds = {
-    fullName: 'register-full-name',
-    phone: 'register-phone',
-    email: 'register-email',
-    birthday: 'register-birthday',
-    gender: 'register-gender',
-    password: 'register-credential-input',
-    confirmPassword: 'register-credential-confirm-input',
-    agreeToTerms: 'register-agree-terms',
-    verificationCode: 'register-verification-code',
+    fullName: 'register-field-name',
+    phone: 'register-field-phone',
+    email: 'register-field-email',
+    birthday: 'register-field-birthday',
+    gender: 'register-field-gender',
+    primarySecret: 'register-field-primary',
+    confirmSecret: 'register-field-confirm',
+    agreeToTerms: 'register-field-terms',
+    verificationCode: 'register-field-code',
   } as const;
 
   useBodyScrollLock(showAccountCreatedModal);

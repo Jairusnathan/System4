@@ -36,12 +36,12 @@ type ForgotPasswordVisibility = {
 
 type LoginFieldIds = {
   email: string;
-  password: string;
+  primarySecret: string;
   rememberMe: string;
   forgotEmail: string;
   forgotCode: string;
-  forgotPassword: string;
-  forgotConfirmPassword: string;
+  resetPrimarySecret: string;
+  resetConfirmSecret: string;
 };
 
 const initialForgotData: ForgotData = {
@@ -58,13 +58,13 @@ const initialForgotPasswordVisibility: ForgotPasswordVisibility = {
 };
 
 const loginFieldIds: LoginFieldIds = {
-  email: 'login-email',
-  password: 'login-credential-input',
-  rememberMe: 'login-remember-me',
-  forgotEmail: 'forgot-email',
-  forgotCode: 'forgot-code',
-  forgotPassword: 'forgot-reset-input',
-  forgotConfirmPassword: 'forgot-reset-confirm-input',
+  email: 'login-field-email',
+  primarySecret: 'login-field-primary',
+  rememberMe: 'login-field-remember',
+  forgotEmail: 'reset-field-email',
+  forgotCode: 'reset-field-code',
+  resetPrimarySecret: 'reset-field-primary',
+  resetConfirmSecret: 'reset-field-confirm',
 };
 
 async function postJson<TBody>(path: string, body: TBody) {
@@ -257,10 +257,10 @@ function ForgotPasswordModal({
           {showPasswordFields && (
             <>
               <div>
-                <label htmlFor={loginFieldIds.forgotPassword} className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-4">New Password</label>
+                <label htmlFor={loginFieldIds.resetPrimarySecret} className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-4">New Password</label>
                 <div className="relative">
                   <input
-                    id={loginFieldIds.forgotPassword}
+                    id={loginFieldIds.resetPrimarySecret}
                     type={getPasswordFieldType(showForgotPasswords.new)}
                     value={forgotData.newPassword}
                     onChange={(e) => onForgotDataChange('newPassword', e.target.value)}
@@ -278,10 +278,10 @@ function ForgotPasswordModal({
                 </div>
               </div>
               <div>
-                <label htmlFor={loginFieldIds.forgotConfirmPassword} className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-4">Confirm New Password</label>
+                <label htmlFor={loginFieldIds.resetConfirmSecret} className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-4">Confirm New Password</label>
                 <div className="relative">
                   <input
-                    id={loginFieldIds.forgotConfirmPassword}
+                    id={loginFieldIds.resetConfirmSecret}
                     type={getPasswordFieldType(showForgotPasswords.confirm)}
                     value={forgotData.confirmPassword}
                     onChange={(e) => onForgotDataChange('confirmPassword', e.target.value)}
@@ -404,10 +404,10 @@ function LoginCard({
           </div>
         </div>
         <div>
-          <label htmlFor={loginFieldIds.password} className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Password</label>
+          <label htmlFor={loginFieldIds.primarySecret} className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Password</label>
           <div className="relative">
             <input
-              id={loginFieldIds.password}
+              id={loginFieldIds.primarySecret}
               type={getPasswordFieldType(showPassword)}
               required
               value={formData.password}

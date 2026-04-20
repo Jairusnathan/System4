@@ -24,7 +24,7 @@ const normalizeKey = (value?: string) =>
   (value ?? '')
     .normalize('NFKD')
     .replaceAll(/[\u0300-\u036f]/g, '')
-    .replaceAll(/\./g, '')
+    .replaceAll('.', '')
     .replaceAll(/\s+/g, ' ')
     .trim()
     .toLowerCase();

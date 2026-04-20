@@ -7,85 +7,18 @@ import { useAppContext } from '../context/AppContext';
 import { Order } from '../types';
 import { fetchWithAuth } from '@/lib/auth-client';
 import { buildApiUrl } from '@/lib/api';
+import {
+  MAX_SAVED_ADDRESSES,
+  SavedAddress,
+  createEmptySavedAddress,
+  formatSavedAddress,
+  getSavedAddressKey,
+  parseSerializedAddresses,
+  stringifyAddresses,
+} from '@/lib/customer-addresses';
 import { normalizePhilippinePhone, PH_PHONE_MESSAGE } from '@/lib/phone';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { usePhilippineLocations } from '@/hooks/usePhilippineLocations';
-
-const ADDRESS_STORAGE_PREFIX = '__addresses_json__:';
-
-type SavedAddress = {
-  fullName: string;
-  phoneNumber: string;
-  province: string;
-  city: string;
-  postalCode: string;
-  streetAddress: string;
-  label: 'Home' | 'Work';
-};
-
-const parseSavedAddresses = (
-  address?: string,
-  user?: { full_name?: string; phone?: string } | null
-): SavedAddress[] => {
-  if (!address) {
-    return [];
-  }
-
-  if (address.startsWith(ADDRESS_STORAGE_PREFIX)) {
-    try {
-      const parsed = JSON.parse(address.slice(ADDRESS_STORAGE_PREFIX.length));
-      if (Array.isArray(parsed)) {
-        return parsed.map((entry) => {
-          const legacyLocation = typeof entry?.location === 'string' ? entry.location : '';
-          const [legacyProvince = '', legacyCity = ''] = legacyLocation.split(',').map((item: string) => item.trim());
-
-          return {
-            fullName: entry?.fullName || user?.full_name || '',
-            phoneNumber: entry?.phoneNumber || user?.phone || '',
-            province: entry?.province || entry?.region || legacyProvince,
-            city: entry?.city || legacyCity,
-            postalCode: entry?.postalCode || '',
-            streetAddress: entry?.streetAddress || '',
-            label: entry?.label === 'Work' ? 'Work' : 'Home',
-          };
-        });
-      }
-    } catch (error) {
-      console.error('Failed to parse saved addresses:', error);
-    }
-  }
-
-  return address
-    ? [
-        {
-          fullName: user?.full_name || '',
-          phoneNumber: user?.phone || '',
-          province: '',
-          city: '',
-          postalCode: '',
-          streetAddress: address,
-          label: 'Home',
-        },
-      ]
-    : [];
-};
-
-const formatSavedAddress = (address: SavedAddress) =>
-  [address.streetAddress, address.city, address.province].filter(Boolean).join(', ');
-
-const stringifyAddresses = (addresses: SavedAddress[]) =>
-  `${ADDRESS_STORAGE_PREFIX}${JSON.stringify(addresses)}`;
-
-const getSavedAddressKey = (address: SavedAddress) =>
-  [
-    address.label,
-    address.fullName,
-    address.phoneNumber,
-    address.province,
-    address.city,
-    address.postalCode,
-    address.streetAddress,
-  ].join('|');
 
 const formatDeliveryAddress = (info: {
   address: string;
@@ -113,18 +46,6 @@ type AppliedPromo = {
   minSubtotal: number;
   maxDiscount?: number | null;
 };
-
-const MAX_SAVED_ADDRESSES = 4;
-
-const createEmptyCheckoutAddress = (user?: { full_name?: string; phone?: string } | null): SavedAddress => ({
-  fullName: user?.full_name || '',
-  phoneNumber: user?.phone || '',
-  province: '',
-  city: '',
-  postalCode: '',
-  streetAddress: '',
-  label: 'Home',
-});
 
 const getSavedAddressPrompt = (count: number) =>
   count > 0
@@ -277,8 +198,8 @@ export default function Checkout() {
   const [selectedSavedAddressIndex, setSelectedSavedAddressIndex] = useState<number | null>(null);
   const [isAddressPickerOpen, setIsAddressPickerOpen] = useState(false);
   const [addressPickerView, setAddressPickerView] = useState<'list' | 'form'>('list');
-  const [checkoutAddresses, setCheckoutAddresses] = useState<SavedAddress[]>(() => parseSavedAddresses(user?.address, user));
-  const [checkoutAddressForm, setCheckoutAddressForm] = useState<SavedAddress>(() => createEmptyCheckoutAddress(user));
+  const [checkoutAddresses, setCheckoutAddresses] = useState<SavedAddress[]>(() => parseSerializedAddresses(user?.address, user));
+  const [checkoutAddressForm, setCheckoutAddressForm] = useState<SavedAddress>(() => createEmptySavedAddress(user));
   const [checkoutMakeDefault, setCheckoutMakeDefault] = useState(false);
   const [isProvincePickerOpen, setIsProvincePickerOpen] = useState(false);
   const [isCityPickerOpen, setIsCityPickerOpen] = useState(false);
@@ -351,7 +272,7 @@ export default function Checkout() {
     }
 
     setUser(data);
-    setCheckoutAddresses(parseSavedAddresses(data.address, data));
+    setCheckoutAddresses(parseSerializedAddresses(data.address, data));
     return true;
   };
 
@@ -364,7 +285,7 @@ export default function Checkout() {
 
     setSelectedSavedAddressIndex(null);
     setAddressPickerView('form');
-    setCheckoutAddressForm(createEmptyCheckoutAddress(user));
+    setCheckoutAddressForm(createEmptySavedAddress(user));
     setCheckoutMakeDefault(savedAddresses.length === 0);
     setCheckoutAddressError('');
     setIsProvincePickerOpen(false);
@@ -381,10 +302,10 @@ export default function Checkout() {
   };
 
   React.useEffect(() => {
-    const parsedAddresses = parseSavedAddresses(user?.address, user);
+    const parsedAddresses = parseSerializedAddresses(user?.address, user);
 
     setCheckoutAddresses(parsedAddresses);
-    setCheckoutAddressForm(createEmptyCheckoutAddress(user));
+    setCheckoutAddressForm(createEmptySavedAddress(user));
     setCheckoutMakeDefault(parsedAddresses.length === 0);
     setCheckoutAddressError('');
     setAddressPickerView('list');
@@ -1116,7 +1037,7 @@ export default function Checkout() {
                                       applySavedAddress(preparedAddress);
                                       setAddressPickerView('list');
                                       setIsAddressPickerOpen(false);
-                                      setCheckoutAddressForm(createEmptyCheckoutAddress(user));
+                                      setCheckoutAddressForm(createEmptySavedAddress(user));
                                       setCheckoutMakeDefault(false);
                                       setCheckoutAddressError('');
                                       setIsProvincePickerOpen(false);

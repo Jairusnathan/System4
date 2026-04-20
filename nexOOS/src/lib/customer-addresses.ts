@@ -13,6 +13,20 @@ export type SavedAddress = {
   label: 'Home' | 'Work';
 };
 
+export function createEmptySavedAddress(
+  user?: { full_name?: string; phone?: string } | null
+): SavedAddress {
+  return {
+    fullName: user?.full_name || '',
+    phoneNumber: user?.phone || '',
+    province: '',
+    city: '',
+    postalCode: '',
+    streetAddress: '',
+    label: 'Home',
+  };
+}
+
 export function parseSerializedAddresses(
   address?: string,
   user?: { full_name?: string; phone?: string } | null
@@ -47,19 +61,32 @@ export function parseSerializedAddresses(
 
   return [
     {
-      fullName: user?.full_name || '',
-      phoneNumber: user?.phone || '',
-      province: '',
-      city: '',
-      postalCode: '',
+      ...createEmptySavedAddress(user),
       streetAddress: address,
-      label: 'Home',
     },
   ];
 }
 
 export function stringifyAddresses(addresses: SavedAddress[]) {
   return `${ADDRESS_STORAGE_PREFIX}${JSON.stringify(addresses)}`;
+}
+
+export function formatSavedAddress(address: SavedAddress) {
+  return [address.streetAddress, address.city, address.province]
+    .filter(Boolean)
+    .join(', ');
+}
+
+export function getSavedAddressKey(address: SavedAddress) {
+  return [
+    address.label,
+    address.fullName,
+    address.phoneNumber,
+    address.province,
+    address.city,
+    address.postalCode,
+    address.streetAddress,
+  ].join('|');
 }
 
 export function normalizeSavedAddresses(

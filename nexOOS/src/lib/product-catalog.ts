@@ -154,46 +154,52 @@ const sortProducts = (
       score,
     }));
 
+  const byAscendingPrice = (a: { product: Product; score: number }, b: { product: Product; score: number }) => {
+    if (a.product.price !== b.product.price) {
+      return a.product.price - b.product.price;
+    }
+
+    if (b.score !== a.score) {
+      return b.score - a.score;
+    }
+
+    return a.product.name.localeCompare(b.product.name);
+  };
+
+  const byDescendingPrice = (a: { product: Product; score: number }, b: { product: Product; score: number }) => {
+    if (b.product.price !== a.product.price) {
+      return b.product.price - a.product.price;
+    }
+
+    if (b.score !== a.score) {
+      return b.score - a.score;
+    }
+
+    return a.product.name.localeCompare(b.product.name);
+  };
+
+  const byRelevance = (a: { product: Product; score: number }, b: { product: Product; score: number }) => {
+    if (b.score !== a.score) {
+      return b.score - a.score;
+    }
+
+    return a.product.name.localeCompare(b.product.name);
+  };
+
   if (sortBy === 'price-asc') {
-    return matchedProducts
-      .sort((a, b) => {
-        if (a.product.price !== b.product.price) {
-          return a.product.price - b.product.price;
-        }
-
-        if (b.score !== a.score) {
-          return b.score - a.score;
-        }
-
-        return a.product.name.localeCompare(b.product.name);
-      })
+    return [...matchedProducts]
+      .sort(byAscendingPrice)
       .map(({ product }) => product);
   }
 
   if (sortBy === 'price-desc') {
-    return matchedProducts
-      .sort((a, b) => {
-        if (b.product.price !== a.product.price) {
-          return b.product.price - a.product.price;
-        }
-
-        if (b.score !== a.score) {
-          return b.score - a.score;
-        }
-
-        return a.product.name.localeCompare(b.product.name);
-      })
+    return [...matchedProducts]
+      .sort(byDescendingPrice)
       .map(({ product }) => product);
   }
 
-  return matchedProducts
-    .sort((a, b) => {
-      if (b.score !== a.score) {
-        return b.score - a.score;
-      }
-
-      return a.product.name.localeCompare(b.product.name);
-    })
+  return [...matchedProducts]
+    .sort(byRelevance)
     .map(({ product }) => product);
 };
 

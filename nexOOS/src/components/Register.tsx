@@ -33,7 +33,41 @@ type RegisterFieldIds = {
   verificationCode: string;
 };
 
-function RegisterBrandButton({ onClick }: { onClick: () => void }) {
+type RegisterBrandButtonProps = Readonly<{
+  onClick: () => void;
+}>;
+
+type RegisterStatusMessageProps = Readonly<{
+  tone: 'error' | 'success';
+  message: string;
+}>;
+
+type RegisterFormSectionProps = Readonly<{
+  fieldIds: RegisterFieldIds;
+  formData: RegisterFormData;
+  isLoading: boolean;
+  showPassword: boolean;
+  showConfirmPassword: boolean;
+  setFormData: React.Dispatch<React.SetStateAction<RegisterFormData>>;
+  setShowPassword: React.Dispatch<React.SetStateAction<boolean>>;
+  setShowConfirmPassword: React.Dispatch<React.SetStateAction<boolean>>;
+}>;
+
+type RegisterVerificationSectionProps = Readonly<{
+  fieldIds: RegisterFieldIds;
+  email: string;
+  isLoading: boolean;
+  verificationCode: string;
+  setVerificationCode: React.Dispatch<React.SetStateAction<string>>;
+  onResendCode: () => void;
+}>;
+
+type AccountCreatedModalProps = Readonly<{
+  email: string;
+  onContinue: () => void;
+}>;
+
+function RegisterBrandButton({ onClick }: RegisterBrandButtonProps) {
   return (
     <button
       type="button"
@@ -51,10 +85,7 @@ function RegisterBrandButton({ onClick }: { onClick: () => void }) {
 function RegisterStatusMessage({
   tone,
   message,
-}: {
-  tone: 'error' | 'success';
-  message: string;
-}) {
+}: RegisterStatusMessageProps) {
   if (!message) {
     return null;
   }
@@ -86,16 +117,7 @@ function RegisterFormSection({
   setFormData,
   setShowPassword,
   setShowConfirmPassword,
-}: {
-  fieldIds: RegisterFieldIds;
-  formData: RegisterFormData;
-  isLoading: boolean;
-  showPassword: boolean;
-  showConfirmPassword: boolean;
-  setFormData: React.Dispatch<React.SetStateAction<RegisterFormData>>;
-  setShowPassword: React.Dispatch<React.SetStateAction<boolean>>;
-  setShowConfirmPassword: React.Dispatch<React.SetStateAction<boolean>>;
-}) {
+}: RegisterFormSectionProps) {
   return (
     <>
       <div>
@@ -256,14 +278,7 @@ function RegisterVerificationSection({
   verificationCode,
   setVerificationCode,
   onResendCode,
-}: {
-  fieldIds: RegisterFieldIds;
-  email: string;
-  isLoading: boolean;
-  verificationCode: string;
-  setVerificationCode: React.Dispatch<React.SetStateAction<string>>;
-  onResendCode: () => void;
-}) {
+}: RegisterVerificationSectionProps) {
   return (
     <>
       <div className="rounded-3xl border border-blue-100 bg-blue-50 px-5 py-4">
@@ -282,7 +297,7 @@ function RegisterVerificationSection({
           maxLength={6}
           required
           value={verificationCode}
-          onChange={(e) => setVerificationCode(e.target.value.replaceAll(/\D/g, '').slice(0, 6))}
+          onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
           placeholder="Enter 6-digit code"
           className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium tracking-[0.3em]"
         />
@@ -318,10 +333,7 @@ function RegisterVerificationSection({
 function AccountCreatedModal({
   email,
   onContinue,
-}: {
-  email: string;
-  onContinue: () => void;
-}) {
+}: AccountCreatedModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-6">
       <motion.div
@@ -354,7 +366,7 @@ function AccountCreatedModal({
 }
 
 export default function Register() {
-  const { setView, setIsLoggedIn, setUser } = useAppContext();
+  const { setView, setLoggedIn, setUser } = useAppContext();
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -379,8 +391,8 @@ export default function Register() {
     email: 'register-email',
     birthday: 'register-birthday',
     gender: 'register-gender',
-    password: 'register-secret-field',
-    confirmPassword: 'register-secret-confirm-field',
+    password: 'register-password-field',
+    confirmPassword: 'register-password-confirm-field',
     agreeToTerms: 'register-agree-terms',
     verificationCode: 'register-verification-code',
   } as const;
@@ -478,7 +490,7 @@ export default function Register() {
 
       if (res.ok) {
         storeAccessToken(data.token);
-        setIsLoggedIn(true);
+        setLoggedIn();
         setUser(data.user);
         setShowAccountCreatedModal(true);
       } else {

@@ -25,6 +25,28 @@ const SORT_OPTIONS = [
 
 type SortOption = (typeof SORT_OPTIONS)[number]['value'];
 
+const getProductStock = (product: Product, inventoryStock?: number) => {
+  if (typeof product.stock === 'number') {
+    return product.stock;
+  }
+
+  return inventoryStock ?? 0;
+};
+
+const getAddToCartButtonClassName = (isDisabled: boolean) =>
+  `rounded-xl p-2 shadow-md transition-all hover:shadow-lg ${
+    isDisabled
+      ? 'cursor-not-allowed bg-slate-100 text-slate-300'
+      : 'bg-blue-600 text-white hover:scale-105 hover:bg-blue-700'
+  }`;
+
+const getPaginationButtonClassName = (isCurrentPage: boolean) =>
+  `h-12 w-12 rounded-xl text-sm font-bold shadow-sm transition-all ${
+    isCurrentPage
+      ? 'bg-blue-600 text-white shadow-lg shadow-blue-100'
+      : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+  }`;
+
 export default function Shop() {
   const {
     selectedBranch,
@@ -50,8 +72,9 @@ export default function Shop() {
   const [addedProductName, setAddedProductName] = useState('');
   const lastTrackedQuery = useRef('');
   const productsPerPage = 25;
+  const isAllCategoriesSelected = selectedCategories.includes('All');
   const hasCategoryFilter =
-    selectedCategories.length > 0 && !selectedCategories.includes('All');
+    selectedCategories.length > 0 && !isAllCategoriesSelected;
   const selectedCategoryLabel = hasCategoryFilter
     ? selectedCategories.join(', ')
     : 'All';
@@ -151,6 +174,184 @@ export default function Shop() {
 
   const selectedSortLabel =
     SORT_OPTIONS.find((option) => option.value === sortBy)?.label ?? 'Price: Low to High';
+
+  let content: React.ReactNode;
+
+  if (isLoading) {
+    content = (
+      <div className="rounded-[2rem] border border-slate-100 bg-white p-12 text-center shadow-sm lg:p-14">
+        <div className="mx-auto mb-6 h-12 w-12 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
+        <h3 className="mb-2 text-2xl font-black tracking-tight text-slate-900">
+          Loading products
+        </h3>
+        <p className="mx-auto max-w-xs text-slate-500">
+          Fetching the latest catalog and search results for you.
+        </p>
+      </div>
+    );
+  } else if (error) {
+    content = (
+      <div className="rounded-[2rem] border border-slate-100 bg-white p-12 text-center shadow-sm lg:p-14">
+        <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-red-50">
+          <X className="h-10 w-10 text-red-300" />
+        </div>
+        <h3 className="mb-2 text-2xl font-black tracking-tight text-slate-900">
+          Unable to load products
+        </h3>
+        <p className="mx-auto mb-8 max-w-xs text-slate-500">{error}</p>
+        <button
+          onClick={() => globalThis.location.reload()}
+          className="rounded-xl bg-blue-600 px-8 py-3 font-bold text-white shadow-lg shadow-blue-100 transition-colors hover:bg-blue-700"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  } else if (currentProducts.length === 0) {
+    content = (
+      <div className="rounded-[2rem] border border-slate-100 bg-white p-12 text-center shadow-sm lg:p-14">
+        <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-slate-50">
+          <Search className="h-10 w-10 text-slate-300" />
+        </div>
+        <h3 className="mb-2 text-2xl font-black tracking-tight text-slate-900">
+          No products found
+        </h3>
+        <p className="mx-auto mb-8 max-w-xs text-slate-500">
+          We couldn&apos;t find any products matching your current search or filters.
+        </p>
+        <button
+          onClick={clearAllFilters}
+          className="rounded-xl bg-blue-600 px-8 py-3 font-bold text-white shadow-lg shadow-blue-100 transition-colors hover:bg-blue-700"
+        >
+          Clear All Filters
+        </button>
+      </div>
+    );
+  } else {
+    content = (
+      <>
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          {currentProducts.map((product) => {
+            const inventoryItem = selectedBranch
+              ? branchInventory.find((inv) => inv.product_id === product.id)
+              : null;
+            const stock = getProductStock(product, inventoryItem?.stock);
+            const isOutOfStock = Boolean(selectedBranch && stock === 0);
+
+            return (
+              <motion.div
+                key={product.id}
+                layout
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="group flex flex-col overflow-hidden rounded-[1.3rem] border border-slate-100 bg-white shadow-sm transition-all hover:shadow-xl"
+              >
+                <button
+                  type="button"
+                  onClick={() => setSelectedProduct(product)}
+                  className="relative aspect-square w-full cursor-pointer overflow-hidden bg-slate-50 text-left"
+                >
+                  <img
+                    src={product.image}
+                    alt={product.name}
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute left-3 top-3">
+                    <span className="rounded-full bg-white/90 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-blue-600 shadow-sm backdrop-blur-sm">
+                      {product.category}
+                    </span>
+                  </div>
+                  {selectedBranch && (
+                    <div className="absolute bottom-3 left-3 right-3">
+                      {stock > 0 ? (
+                        <span className="flex w-fit items-center gap-1.5 rounded-full bg-blue-500/90 px-3 py-1.5 text-[10px] font-bold text-white shadow-lg backdrop-blur-sm">
+                          <CheckCircle2 className="h-3 w-3" /> In Stock ({stock})
+                        </span>
+                      ) : (
+                        <span className="flex w-fit items-center gap-1.5 rounded-full bg-red-500/90 px-3 py-1.5 text-[10px] font-bold text-white shadow-lg backdrop-blur-sm">
+                          <X className="h-3 w-3" /> Out of Stock
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </button>
+
+                <div className="flex flex-1 flex-col p-3.5">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedProduct(product)}
+                    className="mb-2 w-full cursor-pointer text-left"
+                  >
+                    <h3 className="line-clamp-1 text-sm font-black tracking-tight text-slate-900 transition-colors group-hover:text-blue-600 lg:text-[15px]">
+                      {product.name}
+                    </h3>
+                    <p className="h-8 line-clamp-2 text-[11px] leading-relaxed text-slate-500 lg:text-xs">
+                      {product.description}
+                    </p>
+                  </button>
+
+                  <div className="mt-auto flex items-center justify-between pt-3.5">
+                    <div className="text-sm font-black tracking-tight text-slate-900 lg:text-base">
+                      PHP {product.price.toFixed(2)}
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (isLoggedIn) {
+                          addToCart(product, { openCart: false });
+                          setAddedProductName(product.name);
+                        } else {
+                          setView('login');
+                        }
+                      }}
+                      disabled={isOutOfStock}
+                      className={getAddToCartButtonClassName(isOutOfStock)}
+                    >
+                      <Plus className="h-5 w-5" />
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+
+        {totalPages > 1 && (
+          <div className="mt-16 flex items-center justify-center gap-2">
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="rounded-xl border border-slate-200 bg-white p-3 text-slate-600 shadow-sm transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+
+            {Array.from({ length: totalPages }, (_, idx) => {
+              const pageNumber = idx + 1;
+
+              return (
+                <button
+                  key={pageNumber}
+                  onClick={() => handlePageChange(pageNumber)}
+                  className={getPaginationButtonClassName(currentPage === pageNumber)}
+                >
+                  {pageNumber}
+                </button>
+              );
+            })}
+
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="rounded-xl border border-slate-200 bg-white p-3 text-slate-600 shadow-sm transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </div>
+        )}
+      </>
+    );
+  }
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -334,7 +535,7 @@ export default function Shop() {
               <button
                 onClick={() => setSelectedCategories(['All'])}
                 className={`rounded-xl px-4 py-2.5 text-sm font-bold transition ${
-                  !hasCategoryFilter
+                  isAllCategoriesSelected
                     ? 'bg-slate-900 text-white'
                     : 'text-slate-700 hover:bg-slate-100'
                 }`}
@@ -427,183 +628,7 @@ export default function Shop() {
           </div>
         </div>
 
-        <div>
-          {isLoading ? (
-            <div className="rounded-[2rem] border border-slate-100 bg-white p-12 text-center shadow-sm lg:p-14">
-              <div className="mx-auto mb-6 h-12 w-12 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
-              <h3 className="mb-2 text-2xl font-black tracking-tight text-slate-900">
-                Loading products
-              </h3>
-              <p className="mx-auto max-w-xs text-slate-500">
-                Fetching the latest catalog and search results for you.
-              </p>
-            </div>
-          ) : error ? (
-            <div className="rounded-[2rem] border border-slate-100 bg-white p-12 text-center shadow-sm lg:p-14">
-              <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-red-50">
-                <X className="h-10 w-10 text-red-300" />
-              </div>
-              <h3 className="mb-2 text-2xl font-black tracking-tight text-slate-900">
-                Unable to load products
-              </h3>
-              <p className="mx-auto mb-8 max-w-xs text-slate-500">{error}</p>
-              <button
-                onClick={() => globalThis.location.reload()}
-                className="rounded-xl bg-blue-600 px-8 py-3 font-bold text-white shadow-lg shadow-blue-100 transition-colors hover:bg-blue-700"
-              >
-                Retry
-              </button>
-            </div>
-          ) : currentProducts.length === 0 ? (
-            <div className="rounded-[2rem] border border-slate-100 bg-white p-12 text-center shadow-sm lg:p-14">
-              <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-slate-50">
-                <Search className="h-10 w-10 text-slate-300" />
-              </div>
-              <h3 className="mb-2 text-2xl font-black tracking-tight text-slate-900">
-                No products found
-              </h3>
-              <p className="mx-auto mb-8 max-w-xs text-slate-500">
-                We couldn&apos;t find any products matching your current search or filters.
-              </p>
-              <button
-                onClick={clearAllFilters}
-                className="rounded-xl bg-blue-600 px-8 py-3 font-bold text-white shadow-lg shadow-blue-100 transition-colors hover:bg-blue-700"
-              >
-                Clear All Filters
-              </button>
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-                {currentProducts.map((product) => {
-                  const inventoryItem = selectedBranch
-                    ? branchInventory.find((inv) => inv.product_id === product.id)
-                    : null;
-                  const stock =
-                    typeof product.stock === 'number'
-                      ? product.stock
-                      : inventoryItem
-                        ? inventoryItem.stock
-                        : 0;
-
-                  return (
-                    <motion.div
-                      key={product.id}
-                      layout
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="group flex flex-col overflow-hidden rounded-[1.3rem] border border-slate-100 bg-white shadow-sm transition-all hover:shadow-xl"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => setSelectedProduct(product)}
-                        className="relative aspect-square w-full cursor-pointer overflow-hidden bg-slate-50 text-left"
-                      >
-                        <img
-                          src={product.image}
-                          alt={product.name}
-                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
-                          referrerPolicy="no-referrer"
-                        />
-                        <div className="absolute left-3 top-3">
-                          <span className="rounded-full bg-white/90 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-blue-600 shadow-sm backdrop-blur-sm">
-                            {product.category}
-                          </span>
-                        </div>
-                        {selectedBranch && (
-                          <div className="absolute bottom-3 left-3 right-3">
-                            {stock > 0 ? (
-                              <span className="flex w-fit items-center gap-1.5 rounded-full bg-blue-500/90 px-3 py-1.5 text-[10px] font-bold text-white shadow-lg backdrop-blur-sm">
-                                <CheckCircle2 className="h-3 w-3" /> In Stock ({stock})
-                              </span>
-                            ) : (
-                              <span className="flex w-fit items-center gap-1.5 rounded-full bg-red-500/90 px-3 py-1.5 text-[10px] font-bold text-white shadow-lg backdrop-blur-sm">
-                                <X className="h-3 w-3" /> Out of Stock
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </button>
-
-                      <div className="flex flex-1 flex-col p-3.5">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedProduct(product)}
-                          className="mb-2 w-full cursor-pointer text-left"
-                        >
-                          <h3 className="line-clamp-1 text-sm font-black tracking-tight text-slate-900 transition-colors group-hover:text-blue-600 lg:text-[15px]">
-                            {product.name}
-                          </h3>
-                          <p className="h-8 line-clamp-2 text-[11px] leading-relaxed text-slate-500 lg:text-xs">
-                            {product.description}
-                          </p>
-                        </button>
-
-                        <div className="mt-auto flex items-center justify-between pt-3.5">
-                          <div className="text-sm font-black tracking-tight text-slate-900 lg:text-base">
-                            PHP {product.price.toFixed(2)}
-                          </div>
-                          <button
-                            onClick={() => {
-                              if (isLoggedIn) {
-                                addToCart(product, { openCart: false });
-                                setAddedProductName(product.name);
-                              } else {
-                                setView('login');
-                              }
-                            }}
-                            disabled={Boolean(selectedBranch && stock === 0)}
-                            className={`rounded-xl p-2 shadow-md transition-all hover:shadow-lg ${
-                              selectedBranch && stock === 0
-                                ? 'cursor-not-allowed bg-slate-100 text-slate-300'
-                                : 'bg-blue-600 text-white hover:scale-105 hover:bg-blue-700'
-                            }`}
-                          >
-                            <Plus className="h-5 w-5" />
-                          </button>
-                        </div>
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </div>
-
-              {totalPages > 1 && (
-                <div className="mt-16 flex items-center justify-center gap-2">
-                  <button
-                    onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    className="rounded-xl border border-slate-200 bg-white p-3 text-slate-600 shadow-sm transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <ChevronLeft className="h-5 w-5" />
-                  </button>
-
-                  {Array.from({ length: totalPages }, (_, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => handlePageChange(idx + 1)}
-                      className={`h-12 w-12 rounded-xl text-sm font-bold shadow-sm transition-all ${
-                        currentPage === idx + 1
-                          ? 'bg-blue-600 text-white shadow-lg shadow-blue-100'
-                          : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                      }`}
-                    >
-                      {idx + 1}
-                    </button>
-                  ))}
-
-                  <button
-                    onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                    className="rounded-xl border border-slate-200 bg-white p-3 text-slate-600 shadow-sm transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <ChevronRight className="h-5 w-5" />
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-        </div>
+        <div>{content}</div>
       </div>
     </main>
   );

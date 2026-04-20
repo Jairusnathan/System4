@@ -36,7 +36,8 @@ export const normalizePromoCode = (value: string) => value.trim().toUpperCase();
 const getPromoDiscountAmount = (promo: PromoCodeRecord, subtotal: number) => {
   if (promo.discount_type === 'percent') {
     const rawDiscount = subtotal * (promo.discount_value / 100);
-    const cappedDiscount = promo.max_discount !== null ? Math.min(rawDiscount, promo.max_discount) : rawDiscount;
+    const cappedDiscount =
+      promo.max_discount === null ? rawDiscount : Math.min(rawDiscount, promo.max_discount);
     return toMoney(Math.min(cappedDiscount, subtotal));
   }
 

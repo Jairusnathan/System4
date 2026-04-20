@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useRef, useCallback, useMemo } from 'react';
 import { Product, Branch, BranchInventory, Order, CartItem, User } from '../types';
 import {
   clearAccessToken,
@@ -9,16 +9,19 @@ import {
 } from '@/lib/auth-client';
 import { buildApiUrl } from '@/lib/api';
 
+type AccountSubView = 'profile' | 'addresses' | 'orders' | 'settings';
+
 interface AppContextType {
   view: string;
   setView: (view: string) => void;
-  accountSubView: 'profile' | 'addresses' | 'orders' | 'settings';
-  setAccountSubView: React.Dispatch<React.SetStateAction<'profile' | 'addresses' | 'orders' | 'settings'>>;
+  accountSubView: AccountSubView;
+  setAccountSubView: React.Dispatch<React.SetStateAction<AccountSubView>>;
   isLoggedIn: boolean;
-  setIsLoggedIn: (isLoggedIn: boolean) => void;
+  setLoggedIn: () => void;
+  logout: () => void;
   user: User | null;
   setUser: (user: User | null) => void;
-  fetchUserProfile: (token: string) => Promise<void>;
+  fetchUserProfile: () => Promise<void>;
   cart: CartItem[];
   setCart: React.Dispatch<React.SetStateAction<CartItem[]>>;
   selectedBranch: Branch | null;
@@ -92,9 +95,9 @@ const cartSnapshot = (items: CartItem[]) =>
     .sort((left, right) => left.localeCompare(right))
     .join('|');
 
-export function AppProvider({ children }: { children: ReactNode }) {
+export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [view, setView] = useState('home');
-  const [accountSubView, setAccountSubView] = useState<'profile' | 'addresses' | 'orders' | 'settings'>('profile');
+  const [accountSubView, setAccountSubView] = useState<AccountSubView>('profile');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -153,13 +156,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('selectedBranch', JSON.stringify(selectedBranch));
       fetchBranchInventory(selectedBranch.id);
     }
-  }, [selectedBranch]);
+  }, [fetchBranchInventory, selectedBranch]);
 
   useEffect(() => {
     localStorage.setItem('orders', JSON.stringify(orders));
   }, [orders]);
 
-  const fetchBranches = async () => {
+  const fetchBranches = useCallback(async () => {
     try {
       const res = await fetch(buildApiUrl('/api/branches'));
       const data = await res.json();
@@ -167,9 +170,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error fetching branches:', error);
     }
-  };
+  }, []);
 
-  const fetchBranchInventory = async (branchId: number) => {
+  const fetchBranchInventory = useCallback(async (branchId: number) => {
     try {
       const res = await fetch(buildApiUrl(`/api/branches/${branchId}/inventory`));
       const data = await res.json();
@@ -177,9 +180,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error fetching inventory:', error);
     }
-  };
+  }, []);
 
-  const fetchUserProfile = async () => {
+  const handleLogout = useCallback(() => {
+    clearAccessToken();
+    fetch(buildApiUrl('/api/auth/logout'), {
+      method: 'POST',
+      credentials: 'include',
+    }).catch(() => {});
+    setIsLoggedIn(false);
+    setUser(null);
+    setCart([]);
+    localStorage.removeItem(CART_STORAGE_KEY);
+    setView('home');
+    setIsCartOpen(false);
+    setIsCartSyncReady(false);
+    syncedCartUserIdRef.current = null;
+    initialLocalCartSnapshotRef.current = '';
+  }, []);
+
+  const setLoggedIn = useCallback(() => {
+    setIsLoggedIn(true);
+  }, []);
+
+  const fetchUserProfile = useCallback(async () => {
     try {
       const res = await fetchWithAuth('/api/auth/me');
       const data = await res.json();
@@ -195,9 +219,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error fetching user profile:', error);
     }
-  };
+  }, [handleLogout]);
 
-  const persistCartToBackend = async (items: CartItem[]) => {
+  const persistCartToBackend = useCallback(async (items: CartItem[]) => {
     const res = await fetchWithAuth('/api/cart', {
       method: 'PUT',
       headers: {
@@ -215,7 +239,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const payload = await res.json().catch(() => null);
       throw new Error(payload?.error || 'Failed to sync cart.');
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (!isCartHydrated) {
@@ -281,7 +305,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return () => {
       isCancelled = true;
     };
-  }, [cart, isCartHydrated, user?.id]);
+  }, [cart, isCartHydrated, persistCartToBackend, user?.id]);
 
   useEffect(() => {
     if (!user?.id || !isCartSyncReady) {
@@ -302,26 +326,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
 
     syncCart();
-  }, [cart, isCartSyncReady, user?.id]);
+  }, [cart, isCartSyncReady, persistCartToBackend, user?.id]);
 
-  const handleLogout = () => {
-    clearAccessToken();
-    fetch(buildApiUrl('/api/auth/logout'), {
-      method: 'POST',
-      credentials: 'include',
-    }).catch(() => {});
-    setIsLoggedIn(false);
-    setUser(null);
-    setCart([]);
-    localStorage.removeItem(CART_STORAGE_KEY);
-    setView('home');
-    setIsCartOpen(false);
-    setIsCartSyncReady(false);
-    syncedCartUserIdRef.current = null;
-    initialLocalCartSnapshotRef.current = '';
-  };
-
-  const addToCart = (
+  const addToCart = useCallback((
     product: Product,
     options?: { openCart?: boolean }
   ) => {
@@ -338,9 +345,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (options?.openCart !== false) {
       setIsCartOpen(true);
     }
-  };
+  }, []);
 
-  const updateQuantity = (id: string, delta: number) => {
+  const updateQuantity = useCallback((id: string, delta: number) => {
     setCart(prev => {
       return prev.map(item => {
         if (item.id === id) {
@@ -350,11 +357,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return item;
       }).filter(item => item.quantity > 0);
     });
-  };
+  }, []);
 
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-  const isBranchOpen = (branch: Branch) => {
+  const isBranchOpen = useCallback((branch: Branch) => {
     const now = new Date();
     const currentHour = now.getHours();
     const currentMinute = now.getMinutes();
@@ -367,34 +374,57 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const closeTime = closeHour * 60 + closeMinute;
 
     return currentTime >= openTime && currentTime <= closeTime;
-  };
+  }, []);
+
+  const contextValue = useMemo(() => ({
+    view, setView,
+    accountSubView, setAccountSubView,
+    isLoggedIn,
+    setLoggedIn,
+    logout: handleLogout,
+    user, setUser,
+    fetchUserProfile,
+    cart, setCart,
+    selectedBranch, setSelectedBranch,
+    branches,
+    branchInventory,
+    isBranchModalOpen, setIsBranchModalOpen,
+    isCartOpen, setIsCartOpen,
+    selectedProduct, setSelectedProduct,
+    orders, setOrders,
+    selectedOrder, setSelectedOrder,
+    addToCart,
+    updateQuantity,
+    cartTotal,
+    isBranchOpen,
+    searchQuery,
+    setSearchQuery
+  }), [
+    view,
+    accountSubView,
+    isLoggedIn,
+    setLoggedIn,
+    handleLogout,
+    user,
+    fetchUserProfile,
+    cart,
+    selectedBranch,
+    branches,
+    branchInventory,
+    isBranchModalOpen,
+    isCartOpen,
+    selectedProduct,
+    orders,
+    selectedOrder,
+    addToCart,
+    updateQuantity,
+    cartTotal,
+    isBranchOpen,
+    searchQuery,
+  ]);
 
   return (
-    <AppContext.Provider value={{
-      view, setView,
-      accountSubView, setAccountSubView,
-      isLoggedIn, setIsLoggedIn: (val: boolean) => {
-        if (!val) handleLogout();
-        else setIsLoggedIn(true);
-      },
-      user, setUser,
-      fetchUserProfile,
-      cart, setCart,
-      selectedBranch, setSelectedBranch,
-      branches,
-      branchInventory,
-      isBranchModalOpen, setIsBranchModalOpen,
-      isCartOpen, setIsCartOpen,
-      selectedProduct, setSelectedProduct,
-      orders, setOrders,
-      selectedOrder, setSelectedOrder,
-      addToCart,
-      updateQuantity,
-      cartTotal,
-      isBranchOpen,
-      searchQuery,
-      setSearchQuery
-    }}>
+    <AppContext.Provider value={contextValue}>
       {children}
     </AppContext.Provider>
   );

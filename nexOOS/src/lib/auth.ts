@@ -27,11 +27,27 @@ export function signToken(payload: AuthPayload) {
   return signAccessToken(payload);
 }
 
+type TokenPayload = jwt.JwtPayload & {
+  tokenType?: string;
+};
+
+const decodeToken = (token: string) => {
+  const decoded = jwt.verify(token, JWT_SECRET);
+
+  if (typeof decoded === 'string') {
+    return null;
+  }
+
+  return decoded as TokenPayload;
+};
+
 export function verifyAccessToken(token: string) {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as jwt.JwtPayload & {
-      tokenType?: string;
-    };
+    const decoded = decodeToken(token);
+
+    if (!decoded) {
+      return null;
+    }
 
     if (decoded.tokenType !== 'access') {
       return null;
@@ -45,9 +61,11 @@ export function verifyAccessToken(token: string) {
 
 export function verifyRefreshToken(token: string) {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as jwt.JwtPayload & {
-      tokenType?: string;
-    };
+    const decoded = decodeToken(token);
+
+    if (!decoded) {
+      return null;
+    }
 
     if (decoded.tokenType !== 'refresh') {
       return null;

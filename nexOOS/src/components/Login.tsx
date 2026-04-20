@@ -9,56 +9,481 @@ import { buildApiUrl } from '@/lib/api';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 type ResetStep = 'email' | 'code' | 'password';
+type ResetStatusType = 'success' | 'error' | null;
 
-export default function Login() {
-  const { setView, setIsLoggedIn, setUser } = useAppContext();
-  const [formData, setFormData] = useState({ email: '', password: '' });
+type ForgotData = {
+  email: string;
+  verificationCode: string;
+  newPassword: string;
+  confirmPassword: string;
+};
+
+type ResetStatus = {
+  type: ResetStatusType;
+  message: string;
+};
+
+type LoginFormData = {
+  email: string;
+  password: string;
+};
+
+type ForgotPasswordVisibility = {
+  new: boolean;
+  confirm: boolean;
+};
+
+type LoginFieldIds = {
+  email: string;
+  password: string;
+  rememberMe: string;
+  forgotEmail: string;
+  forgotCode: string;
+  forgotPassword: string;
+  forgotConfirmPassword: string;
+};
+
+const initialForgotData: ForgotData = {
+  email: '',
+  verificationCode: '',
+  newPassword: '',
+  confirmPassword: ''
+};
+
+const initialResetStatus: ResetStatus = { type: null, message: '' };
+const initialForgotPasswordVisibility: ForgotPasswordVisibility = {
+  new: false,
+  confirm: false
+};
+
+const loginFieldIds: LoginFieldIds = {
+  email: 'login-email',
+  password: 'login-password-field',
+  rememberMe: 'login-remember-me',
+  forgotEmail: 'forgot-email',
+  forgotCode: 'forgot-code',
+  forgotPassword: 'forgot-password-field',
+  forgotConfirmPassword: 'forgot-password-confirm-field',
+};
+
+async function postJson<TBody>(path: string, body: TBody) {
+  const res = await fetch(buildApiUrl(path), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  const data = await res.json();
+
+  return { res, data };
+}
+
+function getResetButtonLabel(resetStep: ResetStep) {
+  if (resetStep === 'email') {
+    return 'Send Code';
+  }
+
+  if (resetStep === 'code') {
+    return 'Verify Code';
+  }
+
+  return 'Update Password';
+}
+
+function isResetActionDisabled(
+  resetStep: ResetStep,
+  forgotData: ForgotData,
+  isResetting: boolean
+) {
+  if (isResetting) {
+    return true;
+  }
+
+  if (resetStep === 'email') {
+    return !forgotData.email;
+  }
+
+  if (resetStep === 'code') {
+    return forgotData.verificationCode.length !== 6;
+  }
+
+  return !forgotData.newPassword || !forgotData.confirmPassword;
+}
+
+function getResetStatusClasses(type: ResetStatusType) {
+  return type === 'success'
+    ? 'bg-blue-50 text-blue-800 border border-blue-100'
+    : 'bg-red-50 text-red-800 border border-red-100';
+}
+
+function getResetStatusIcon(type: ResetStatusType) {
+  return type === 'success'
+    ? <CheckCircle2 className="w-5 h-5 shrink-0" />
+    : <AlertCircle className="w-5 h-5 shrink-0" />;
+}
+
+function getPasswordFieldType(isVisible: boolean) {
+  return isVisible ? 'text' : 'password';
+}
+
+function getPasswordToggleLabel(isVisible: boolean, visibleText: string, hiddenText: string) {
+  return isVisible ? visibleText : hiddenText;
+}
+
+function PasswordToggleButton({
+  isVisible,
+  onToggle,
+  visibleLabel,
+  hiddenLabel,
+  className,
+  iconClassName,
+}: {
+  isVisible: boolean;
+  onToggle: () => void;
+  visibleLabel: string;
+  hiddenLabel: string;
+  className: string;
+  iconClassName: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-label={getPasswordToggleLabel(isVisible, visibleLabel, hiddenLabel)}
+      className={className}
+    >
+      {isVisible ? <EyeOff className={iconClassName} /> : <Eye className={iconClassName} />}
+    </button>
+  );
+}
+
+function ResetStatusBanner({ resetStatus }: { resetStatus: ResetStatus }) {
+  if (!resetStatus.type) {
+    return null;
+  }
+
+  return (
+    <div
+      className={`mb-6 p-4 rounded-2xl flex items-start gap-3 text-sm font-bold ${getResetStatusClasses(resetStatus.type)}`}
+    >
+      {getResetStatusIcon(resetStatus.type)}
+      {resetStatus.message}
+    </div>
+  );
+}
+
+function ForgotPasswordModal({
+  loginFieldIds,
+  forgotData,
+  resetStep,
+  isResetting,
+  showForgotPasswords,
+  resetStatus,
+  onClose,
+  onForgotDataChange,
+  onToggleForgotPassword,
+  onResetAction,
+  onResendCode,
+}: {
+  loginFieldIds: LoginFieldIds;
+  forgotData: ForgotData;
+  resetStep: ResetStep;
+  isResetting: boolean;
+  showForgotPasswords: ForgotPasswordVisibility;
+  resetStatus: ResetStatus;
+  onClose: () => void;
+  onForgotDataChange: (field: keyof ForgotData, value: string) => void;
+  onToggleForgotPassword: (field: keyof ForgotPasswordVisibility) => void;
+  onResetAction: () => void;
+  onResendCode: () => void;
+}) {
+  const showVerificationCode = resetStep !== 'email';
+  const showPasswordFields = resetStep === 'password';
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="bg-white p-8 sm:p-10 rounded-[3rem] shadow-2xl border border-slate-100 w-full max-w-lg relative"
+      >
+        <button
+          onClick={onClose}
+          className="absolute top-8 right-8 p-2 hover:bg-slate-100 rounded-xl transition-colors"
+        >
+          <X className="w-6 h-6 text-slate-400" />
+        </button>
+
+        <div className="mb-8">
+          <h3 className="text-2xl font-black text-slate-900 tracking-tight mb-2">Reset Password</h3>
+          <p className="text-slate-500 text-sm font-medium">
+            Enter your email, verify the code we send, then choose a new password.
+          </p>
+        </div>
+
+        <ResetStatusBanner resetStatus={resetStatus} />
+
+        <div className="space-y-4">
+          <div>
+            <label htmlFor={loginFieldIds.forgotEmail} className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-4">Email</label>
+            <input
+              id={loginFieldIds.forgotEmail}
+              type="email"
+              value={forgotData.email}
+              onChange={(e) => onForgotDataChange('email', e.target.value)}
+              placeholder="name@example.com"
+              disabled={resetStep !== 'email' || isResetting}
+              className="w-full px-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium disabled:opacity-70"
+            />
+          </div>
+
+          {showVerificationCode && (
+            <div>
+              <label htmlFor={loginFieldIds.forgotCode} className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-4">Verification Code</label>
+              <input
+                id={loginFieldIds.forgotCode}
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                value={forgotData.verificationCode}
+                onChange={(e) => onForgotDataChange('verificationCode', e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="Enter 6-digit code"
+                disabled={resetStep === 'password' || isResetting}
+                className="w-full px-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium tracking-[0.3em] disabled:opacity-70"
+              />
+            </div>
+          )}
+
+          {showPasswordFields && (
+            <>
+              <div>
+                <label htmlFor={loginFieldIds.forgotPassword} className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-4">New Password</label>
+                <div className="relative">
+                  <input
+                    id={loginFieldIds.forgotPassword}
+                    type={getPasswordFieldType(showForgotPasswords.new)}
+                    value={forgotData.newPassword}
+                    onChange={(e) => onForgotDataChange('newPassword', e.target.value)}
+                    placeholder="........"
+                    className="w-full px-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
+                  />
+                  <PasswordToggleButton
+                    isVisible={showForgotPasswords.new}
+                    onToggle={() => onToggleForgotPassword('new')}
+                    visibleLabel="Hide new password"
+                    hiddenLabel="Show new password"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-slate-400"
+                    iconClassName="w-4 h-4"
+                  />
+                </div>
+              </div>
+              <div>
+                <label htmlFor={loginFieldIds.forgotConfirmPassword} className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-4">Confirm New Password</label>
+                <div className="relative">
+                  <input
+                    id={loginFieldIds.forgotConfirmPassword}
+                    type={getPasswordFieldType(showForgotPasswords.confirm)}
+                    value={forgotData.confirmPassword}
+                    onChange={(e) => onForgotDataChange('confirmPassword', e.target.value)}
+                    placeholder="........"
+                    className="w-full px-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
+                  />
+                  <PasswordToggleButton
+                    isVisible={showForgotPasswords.confirm}
+                    onToggle={() => onToggleForgotPassword('confirm')}
+                    visibleLabel="Hide confirm password"
+                    hiddenLabel="Show confirm password"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-slate-400"
+                    iconClassName="w-4 h-4"
+                  />
+                </div>
+              </div>
+            </>
+          )}
+
+          <button
+            type="button"
+            onClick={onResetAction}
+            disabled={isResetActionDisabled(resetStep, forgotData, isResetting)}
+            className="w-full mt-6 py-4 bg-blue-600 text-white rounded-2xl font-black text-lg hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 disabled:opacity-70 flex items-center justify-center gap-2"
+          >
+            {isResetting ? (
+              <Loader2 className="w-6 h-6 animate-spin" />
+            ) : (
+              getResetButtonLabel(resetStep)
+            )}
+          </button>
+
+          {showVerificationCode && (
+            <button
+              type="button"
+              onClick={onResendCode}
+              disabled={isResetting}
+              className="w-full py-3 text-sm font-black text-blue-700 bg-blue-50 rounded-2xl hover:bg-blue-100 transition-colors disabled:opacity-70"
+            >
+              Resend Code
+            </button>
+          )}
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+function LoginCard({
+  formData,
+  isLoading,
+  error,
+  showPassword,
+  onSubmit,
+  onEmailChange,
+  onPasswordChange,
+  onTogglePassword,
+  onOpenForgotPassword,
+  onGoHome,
+  onGoToRegister,
+}: {
+  formData: LoginFormData;
+  isLoading: boolean;
+  error: string;
+  showPassword: boolean;
+  onSubmit: (e: React.FormEvent) => void;
+  onEmailChange: (value: string) => void;
+  onPasswordChange: (value: string) => void;
+  onTogglePassword: () => void;
+  onOpenForgotPassword: () => void;
+  onGoHome: () => void;
+  onGoToRegister: () => void;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-white p-10 lg:p-16 rounded-[4rem] shadow-2xl border border-slate-100 w-full max-w-xl relative overflow-hidden"
+    >
+      <div className="absolute top-0 left-0 w-full h-2 bg-blue-500" />
+      <div className="absolute -top-24 -right-24 w-64 h-64 bg-blue-50 rounded-full blur-3xl opacity-50" />
+
+      <button
+        type="button"
+        onClick={onGoHome}
+        className="flex items-center gap-2 mb-12 group justify-center w-full"
+      >
+        <div className="bg-blue-600 p-2 rounded-xl group-hover:rotate-12 transition-transform">
+          <Pill className="w-6 h-6 text-white" />
+        </div>
+        <span className="text-3xl font-black text-slate-900 tracking-tight">PharmaQuick</span>
+      </button>
+
+      <div className="text-center mb-10">
+        <h2 className="text-4xl font-black text-slate-900 mb-2 tracking-tight">Welcome Back!</h2>
+        <p className="text-slate-500 font-medium">Sign in to your account to continue shopping.</p>
+      </div>
+
+      {error && (
+        <div className="mb-8 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600 text-sm font-bold">
+          <AlertCircle className="w-5 h-5 shrink-0" />
+          {error}
+        </div>
+      )}
+
+      <form onSubmit={onSubmit} className="space-y-6">
+        <div>
+          <label htmlFor={loginFieldIds.email} className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Email Address</label>
+          <div className="relative">
+            <Mail className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <input
+              id={loginFieldIds.email}
+              type="email"
+              required
+              value={formData.email}
+              onChange={(e) => onEmailChange(e.target.value)}
+              placeholder="name@example.com"
+              className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
+            />
+          </div>
+        </div>
+        <div>
+          <label htmlFor={loginFieldIds.password} className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Password</label>
+          <div className="relative">
+            <input
+              id={loginFieldIds.password}
+              type={getPasswordFieldType(showPassword)}
+              required
+              value={formData.password}
+              onChange={(e) => onPasswordChange(e.target.value)}
+              placeholder="........"
+              className="w-full pl-14 pr-12 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
+            />
+            <PasswordToggleButton
+              isVisible={showPassword}
+              onToggle={onTogglePassword}
+              visibleLabel="Hide password"
+              hiddenLabel="Show password"
+              className="absolute right-4 top-1/2 -translate-y-1/2 p-2 hover:bg-slate-200 rounded-xl transition-colors text-slate-400 hover:text-slate-600"
+              iconClassName="w-5 h-5"
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between px-2">
+          <label htmlFor={loginFieldIds.rememberMe} className="flex items-center gap-2 cursor-pointer group">
+            <input id={loginFieldIds.rememberMe} type="checkbox" className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+            <span className="text-sm font-bold text-slate-500 group-hover:text-slate-700 transition-colors">Remember me</span>
+          </label>
+          <button
+            type="button"
+            onClick={onOpenForgotPassword}
+            className="text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors"
+          >
+            Forgot Password?
+          </button>
+        </div>
+
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-lg hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 flex items-center justify-center gap-2 group disabled:opacity-70 disabled:cursor-not-allowed"
+        >
+          {isLoading ? (
+            <Loader2 className="w-6 h-6 animate-spin" />
+          ) : (
+            <>
+              Sign In
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </>
+          )}
+        </button>
+      </form>
+
+      <div className="mt-12 pt-8 border-t border-slate-100 text-center">
+        <p className="text-slate-500 font-bold">
+          Don&apos;t have an account? <button onClick={onGoToRegister} className="text-blue-600 hover:text-blue-700 transition-colors font-black">Create Account</button>
+        </p>
+      </div>
+    </motion.div>
+  );
+}
+
+function useLoginForm({
+  setView,
+  setLoggedIn,
+  setUser,
+}: {
+  setView: (view: string) => void;
+  setLoggedIn: () => void;
+  setUser: (user: unknown) => void;
+}) {
+  const [formData, setFormData] = useState<LoginFormData>({ email: '', password: '' });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
-  const [forgotData, setForgotData] = useState({
-    email: '',
-    verificationCode: '',
-    newPassword: '',
-    confirmPassword: ''
-  });
-  const [resetStep, setResetStep] = useState<ResetStep>('email');
-  const [resetToken, setResetToken] = useState('');
-  const [resetStatus, setResetStatus] = useState<{
-    type: 'success' | 'error' | null;
-    message: string;
-  }>({ type: null, message: '' });
-  const [isResetting, setIsResetting] = useState(false);
-  const [showForgotPasswords, setShowForgotPasswords] = useState({
-    new: false,
-    confirm: false
-  });
-  const loginFieldIds = {
-    email: 'login-email',
-    password: 'login-secret-field',
-    rememberMe: 'login-remember-me',
-    forgotEmail: 'forgot-email',
-    forgotCode: 'forgot-code',
-    forgotPassword: 'forgot-secret-field',
-    forgotConfirmPassword: 'forgot-secret-confirm-field',
-  } as const;
+  const updateFormField = (field: keyof LoginFormData, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
 
-  useBodyScrollLock(isForgotModalOpen);
-
-  const resetForgotPasswordState = () => {
-    setForgotData({
-      email: '',
-      verificationCode: '',
-      newPassword: '',
-      confirmPassword: ''
-    });
-    setResetStep('email');
-    setResetToken('');
-    setResetStatus({ type: null, message: '' });
-    setIsResetting(false);
-    setShowForgotPasswords({ new: false, confirm: false });
+  const togglePassword = () => {
+    setShowPassword(prev => !prev);
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -67,16 +492,11 @@ export default function Login() {
     setError('');
 
     try {
-      const res = await fetch(buildApiUrl('/api/auth/login'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
-      const data = await res.json();
+      const { res, data } = await postJson('/api/auth/login', formData);
 
       if (res.ok) {
         storeAccessToken(data.token);
-        setIsLoggedIn(true);
+        setLoggedIn();
         setUser(data.user);
         setView('home');
       } else {
@@ -89,18 +509,62 @@ export default function Login() {
     }
   };
 
+  return {
+    formData,
+    isLoading,
+    error,
+    showPassword,
+    handleLogin,
+    updateFormField,
+    togglePassword,
+  };
+}
+
+function useForgotPasswordFlow() {
+  const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
+  const [forgotData, setForgotData] = useState(initialForgotData);
+  const [resetStep, setResetStep] = useState<ResetStep>('email');
+  const [resetToken, setResetToken] = useState('');
+  const [resetStatus, setResetStatus] = useState<ResetStatus>(initialResetStatus);
+  const [isResetting, setIsResetting] = useState(false);
+  const [showForgotPasswords, setShowForgotPasswords] = useState(initialForgotPasswordVisibility);
+
+  const resetForgotPasswordState = () => {
+    setForgotData(initialForgotData);
+    setResetStep('email');
+    setResetToken('');
+    setResetStatus(initialResetStatus);
+    setIsResetting(false);
+    setShowForgotPasswords(initialForgotPasswordVisibility);
+  };
+
+  const closeForgotModal = () => {
+    setIsForgotModalOpen(false);
+    resetForgotPasswordState();
+  };
+
+  const openForgotModal = () => {
+    resetForgotPasswordState();
+    setIsForgotModalOpen(true);
+  };
+
+  const updateForgotData = (field: keyof ForgotData, value: string) => {
+    setForgotData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const toggleForgotPassword = (field: keyof ForgotPasswordVisibility) => {
+    setShowForgotPasswords(prev => ({ ...prev, [field]: !prev[field] }));
+  };
+
   const handleResetAction = async () => {
     setIsResetting(true);
     setResetStatus({ type: null, message: '' });
 
     try {
       if (resetStep === 'email') {
-        const res = await fetch(buildApiUrl('/api/auth/request-password-reset'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: forgotData.email })
+        const { res, data } = await postJson('/api/auth/request-password-reset', {
+          email: forgotData.email
         });
-        const data = await res.json();
 
         if (res.ok) {
           setResetToken(data.resetToken);
@@ -119,16 +583,11 @@ export default function Login() {
           return;
         }
 
-        const res = await fetch(buildApiUrl('/api/auth/verify-password-reset-code'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: forgotData.email,
-            verificationCode: forgotData.verificationCode,
-            resetToken
-          })
+        const { res, data } = await postJson('/api/auth/verify-password-reset-code', {
+          email: forgotData.email,
+          verificationCode: forgotData.verificationCode,
+          resetToken
         });
-        const data = await res.json();
 
         if (res.ok) {
           setResetStep('password');
@@ -149,23 +608,17 @@ export default function Login() {
         return;
       }
 
-      const res = await fetch(buildApiUrl('/api/auth/update-password'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: forgotData.email,
-          verificationCode: forgotData.verificationCode,
-          resetToken,
-          newPassword: forgotData.newPassword
-        })
+      const { res, data } = await postJson('/api/auth/update-password', {
+        email: forgotData.email,
+        verificationCode: forgotData.verificationCode,
+        resetToken,
+        newPassword: forgotData.newPassword
       });
-      const data = await res.json();
 
       if (res.ok) {
         setResetStatus({ type: 'success', message: 'Password updated successfully!' });
         setTimeout(() => {
-          setIsForgotModalOpen(false);
-          resetForgotPasswordState();
+          closeForgotModal();
         }, 2000);
       } else {
         setResetStatus({ type: 'error', message: data.error || 'Failed to update password' });
@@ -182,12 +635,9 @@ export default function Login() {
     setResetStatus({ type: null, message: '' });
 
     try {
-      const res = await fetch(buildApiUrl('/api/auth/request-password-reset'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: forgotData.email })
+      const { res, data } = await postJson('/api/auth/request-password-reset', {
+        email: forgotData.email
       });
-      const data = await res.json();
 
       if (res.ok) {
         setResetToken(data.resetToken);
@@ -209,267 +659,59 @@ export default function Login() {
     }
   };
 
+  return {
+    isForgotModalOpen,
+    forgotData,
+    resetStep,
+    resetStatus,
+    isResetting,
+    showForgotPasswords,
+    openForgotModal,
+    closeForgotModal,
+    updateForgotData,
+    toggleForgotPassword,
+    handleResetAction,
+    handleResendCode,
+  };
+}
+
+export default function Login() {
+  const { setView, setLoggedIn, setUser } = useAppContext();
+  const loginForm = useLoginForm({ setView, setLoggedIn, setUser });
+  const forgotPasswordFlow = useForgotPasswordFlow();
+
+  useBodyScrollLock(forgotPasswordFlow.isForgotModalOpen);
+
   return (
     <main className="flex-1 flex flex-col items-center justify-center p-8 bg-slate-50 py-24">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-white p-10 lg:p-16 rounded-[4rem] shadow-2xl border border-slate-100 w-full max-w-xl relative overflow-hidden"
-      >
-        <div className="absolute top-0 left-0 w-full h-2 bg-blue-500" />
-        <div className="absolute -top-24 -right-24 w-64 h-64 bg-blue-50 rounded-full blur-3xl opacity-50" />
+      <LoginCard
+        formData={loginForm.formData}
+        isLoading={loginForm.isLoading}
+        error={loginForm.error}
+        showPassword={loginForm.showPassword}
+        onSubmit={loginForm.handleLogin}
+        onEmailChange={(value) => loginForm.updateFormField('email', value)}
+        onPasswordChange={(value) => loginForm.updateFormField('password', value)}
+        onTogglePassword={loginForm.togglePassword}
+        onOpenForgotPassword={forgotPasswordFlow.openForgotModal}
+        onGoHome={() => setView('home')}
+        onGoToRegister={() => setView('register')}
+      />
 
-        <div
-          onClick={() => setView('home')}
-          className="flex items-center gap-2 mb-12 cursor-pointer group justify-center"
-        >
-          <div className="bg-blue-600 p-2 rounded-xl group-hover:rotate-12 transition-transform">
-            <Pill className="w-6 h-6 text-white" />
-          </div>
-          <span className="text-3xl font-black text-slate-900 tracking-tight">PharmaQuick</span>
-        </div>
-
-        <div className="text-center mb-10">
-          <h2 className="text-4xl font-black text-slate-900 mb-2 tracking-tight">Welcome Back!</h2>
-          <p className="text-slate-500 font-medium">Sign in to your account to continue shopping.</p>
-        </div>
-
-        {error && (
-          <div className="mb-8 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600 text-sm font-bold">
-            <AlertCircle className="w-5 h-5 shrink-0" />
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleLogin} className="space-y-6">
-          <div>
-            <label htmlFor={loginFieldIds.email} className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Email Address</label>
-            <div className="relative">
-              <Mail className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-              <input
-                id={loginFieldIds.email}
-                type="email"
-                required
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder="name@example.com"
-                className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
-              />
-            </div>
-          </div>
-          <div>
-            <label htmlFor={loginFieldIds.password} className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Password</label>
-            <div className="relative">
-              <input
-                id={loginFieldIds.password}
-                type={showPassword ? 'text' : 'password'}
-                required
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                placeholder="........"
-                className="w-full pl-14 pr-12 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-                className="absolute right-4 top-1/2 -translate-y-1/2 p-2 hover:bg-slate-200 rounded-xl transition-colors text-slate-400 hover:text-slate-600"
-              >
-                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between px-2">
-            <label htmlFor={loginFieldIds.rememberMe} className="flex items-center gap-2 cursor-pointer group">
-              <input id={loginFieldIds.rememberMe} type="checkbox" className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
-              <span className="text-sm font-bold text-slate-500 group-hover:text-slate-700 transition-colors">Remember me</span>
-            </label>
-            <button
-              type="button"
-              onClick={() => {
-                resetForgotPasswordState();
-                setIsForgotModalOpen(true);
-              }}
-              className="text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors"
-            >
-              Forgot Password?
-            </button>
-          </div>
-
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-lg hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 flex items-center justify-center gap-2 group disabled:opacity-70 disabled:cursor-not-allowed"
-          >
-            {isLoading ? (
-              <Loader2 className="w-6 h-6 animate-spin" />
-            ) : (
-              <>
-                Sign In
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </>
-            )}
-          </button>
-        </form>
-
-        <div className="mt-12 pt-8 border-t border-slate-100 text-center">
-          <p className="text-slate-500 font-bold">
-            Don&apos;t have an account? <button onClick={() => setView('register')} className="text-blue-600 hover:text-blue-700 transition-colors font-black">Create Account</button>
-          </p>
-        </div>
-      </motion.div>
-
-      {isForgotModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white p-8 sm:p-10 rounded-[3rem] shadow-2xl border border-slate-100 w-full max-w-lg relative"
-          >
-            <button
-              onClick={() => {
-                setIsForgotModalOpen(false);
-                resetForgotPasswordState();
-              }}
-              className="absolute top-8 right-8 p-2 hover:bg-slate-100 rounded-xl transition-colors"
-            >
-              <X className="w-6 h-6 text-slate-400" />
-            </button>
-
-            <div className="mb-8">
-              <h3 className="text-2xl font-black text-slate-900 tracking-tight mb-2">Reset Password</h3>
-              <p className="text-slate-500 text-sm font-medium">
-                Enter your email, verify the code we send, then choose a new password.
-              </p>
-            </div>
-
-            {resetStatus.type && (
-              <div
-                className={`mb-6 p-4 rounded-2xl flex items-start gap-3 text-sm font-bold ${
-                  resetStatus.type === 'success'
-                    ? 'bg-blue-50 text-blue-800 border border-blue-100'
-                    : 'bg-red-50 text-red-800 border border-red-100'
-                }`}
-              >
-                {resetStatus.type === 'success' ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0" />}
-                {resetStatus.message}
-              </div>
-            )}
-
-            <div className="space-y-4">
-              <div>
-                <label htmlFor={loginFieldIds.forgotEmail} className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-4">Email</label>
-                <input
-                  id={loginFieldIds.forgotEmail}
-                  type="email"
-                  value={forgotData.email}
-                  onChange={(e) => setForgotData({ ...forgotData, email: e.target.value })}
-                  placeholder="name@example.com"
-                  disabled={resetStep !== 'email' || isResetting}
-                  className="w-full px-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium disabled:opacity-70"
-                />
-              </div>
-
-              {resetStep !== 'email' && (
-                <div>
-                  <label htmlFor={loginFieldIds.forgotCode} className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-4">Verification Code</label>
-                  <input
-                    id={loginFieldIds.forgotCode}
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={6}
-                    value={forgotData.verificationCode}
-                    onChange={(e) => setForgotData({ ...forgotData, verificationCode: e.target.value.replaceAll(/\D/g, '').slice(0, 6) })}
-                    placeholder="Enter 6-digit code"
-                    disabled={resetStep === 'password' || isResetting}
-                    className="w-full px-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium tracking-[0.3em] disabled:opacity-70"
-                  />
-                </div>
-              )}
-
-              {resetStep === 'password' && (
-                <>
-                  <div>
-                    <label htmlFor={loginFieldIds.forgotPassword} className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-4">New Password</label>
-                    <div className="relative">
-                      <input
-                        id={loginFieldIds.forgotPassword}
-                        type={showForgotPasswords.new ? 'text' : 'password'}
-                        value={forgotData.newPassword}
-                        onChange={(e) => setForgotData({ ...forgotData, newPassword: e.target.value })}
-                        placeholder="........"
-                        className="w-full px-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowForgotPasswords({ ...showForgotPasswords, new: !showForgotPasswords.new })}
-                        aria-label={showForgotPasswords.new ? 'Hide new password' : 'Show new password'}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-slate-400"
-                      >
-                        {showForgotPasswords.new ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
-                  <div>
-                    <label htmlFor={loginFieldIds.forgotConfirmPassword} className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-4">Confirm New Password</label>
-                    <div className="relative">
-                      <input
-                        id={loginFieldIds.forgotConfirmPassword}
-                        type={showForgotPasswords.confirm ? 'text' : 'password'}
-                        value={forgotData.confirmPassword}
-                        onChange={(e) => setForgotData({ ...forgotData, confirmPassword: e.target.value })}
-                        placeholder="........"
-                        className="w-full px-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowForgotPasswords({ ...showForgotPasswords, confirm: !showForgotPasswords.confirm })}
-                        aria-label={showForgotPasswords.confirm ? 'Hide confirm password' : 'Show confirm password'}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-slate-400"
-                      >
-                        {showForgotPasswords.confirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
-
-              <button
-                type="button"
-                onClick={handleResetAction}
-                disabled={
-                  isResetting ||
-                  (resetStep === 'email' && !forgotData.email) ||
-                  (resetStep === 'code' && forgotData.verificationCode.length !== 6) ||
-                  (resetStep === 'password' && (!forgotData.newPassword || !forgotData.confirmPassword))
-                }
-                className="w-full mt-6 py-4 bg-blue-600 text-white rounded-2xl font-black text-lg hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 disabled:opacity-70 flex items-center justify-center gap-2"
-              >
-                {isResetting ? (
-                  <Loader2 className="w-6 h-6 animate-spin" />
-                ) : resetStep === 'email' ? (
-                  'Send Code'
-                ) : resetStep === 'code' ? (
-                  'Verify Code'
-                ) : (
-                  'Update Password'
-                )}
-              </button>
-
-              {resetStep !== 'email' && (
-                <button
-                  type="button"
-                  onClick={handleResendCode}
-                  disabled={isResetting}
-                  className="w-full py-3 text-sm font-black text-blue-700 bg-blue-50 rounded-2xl hover:bg-blue-100 transition-colors disabled:opacity-70"
-                >
-                  Resend Code
-                </button>
-              )}
-            </div>
-          </motion.div>
-        </div>
+      {forgotPasswordFlow.isForgotModalOpen && (
+        <ForgotPasswordModal
+          loginFieldIds={loginFieldIds}
+          forgotData={forgotPasswordFlow.forgotData}
+          resetStep={forgotPasswordFlow.resetStep}
+          isResetting={forgotPasswordFlow.isResetting}
+          showForgotPasswords={forgotPasswordFlow.showForgotPasswords}
+          resetStatus={forgotPasswordFlow.resetStatus}
+          onClose={forgotPasswordFlow.closeForgotModal}
+          onForgotDataChange={forgotPasswordFlow.updateForgotData}
+          onToggleForgotPassword={forgotPasswordFlow.toggleForgotPassword}
+          onResetAction={forgotPasswordFlow.handleResetAction}
+          onResendCode={forgotPasswordFlow.handleResendCode}
+        />
       )}
     </main>
   );

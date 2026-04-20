@@ -17,7 +17,7 @@ export default function Navbar() {
   const { 
     view, setView, 
     setAccountSubView,
-    isLoggedIn, setIsLoggedIn, 
+    isLoggedIn, logout, 
     user,
     cart, 
     selectedBranch, 
@@ -252,7 +252,7 @@ export default function Navbar() {
                   <button
                     onClick={() => {
                       setIsLogoutModalOpen(false);
-                      setIsLoggedIn(false);
+                      logout();
                     }}
                     className="flex-1 rounded-full bg-red-600 px-4 py-2 font-medium text-white transition-colors hover:bg-red-700"
                   >

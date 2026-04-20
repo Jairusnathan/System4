@@ -6,6 +6,17 @@ import { X, CheckCircle2, Plus } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
+const getAvailableStock = (
+  selectedStock: number | undefined,
+  fallbackStock: number | undefined
+) => {
+  if (typeof selectedStock === 'number') {
+    return selectedStock;
+  }
+
+  return fallbackStock ?? 0;
+};
+
 export default function ProductDetailsModal() {
   const { 
     selectedProduct, setSelectedProduct,
@@ -23,22 +34,18 @@ export default function ProductDetailsModal() {
       return;
     }
 
-    const timeout = window.setTimeout(() => {
+    const timeout = globalThis.setTimeout(() => {
       setAddedProductName('');
     }, 1800);
 
-    return () => window.clearTimeout(timeout);
+    return () => globalThis.clearTimeout(timeout);
   }, [addedProductName]);
 
   if (!selectedProduct) return null;
 
   const inventoryItem = selectedBranch ? branchInventory.find(inv => inv.product_id === selectedProduct.id) : null;
-  const stock =
-    typeof selectedProduct.stock === 'number'
-      ? selectedProduct.stock
-      : inventoryItem
-        ? inventoryItem.stock
-        : 0;
+  const stock = getAvailableStock(selectedProduct.stock, inventoryItem?.stock);
+  const hasStock = stock > 0;
 
   return (
     <AnimatePresence>
@@ -114,9 +121,9 @@ export default function ProductDetailsModal() {
                       <button className="w-20 h-20 shrink-0 rounded-xl overflow-hidden border-2 border-blue-500">
                         <img src={selectedProduct.image} alt="Thumbnail" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       </button>
-                      {selectedProduct.images.map((img, idx) => (
-                        <button key={idx} className="w-20 h-20 shrink-0 rounded-xl overflow-hidden border-2 border-transparent hover:border-slate-300 transition-colors">
-                          <img src={img} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      {selectedProduct.images.map((img) => (
+                        <button key={`${selectedProduct.id}-${img}`} className="w-20 h-20 shrink-0 rounded-xl overflow-hidden border-2 border-transparent hover:border-slate-300 transition-colors">
+                          <img src={img} alt={`Thumbnail for ${selectedProduct.name}`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                         </button>
                       ))}
                     </div>
@@ -134,19 +141,21 @@ export default function ProductDetailsModal() {
                     
                     {/* Stock Availability */}
                     <div className="mb-6">
-                      {!selectedBranch ? (
-                        <span className="text-sm text-slate-500">Select a branch to view stock availability.</span>
-                      ) : stock > 0 ? (
-                        <div className="flex items-center gap-2 text-blue-600 bg-blue-50 px-3 py-2 rounded-lg inline-flex">
-                          <CheckCircle2 className="w-5 h-5" />
-                          <span className="font-medium">In Stock</span>
-                          <span className="text-sm opacity-80">({stock} items available)</span>
-                        </div>
+                      {selectedBranch ? (
+                        hasStock ? (
+                          <div className="flex items-center gap-2 text-blue-600 bg-blue-50 px-3 py-2 rounded-lg inline-flex">
+                            <CheckCircle2 className="w-5 h-5" />
+                            <span className="font-medium">In Stock</span>
+                            <span className="text-sm opacity-80">({stock} items available)</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 text-red-600 bg-red-50 px-3 py-2 rounded-lg inline-flex">
+                            <X className="w-5 h-5" />
+                            <span className="font-medium">Out of Stock</span>
+                          </div>
+                        )
                       ) : (
-                        <div className="flex items-center gap-2 text-red-600 bg-red-50 px-3 py-2 rounded-lg inline-flex">
-                          <X className="w-5 h-5" />
-                          <span className="font-medium">Out of Stock</span>
-                        </div>
+                        <span className="text-sm text-slate-500">Select a branch to view stock availability.</span>
                       )}
                     </div>
 
@@ -160,7 +169,7 @@ export default function ProductDetailsModal() {
                         <h3 className="text-lg font-bold text-slate-900 mb-4">Specifications</h3>
                         <div className="bg-slate-50 rounded-xl border border-slate-100 overflow-hidden">
                           {Object.entries(selectedProduct.specifications).map(([key, value], idx) => (
-                            <div key={key} className={`flex px-4 py-3 ${idx !== 0 ? 'border-t border-slate-100' : ''}`}>
+                            <div key={key} className={`flex px-4 py-3 ${idx === 0 ? '' : 'border-t border-slate-100'}`}>
                               <span className="w-1/3 text-sm font-medium text-slate-500">{key}</span>
                               <span className="w-2/3 text-sm text-slate-900">{value}</span>
                             </div>

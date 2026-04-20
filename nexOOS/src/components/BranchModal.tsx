@@ -6,6 +6,18 @@ import { X, MapPin, Clock } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
+const getBranchCardClassName = (isOpen: boolean, isSelected: boolean) => {
+  if (isOpen && isSelected) {
+    return 'border-blue-500 bg-blue-50 cursor-pointer';
+  }
+
+  if (isOpen) {
+    return 'border-slate-100 hover:border-blue-200 hover:bg-slate-50 cursor-pointer';
+  }
+
+  return 'border-slate-100 bg-slate-50 opacity-60 cursor-not-allowed';
+};
+
 export default function BranchModal() {
   const { 
     isBranchModalOpen, setIsBranchModalOpen,
@@ -66,13 +78,7 @@ export default function BranchModal() {
                         setIsBranchModalOpen(false);
                       }}
                       disabled={!isOpen}
-                      className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${
-                        !isOpen 
-                          ? 'border-slate-100 bg-slate-50 opacity-60 cursor-not-allowed' 
-                          : isSelected 
-                            ? 'border-blue-500 bg-blue-50 cursor-pointer' 
-                            : 'border-slate-100 hover:border-blue-200 hover:bg-slate-50 cursor-pointer'
-                      }`}
+                      className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${getBranchCardClassName(isOpen, isSelected)}`}
                     >
                       <div className="flex justify-between items-start mb-2">
                         <h3 className="font-bold text-lg text-slate-900">{branch.name}</h3>

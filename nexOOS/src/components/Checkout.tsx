@@ -76,6 +76,17 @@ const formatSavedAddress = (address: SavedAddress) =>
 const stringifyAddresses = (addresses: SavedAddress[]) =>
   `${ADDRESS_STORAGE_PREFIX}${JSON.stringify(addresses)}`;
 
+const getSavedAddressKey = (address: SavedAddress) =>
+  [
+    address.label,
+    address.fullName,
+    address.phoneNumber,
+    address.province,
+    address.city,
+    address.postalCode,
+    address.streetAddress,
+  ].join('|');
+
 const formatDeliveryAddress = (info: {
   address: string;
   city: string;
@@ -138,21 +149,30 @@ const getAddressPickerCopy = (view: 'list' | 'form') => ({
 });
 
 const getSavedAddressCountMessage = (count: number) =>
-  count > 0
-    ? `${count} saved ${count === 1 ? 'address' : 'addresses'} available`
-    : 'No saved addresses available yet';
+  {
+    if (count <= 0) {
+      return 'No saved addresses available yet';
+    }
+
+    const addressLabel = count === 1 ? 'address' : 'addresses';
+    return `${count} saved ${addressLabel} available`;
+  };
 
 const getPickerChevronClass = (isOpen: boolean) =>
   `text-slate-400 text-xl transition-transform ${isOpen ? 'rotate-180' : ''}`;
 
 const getPromoInputClassName = (status: 'idle' | 'checking' | 'valid' | 'invalid') =>
-  `w-full rounded-2xl border px-4 py-3 text-sm font-bold uppercase tracking-[0.16em] transition-all focus:outline-none ${
-    status === 'valid'
-      ? 'border-blue-300 bg-blue-50 text-blue-700 focus:ring-2 focus:ring-blue-200'
-      : status === 'invalid'
-        ? 'border-red-300 bg-red-50 text-red-700 focus:ring-2 focus:ring-red-200'
-        : 'border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-slate-200'
-  }`;
+  {
+    let stateClasses = 'border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-slate-200';
+
+    if (status === 'valid') {
+      stateClasses = 'border-blue-300 bg-blue-50 text-blue-700 focus:ring-2 focus:ring-blue-200';
+    } else if (status === 'invalid') {
+      stateClasses = 'border-red-300 bg-red-50 text-red-700 focus:ring-2 focus:ring-red-200';
+    }
+
+    return `w-full rounded-2xl border px-4 py-3 text-sm font-bold uppercase tracking-[0.16em] transition-all focus:outline-none ${stateClasses}`;
+  };
 
 const getPaymentMethodLabel = (paymentMethod: string) => {
   if (paymentMethod === 'cod') {
@@ -168,6 +188,18 @@ const getPaymentMethodLabel = (paymentMethod: string) => {
   }
 
   return 'Credit / Debit Card';
+};
+
+const getPaymentMethodIcon = (paymentMethod: string) => {
+  if (paymentMethod === 'cod') {
+    return <Banknote className="w-5 h-5 text-blue-600" />;
+  }
+
+  if (paymentMethod === 'gcash' || paymentMethod === 'maya') {
+    return <Wallet className="w-5 h-5 text-blue-600" />;
+  }
+
+  return <CreditCard className="w-5 h-5 text-blue-600" />;
 };
 
 const isPaymentStepIncomplete = ({
@@ -501,14 +533,7 @@ export default function Checkout() {
 
   const handlePlaceOrder = async () => {
     try {
-      const paymentMethodLabel =
-        paymentMethod === 'cod'
-          ? 'Cash on Delivery'
-          : paymentMethod === 'gcash'
-            ? 'GCash'
-            : paymentMethod === 'maya'
-              ? 'Maya'
-              : 'Credit / Debit Card';
+      const paymentMethodLabel = getPaymentMethodLabel(paymentMethod);
 
       const shippingAddress = formatDeliveryAddress(shippingInfo);
 
@@ -786,7 +811,7 @@ export default function Checkout() {
 
                                     return (
                                       <button
-                                        key={`modal-${address.label}-${index}`}
+                                        key={`modal-${getSavedAddressKey(address)}`}
                                         type="button"
                                         onClick={() => {
                                           setSelectedSavedAddressIndex(index);
@@ -1343,10 +1368,7 @@ export default function Checkout() {
                         <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Payment Method</h3>
                         <div className="flex items-center gap-3">
                           <div className="bg-white p-2 rounded-xl shadow-sm border border-slate-100">
-                            {paymentMethod === 'cod' ? <Banknote className="w-5 h-5 text-blue-600" /> : 
-                             paymentMethod === 'gcash' ? <Wallet className="w-5 h-5 text-blue-600" /> :
-                             paymentMethod === 'maya' ? <Wallet className="w-5 h-5 text-blue-600" /> :
-                             <CreditCard className="w-5 h-5 text-blue-600" />}
+                            {getPaymentMethodIcon(paymentMethod)}
                           </div>
                           <p className="font-black text-slate-900">{paymentMethodLabel}</p>
                         </div>

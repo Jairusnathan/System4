@@ -23,9 +23,9 @@ const collator = new Intl.Collator('en-PH', { sensitivity: 'base' });
 const normalizeKey = (value?: string) =>
   (value ?? '')
     .normalize('NFKD')
-    .replaceAll(/[\u0300-\u036f]/g, '')
-    .replaceAll(/\./g, '')
-    .replaceAll(/\s+/g, ' ')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\./g, '')
+    .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase();
 

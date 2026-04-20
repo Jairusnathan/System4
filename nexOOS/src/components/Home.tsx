@@ -12,6 +12,8 @@ const partnerBrands = [
   'Sanofi', 'AstraZeneca', 'Unilab', 'Bioten', 'Centrum'
 ];
 
+const getPartnerBrandKey = (brand: string, list: 'primary' | 'duplicate') => `${list}-${brand}`;
+
 export default function Home() {
   const {
     setView,
@@ -118,11 +120,11 @@ export default function Home() {
         </div>
         <div className="relative flex overflow-hidden">
           <div className="animate-marquee flex items-center gap-24 whitespace-nowrap">
-            {partnerBrands.map((brand, i) => (
-              <span key={i} className="text-4xl font-black text-slate-200 uppercase tracking-tighter select-none">{brand}</span>
+            {partnerBrands.map((brand) => (
+              <span key={getPartnerBrandKey(brand, 'primary')} className="text-4xl font-black text-slate-200 uppercase tracking-tighter select-none">{brand}</span>
             ))}
-            {partnerBrands.map((brand, i) => (
-              <span key={`dup-${i}`} className="text-4xl font-black text-slate-200 uppercase tracking-tighter select-none">{brand}</span>
+            {partnerBrands.map((brand) => (
+              <span key={getPartnerBrandKey(brand, 'duplicate')} className="text-4xl font-black text-slate-200 uppercase tracking-tighter select-none">{brand}</span>
             ))}
           </div>
         </div>

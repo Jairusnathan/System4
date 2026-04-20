@@ -54,7 +54,8 @@ export default function BranchModal() {
                   const isSelected = selectedBranch?.id === branch.id;
                   
                   return (
-                    <div 
+                    <button
+                      type="button"
                       key={branch.id}
                       onClick={() => {
                         if (!isOpen) return;
@@ -64,7 +65,8 @@ export default function BranchModal() {
                         setSelectedBranch(branch);
                         setIsBranchModalOpen(false);
                       }}
-                      className={`p-4 rounded-2xl border-2 transition-all ${
+                      disabled={!isOpen}
+                      className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${
                         !isOpen 
                           ? 'border-slate-100 bg-slate-50 opacity-60 cursor-not-allowed' 
                           : isSelected 
@@ -100,7 +102,7 @@ export default function BranchModal() {
                           </p>
                         </div>
                       )}
-                    </div>
+                    </button>
                   );
                 })}
               </div>

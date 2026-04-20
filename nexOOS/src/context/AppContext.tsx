@@ -89,7 +89,7 @@ const mergeCartItems = (localItems: CartItem[], remoteItems: CartItem[]) => {
 const cartSnapshot = (items: CartItem[]) =>
   items
     .map((item) => `${item.id}:${item.quantity}`)
-    .sort()
+    .sort((left, right) => left.localeCompare(right))
     .join('|');
 
 export function AppProvider({ children }: { children: ReactNode }) {

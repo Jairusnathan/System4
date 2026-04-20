@@ -115,6 +115,89 @@ const createEmptyCheckoutAddress = (user?: { full_name?: string; phone?: string 
   label: 'Home',
 });
 
+const getSavedAddressPrompt = (count: number) =>
+  count > 0
+    ? 'Pick one of your saved delivery addresses from the popup, or add a new one there.'
+    : 'No saved address yet. Open the popup to add one for this order.';
+
+const getEmptySavedAddressTitle = (count: number) =>
+  count > 0 ? 'No address selected yet' : 'No saved address yet';
+
+const getEmptySavedAddressMessage = (count: number) =>
+  count > 0
+    ? 'Open Choose Address to select one of your saved addresses or add a new address for this order.'
+    : 'Open Choose Address to add a new address for this order.';
+
+const getAddressPickerCopy = (view: 'list' | 'form') => ({
+  eyebrow: view === 'list' ? 'Choose Address' : 'Add Address',
+  title: view === 'list' ? 'Saved Addresses' : 'Add Address',
+  description:
+    view === 'list'
+      ? 'Select an existing address for this order or add a new one.'
+      : 'Fill in the delivery details and use this address for the current checkout.',
+});
+
+const getSavedAddressCountMessage = (count: number) =>
+  count > 0
+    ? `${count} saved ${count === 1 ? 'address' : 'addresses'} available`
+    : 'No saved addresses available yet';
+
+const getPickerChevronClass = (isOpen: boolean) =>
+  `text-slate-400 text-xl transition-transform ${isOpen ? 'rotate-180' : ''}`;
+
+const getPromoInputClassName = (status: 'idle' | 'checking' | 'valid' | 'invalid') =>
+  `w-full rounded-2xl border px-4 py-3 text-sm font-bold uppercase tracking-[0.16em] transition-all focus:outline-none ${
+    status === 'valid'
+      ? 'border-blue-300 bg-blue-50 text-blue-700 focus:ring-2 focus:ring-blue-200'
+      : status === 'invalid'
+        ? 'border-red-300 bg-red-50 text-red-700 focus:ring-2 focus:ring-red-200'
+        : 'border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-slate-200'
+  }`;
+
+const getPaymentMethodLabel = (paymentMethod: string) => {
+  if (paymentMethod === 'cod') {
+    return 'Cash on Delivery';
+  }
+
+  if (paymentMethod === 'gcash') {
+    return 'GCash';
+  }
+
+  if (paymentMethod === 'maya') {
+    return 'Maya';
+  }
+
+  return 'Credit / Debit Card';
+};
+
+const isPaymentStepIncomplete = ({
+  paymentMethod,
+  gcashInfo,
+  mayaInfo,
+  cardInfo,
+}: {
+  paymentMethod: string;
+  gcashInfo: { number: string; reference: string };
+  mayaInfo: { number: string; reference: string };
+  cardInfo: { number: string; name: string; expiry: string; cvv: string };
+}) => {
+  if (paymentMethod === 'gcash') {
+    return !gcashInfo.number || !gcashInfo.reference;
+  }
+
+  if (paymentMethod === 'maya') {
+    return !mayaInfo.number || !mayaInfo.reference;
+  }
+
+  if (paymentMethod === 'card') {
+    return !cardInfo.number || !cardInfo.name || !cardInfo.expiry || !cardInfo.cvv;
+  }
+
+  return false;
+};
+
+const getDiscountTextClass = (discountAmount: number) => (discountAmount > 0 ? 'text-blue-600' : '');
+
 export default function Checkout() {
   const { 
     cart, setCart,
@@ -181,6 +264,19 @@ export default function Checkout() {
   const deliveryFee = deliveryEstimate?.fee ?? 0;
   const discountAmount = appliedPromo?.discountAmount ?? 0;
   const orderTotal = Math.max(0, cartTotal + deliveryFee - discountAmount);
+  const savedAddressPrompt = getSavedAddressPrompt(savedAddresses.length);
+  const emptySavedAddressTitle = getEmptySavedAddressTitle(savedAddresses.length);
+  const emptySavedAddressMessage = getEmptySavedAddressMessage(savedAddresses.length);
+  const addressPickerCopy = getAddressPickerCopy(addressPickerView);
+  const savedAddressCountMessage = getSavedAddressCountMessage(savedAddresses.length);
+  const promoInputClassName = getPromoInputClassName(promoStatus);
+  const paymentMethodLabel = getPaymentMethodLabel(paymentMethod);
+  const paymentStepIncomplete = isPaymentStepIncomplete({
+    paymentMethod,
+    gcashInfo,
+    mayaInfo,
+    cardInfo,
+  });
 
   const applySavedAddress = React.useCallback((address: SavedAddress) => {
     setShippingInfo({
@@ -535,11 +631,7 @@ export default function Checkout() {
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div>
                         <p className="text-sm font-black uppercase tracking-[0.22em] text-slate-400">Saved Addresses</p>
-                        <p className="mt-1 text-sm text-slate-500">
-                          {savedAddresses.length > 0
-                            ? 'Pick one of your saved delivery addresses from the popup, or add a new one there.'
-                            : 'No saved address yet. Open the popup to add one for this order.'}
-                        </p>
+                        <p className="mt-1 text-sm text-slate-500">{savedAddressPrompt}</p>
                       </div>
                       <button
                         type="button"
@@ -580,14 +672,8 @@ export default function Checkout() {
                             <MapPin className="h-6 w-6 text-blue-600" />
                           </div>
                           <div>
-                            <p className="text-lg font-black text-slate-900">
-                              {savedAddresses.length > 0 ? 'No address selected yet' : 'No saved address yet'}
-                            </p>
-                            <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500">
-                              {savedAddresses.length > 0
-                                ? 'Open Choose Address to select one of your saved addresses or add a new address for this order.'
-                                : 'Open Choose Address to add a new address for this order.'}
-                            </p>
+                            <p className="text-lg font-black text-slate-900">{emptySavedAddressTitle}</p>
+                            <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500">{emptySavedAddressMessage}</p>
                           </div>
                         </div>
                       </div>
@@ -654,17 +740,9 @@ export default function Checkout() {
                         >
                           <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-5">
                             <div>
-                              <p className="text-sm font-black uppercase tracking-[0.22em] text-slate-400">
-                                {addressPickerView === 'list' ? 'Choose Address' : 'Add Address'}
-                              </p>
-                              <h3 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
-                                {addressPickerView === 'list' ? 'Saved Addresses' : 'Add Address'}
-                              </h3>
-                              <p className="mt-2 text-sm text-slate-500">
-                                {addressPickerView === 'list'
-                                  ? 'Select an existing address for this order or add a new one.'
-                                  : 'Fill in the delivery details and use this address for the current checkout.'}
-                              </p>
+                              <p className="text-sm font-black uppercase tracking-[0.22em] text-slate-400">{addressPickerCopy.eyebrow}</p>
+                              <h3 className="mt-2 text-3xl font-black tracking-tight text-slate-900">{addressPickerCopy.title}</h3>
+                              <p className="mt-2 text-sm text-slate-500">{addressPickerCopy.description}</p>
                             </div>
                             <button
                               type="button"
@@ -685,11 +763,7 @@ export default function Checkout() {
                           {addressPickerView === 'list' ? (
                             <>
                               <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                                <p className="text-sm text-slate-500">
-                                  {savedAddresses.length > 0
-                                    ? `${savedAddresses.length} saved ${savedAddresses.length === 1 ? 'address' : 'addresses'} available`
-                                    : 'No saved addresses available yet'}
-                                </p>
+                                <p className="text-sm text-slate-500">{savedAddressCountMessage}</p>
                                 <button
                                   type="button"
                                   onClick={startNewAddressEntry}
@@ -818,7 +892,7 @@ export default function Checkout() {
                                         placeholder="Select province"
                                         className="w-full bg-transparent text-base font-semibold text-slate-800 outline-none placeholder:font-medium placeholder:text-slate-300 sm:text-lg"
                                       />
-                                      <span className={`text-slate-400 text-xl transition-transform ${isProvincePickerOpen ? 'rotate-180' : ''}`}>▾</span>
+                                      <span className={getPickerChevronClass(isProvincePickerOpen)}>▾</span>
                                     </button>
                                   </div>
 
@@ -867,7 +941,7 @@ export default function Checkout() {
                                         placeholder="Select city"
                                         className="w-full bg-transparent text-base font-semibold text-slate-800 outline-none placeholder:font-medium placeholder:text-slate-300 sm:text-lg"
                                       />
-                                      <span className={`text-slate-400 text-xl transition-transform ${isCityPickerOpen ? 'rotate-180' : ''}`}>▾</span>
+                                      <span className={getPickerChevronClass(isCityPickerOpen)}>▾</span>
                                     </button>
                                   </div>
 
@@ -926,6 +1000,7 @@ export default function Checkout() {
                                 <input
                                   id="checkout-address-default"
                                   type="checkbox"
+                                  aria-label="Make this my default address"
                                   checked={checkoutMakeDefault}
                                   onChange={(e) => setCheckoutMakeDefault(e.target.checked)}
                                   className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-500 focus:ring-blue-400"
@@ -1057,10 +1132,11 @@ export default function Checkout() {
                       { id: 'gcash', name: 'GCash', desc: 'Pay via GCash', icon: <Wallet className="w-5 h-5 text-blue-600" /> },
                       { id: 'maya', name: 'Maya', desc: 'Pay via Maya', icon: <Wallet className="w-5 h-5 text-blue-600" /> }
                     ].map(method => (
-                      <div 
+                      <button
+                        type="button"
                         key={method.id}
                         onClick={() => setPaymentMethod(method.id)}
-                        className={`p-4 rounded-xl border cursor-pointer transition-all flex items-center gap-4 ${
+                        className={`w-full p-4 rounded-xl border cursor-pointer transition-all flex items-center gap-4 text-left ${
                           paymentMethod === method.id 
                             ? 'border-blue-500 bg-blue-50/30' 
                             : 'border-slate-200 hover:border-slate-300'
@@ -1078,7 +1154,7 @@ export default function Checkout() {
                             <p className="text-xs text-slate-500">{method.desc}</p>
                           </div>
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
 
@@ -1230,11 +1306,7 @@ export default function Checkout() {
                     </button>
                     <button 
                       onClick={() => setCheckoutStep(3)}
-                      disabled={
-                        (paymentMethod === 'gcash' && (!gcashInfo.number || !gcashInfo.reference)) ||
-                        (paymentMethod === 'maya' && (!mayaInfo.number || !mayaInfo.reference)) ||
-                        (paymentMethod === 'card' && (!cardInfo.number || !cardInfo.name || !cardInfo.expiry || !cardInfo.cvv))
-                      }
+                      disabled={paymentStepIncomplete}
                       className="flex-[2] py-3.5 bg-blue-600 text-white rounded-xl font-bold text-base hover:bg-blue-700 transition-all shadow-md shadow-blue-200 flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Review Order
@@ -1276,11 +1348,7 @@ export default function Checkout() {
                              paymentMethod === 'maya' ? <Wallet className="w-5 h-5 text-blue-600" /> :
                              <CreditCard className="w-5 h-5 text-blue-600" />}
                           </div>
-                          <p className="font-black text-slate-900">
-                            {paymentMethod === 'cod' ? 'Cash on Delivery' : 
-                             paymentMethod === 'gcash' ? 'GCash' : 
-                             paymentMethod === 'maya' ? 'Maya' : 'Credit / Debit Card'}
-                          </p>
+                          <p className="font-black text-slate-900">{paymentMethodLabel}</p>
                         </div>
                       </div>
                     </div>
@@ -1300,13 +1368,7 @@ export default function Checkout() {
                           value={promoCodeInput}
                           onChange={(e) => setPromoCodeInput(e.target.value)}
                           placeholder="Enter code like Happy50"
-                          className={`w-full rounded-2xl border px-4 py-3 text-sm font-bold uppercase tracking-[0.16em] transition-all focus:outline-none ${
-                            promoStatus === 'valid'
-                              ? 'border-blue-300 bg-blue-50 text-blue-700 focus:ring-2 focus:ring-blue-200'
-                              : promoStatus === 'invalid'
-                                ? 'border-red-300 bg-red-50 text-red-700 focus:ring-2 focus:ring-red-200'
-                                : 'border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-slate-200'
-                          }`}
+                          className={promoInputClassName}
                         />
                         {promoStatus === 'checking' && (
                           <p className="text-sm font-bold text-slate-500">Checking promo code...</p>
@@ -1372,13 +1434,7 @@ export default function Checkout() {
                     value={promoCodeInput}
                     onChange={(e) => setPromoCodeInput(e.target.value)}
                     placeholder="Enter code like Happy50"
-                    className={`w-full rounded-2xl border px-4 py-3 text-sm font-bold uppercase tracking-[0.16em] transition-all focus:outline-none ${
-                      promoStatus === 'valid'
-                        ? 'border-blue-300 bg-blue-50 text-blue-700 focus:ring-2 focus:ring-blue-200'
-                        : promoStatus === 'invalid'
-                          ? 'border-red-300 bg-red-50 text-red-700 focus:ring-2 focus:ring-red-200'
-                          : 'border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-slate-200'
-                    }`}
+                    className={promoInputClassName}
                   />
                   {promoStatus === 'checking' && (
                     <p className="text-sm font-bold text-slate-500">Checking promo code...</p>
@@ -1403,7 +1459,7 @@ export default function Checkout() {
                 </div>
                 <div className="flex justify-between text-slate-600">
                   <span className="font-bold">Discount</span>
-                  <span className={`font-black ${discountAmount > 0 ? 'text-blue-600' : ''}`}>
+                  <span className={`font-black ${getDiscountTextClass(discountAmount)}`}>
                     -₱{discountAmount.toFixed(2)}
                   </span>
                 </div>

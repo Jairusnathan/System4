@@ -93,6 +93,461 @@ const getDisplayOrderNumber = (order: { orderNumber?: string; txNo?: string; id:
 
 const MAX_SAVED_ADDRESSES = 4;
 
+const moveAddressToFront = (entries: SavedAddress[], index: number) => [
+  entries[index],
+  ...entries.filter((_, entryIndex) => entryIndex !== index),
+].filter(Boolean) as SavedAddress[];
+
+const removeAddressAtIndex = (entries: SavedAddress[], index: number) =>
+  entries.filter((_, entryIndex) => entryIndex !== index);
+
+const buildSubmittedAddresses = ({
+  addressEntries,
+  addressFormData,
+  editingAddressIndex,
+  makeAddressDefault,
+}: {
+  addressEntries: SavedAddress[];
+  addressFormData: SavedAddress;
+  editingAddressIndex: number | null;
+  makeAddressDefault: boolean;
+}) => {
+  const nextAddresses = [...addressEntries];
+  const targetIndex = editingAddressIndex ?? nextAddresses.length;
+
+  nextAddresses[targetIndex] = addressFormData;
+
+  const orderedAddresses = [...nextAddresses];
+
+  if (makeAddressDefault) {
+    const [selectedAddress] = orderedAddresses.splice(targetIndex, 1);
+    return selectedAddress ? [selectedAddress, ...orderedAddresses] : orderedAddresses;
+  }
+
+  if (targetIndex === 0 && orderedAddresses.length > 1) {
+    const [selectedAddress] = orderedAddresses.splice(0, 1);
+    return selectedAddress
+      ? [orderedAddresses[0], selectedAddress, ...orderedAddresses.slice(1)]
+      : orderedAddresses;
+  }
+
+  return orderedAddresses;
+};
+
+function AddressBookSection({
+  addressEntries,
+  isSaving,
+  profileData,
+  saveStatus,
+  isAddressModalOpen,
+  editingAddressIndex,
+  addressFormData,
+  makeAddressDefault,
+  addressValidationMessage,
+  isProvincePickerOpen,
+  isCityPickerOpen,
+  provinceOptions,
+  cityOptions,
+  provincesStatus,
+  citiesStatus,
+  onCreateAddress,
+  onEditAddress,
+  onSetDefaultAddress,
+  onDeleteAddress,
+  onCloseAddressModal,
+  onAddressFieldChange,
+  onToggleProvincePicker,
+  onToggleCityPicker,
+  onSelectProvince,
+  onSelectCity,
+  onToggleDefaultAddress,
+  onSelectLabel,
+  onSubmitAddress,
+  onDismissValidation,
+}: {
+  addressEntries: SavedAddress[];
+  isSaving: boolean;
+  profileData: { fullName: string; phone: string };
+  saveStatus: { type: 'success' | 'error' | null; message: string };
+  isAddressModalOpen: boolean;
+  editingAddressIndex: number | null;
+  addressFormData: SavedAddress;
+  makeAddressDefault: boolean;
+  addressValidationMessage: string;
+  isProvincePickerOpen: boolean;
+  isCityPickerOpen: boolean;
+  provinceOptions: string[];
+  cityOptions: string[];
+  provincesStatus: string;
+  citiesStatus: string;
+  onCreateAddress: () => void;
+  onEditAddress: (index: number) => void;
+  onSetDefaultAddress: (index: number) => Promise<void>;
+  onDeleteAddress: (index: number) => Promise<void>;
+  onCloseAddressModal: () => void;
+  onAddressFieldChange: <K extends keyof SavedAddress>(field: K, value: SavedAddress[K]) => void;
+  onToggleProvincePicker: () => void;
+  onToggleCityPicker: () => void;
+  onSelectProvince: (province: string) => void;
+  onSelectCity: (city: string) => void;
+  onToggleDefaultAddress: (checked: boolean) => void;
+  onSelectLabel: (label: SavedAddress['label']) => void;
+  onSubmitAddress: () => Promise<void>;
+  onDismissValidation: () => void;
+}) {
+  return (
+    <div className="space-y-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 className="text-3xl font-black text-slate-900 tracking-tight">My Addresses</h3>
+          <p className="text-sm text-slate-500 mt-2">Manage your saved delivery addresses and choose which one should be the default.</p>
+        </div>
+        <button
+          type="button"
+          disabled={isSaving || addressEntries.length >= MAX_SAVED_ADDRESSES}
+          onClick={onCreateAddress}
+          className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-orange-500 text-white rounded-xl font-black hover:bg-orange-600 transition-all disabled:opacity-70"
+        >
+          <span className="text-xl leading-none">+</span>
+          {' '}
+          Add New Address
+        </button>
+      </div>
+
+      {addressEntries.length >= MAX_SAVED_ADDRESSES && (
+        <p className="text-sm font-bold text-slate-500">You can only save up to 4 addresses.</p>
+      )}
+
+      <div className="divide-y divide-slate-200 rounded-[2rem] border border-slate-200 bg-white overflow-hidden">
+        {addressEntries.length === 0 && (
+          <div className="p-8 sm:p-10">
+            <div className="rounded-[2rem] border border-dashed border-slate-200 bg-slate-50/70 p-8 text-center">
+              <p className="text-2xl font-black text-slate-900">No saved addresses yet</p>
+              <p className="mt-2 text-sm text-slate-500">Add a delivery address to make checkout faster next time.</p>
+            </div>
+          </div>
+        )}
+
+        {addressEntries.map((address, index) => {
+          const isDefault = index === 0;
+
+          return (
+            <div key={index} className="p-6 sm:p-8">
+              <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-2xl font-black text-slate-900 mb-3">Address</h4>
+                  <p className="text-lg font-black text-slate-900">{address.fullName || profileData.fullName || 'Your Name'}</p>
+                  <p className="text-base text-slate-500 mb-3">{address.phoneNumber || profileData.phone || 'Add your phone number in Profile Details'}</p>
+                  <p className="text-base leading-7 text-slate-600 max-w-3xl whitespace-pre-line">
+                    {formatAddressPreview(address) || 'No address saved yet.'}
+                  </p>
+
+                  {isDefault && (
+                    <span className="inline-flex items-center px-3 py-1 mt-4 border border-orange-400 text-orange-500 text-sm font-bold rounded-sm">
+                      Default
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex flex-row flex-wrap gap-3 lg:flex-col lg:items-end">
+                  <button
+                    type="button"
+                    onClick={() => onEditAddress(index)}
+                    className="text-lg font-medium text-blue-600 hover:text-blue-700 transition-colors"
+                  >
+                    Edit
+                  </button>
+
+                  {!isDefault && (
+                    <button
+                      type="button"
+                      disabled={isSaving}
+                      onClick={() => void onSetDefaultAddress(index)}
+                      className="px-5 py-2.5 border border-slate-300 text-slate-700 rounded-lg font-bold hover:bg-slate-50 transition-colors disabled:opacity-70"
+                    >
+                      Set as default
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    disabled={isSaving}
+                    onClick={() => void onDeleteAddress(index)}
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-500 disabled:opacity-70"
+                    aria-label="Delete address"
+                  >
+                    <Trash2 className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {saveStatus.type && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`p-4 rounded-2xl flex items-center gap-3 text-sm font-bold ${
+            saveStatus.type === 'success' ? 'bg-blue-50 text-blue-800 border border-blue-100' : 'bg-red-50 text-red-800 border border-red-100'
+          }`}
+        >
+          {saveStatus.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <X className="w-5 h-5" />}
+          {saveStatus.message}
+        </motion.div>
+      )}
+
+      <AnimatePresence>
+        {isAddressModalOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={onCloseAddressModal}
+              className="fixed inset-0 bg-slate-900/35 z-50"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.97, y: 24 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.97, y: 24 }}
+              className="fixed left-1/2 top-1/2 z-50 max-h-[calc(100vh-2rem)] w-[min(920px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[28px] border border-slate-200 bg-white shadow-[0_32px_90px_rgba(15,23,42,0.22)]"
+            >
+              <div className="p-5 sm:p-8">
+                <div className="mb-7 border-b border-slate-100 pb-5">
+                  <h3 className="text-3xl font-black tracking-tight text-slate-900 sm:text-[2.2rem]">
+                    {editingAddressIndex === null || editingAddressIndex >= addressEntries.length ? 'Add Address' : 'Edit Address'}
+                  </h3>
+                  <p className="mt-2 text-sm text-slate-500">Update your delivery details and keep this address ready for checkout.</p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 mb-4 md:grid-cols-2">
+                  <div className="relative rounded-2xl border border-slate-200 bg-slate-50/70 px-4 pt-6 pb-3 shadow-sm shadow-slate-100/70 transition-colors focus-within:border-orange-400 focus-within:bg-white focus-within:shadow-orange-100">
+                    <label htmlFor="account-address-full-name" className="absolute -top-2 left-4 bg-white px-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Full Name</label>
+                    <input
+                      id="account-address-full-name"
+                      type="text"
+                      value={addressFormData.fullName}
+                      onChange={(e) => onAddressFieldChange('fullName', e.target.value)}
+                      className="w-full bg-transparent text-base font-semibold text-slate-800 outline-none sm:text-lg"
+                    />
+                  </div>
+                  <div className="relative rounded-2xl border border-slate-200 bg-slate-50/70 px-4 pt-6 pb-3 shadow-sm shadow-slate-100/70 transition-colors focus-within:border-orange-400 focus-within:bg-white focus-within:shadow-orange-100">
+                    <label htmlFor="account-address-phone" className="absolute -top-2 left-4 bg-white px-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Phone Number</label>
+                    <input
+                      id="account-address-phone"
+                      type="text"
+                      value={addressFormData.phoneNumber}
+                      onChange={(e) => onAddressFieldChange('phoneNumber', e.target.value)}
+                      placeholder="09123456789 or +639123456789"
+                      className="w-full bg-transparent text-base font-semibold text-slate-800 outline-none sm:text-lg"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 mb-4 md:grid-cols-2">
+                  <div className="relative">
+                    <div className="relative rounded-2xl border border-slate-200 bg-slate-50/70 px-4 pt-6 pb-3 shadow-sm shadow-slate-100/70 transition-colors focus-within:border-orange-400 focus-within:bg-white focus-within:shadow-orange-100">
+                      <label htmlFor="account-address-province" className="absolute -top-2 left-4 bg-white px-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Province</label>
+                      <button type="button" onClick={onToggleProvincePicker} className="flex w-full items-center gap-3 text-left">
+                        <input
+                          id="account-address-province"
+                          type="text"
+                          readOnly
+                          value={addressFormData.province}
+                          placeholder="Select province"
+                          className="w-full bg-transparent text-base font-semibold text-slate-800 outline-none placeholder:font-medium placeholder:text-slate-300 sm:text-lg"
+                        />
+                        <span className={`text-slate-400 text-xl transition-transform ${isProvincePickerOpen ? 'rotate-180' : ''}`}>â–¾</span>
+                      </button>
+                    </div>
+
+                    {isProvincePickerOpen && (
+                      <div className="absolute left-0 right-0 top-full z-30 mt-2 max-h-64 overflow-y-auto rounded-2xl border border-slate-200 bg-white px-2 py-2 text-left text-base text-slate-700 shadow-xl shadow-slate-200/60">
+                        {provincesStatus === 'loading' && (
+                          <div className="px-3 py-2 text-sm text-slate-400">Loading provinces...</div>
+                        )}
+                        {provinceOptions.map((province) => (
+                          <button
+                            key={province}
+                            type="button"
+                            onClick={() => onSelectProvince(province)}
+                            className={`block w-full rounded-xl px-3 py-2 text-left font-medium transition-colors ${addressFormData.province === province ? 'bg-orange-50 text-orange-600' : 'hover:bg-slate-50'}`}
+                          >
+                            {province}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="relative">
+                    <div className="relative rounded-2xl border border-slate-200 bg-slate-50/70 px-4 pt-6 pb-3 shadow-sm shadow-slate-100/70 transition-colors focus-within:border-orange-400 focus-within:bg-white focus-within:shadow-orange-100">
+                      <label htmlFor="account-address-city" className="absolute -top-2 left-4 bg-white px-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">City</label>
+                      <button type="button" onClick={onToggleCityPicker} className="flex w-full items-center gap-3 text-left">
+                        <input
+                          id="account-address-city"
+                          type="text"
+                          readOnly
+                          value={addressFormData.city}
+                          placeholder="Select city"
+                          className="w-full bg-transparent text-base font-semibold text-slate-800 outline-none placeholder:font-medium placeholder:text-slate-300 sm:text-lg"
+                        />
+                        <span className={`text-slate-400 text-xl transition-transform ${isCityPickerOpen ? 'rotate-180' : ''}`}>â–¾</span>
+                      </button>
+                    </div>
+
+                    {isCityPickerOpen && (
+                      <div className="absolute left-0 right-0 top-full z-30 mt-2 max-h-64 overflow-y-auto rounded-2xl border border-slate-200 bg-white px-2 py-2 text-left text-base text-slate-700 shadow-xl shadow-slate-200/60">
+                        {!addressFormData.province && (
+                          <div className="px-3 py-2 text-sm text-slate-400">Select a province first.</div>
+                        )}
+                        {addressFormData.province && citiesStatus === 'loading' && (
+                          <div className="px-3 py-2 text-sm text-slate-400">Loading cities...</div>
+                        )}
+                        {addressFormData.province && citiesStatus !== 'loading' && cityOptions.length === 0 && (
+                          <div className="px-3 py-2 text-sm text-slate-400">No cities found for this province.</div>
+                        )}
+                        {cityOptions.map((city) => (
+                          <button
+                            key={city}
+                            type="button"
+                            onClick={() => onSelectCity(city)}
+                            className={`block w-full rounded-xl px-3 py-2 text-left font-medium transition-colors ${addressFormData.city === city ? 'bg-orange-50 text-orange-600' : 'hover:bg-slate-50'}`}
+                          >
+                            {city}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="relative mb-4 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 pt-6 pb-3 shadow-sm shadow-slate-100/70 transition-colors focus-within:border-orange-400 focus-within:bg-white focus-within:shadow-orange-100">
+                  <label htmlFor="account-address-postal-code" className="absolute -top-2 left-4 bg-white px-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Postal Code</label>
+                  <input
+                    id="account-address-postal-code"
+                    type="text"
+                    value={addressFormData.postalCode}
+                    onChange={(e) => onAddressFieldChange('postalCode', e.target.value)}
+                    className="w-full bg-transparent text-base font-semibold text-slate-800 outline-none sm:text-lg"
+                  />
+                </div>
+
+                <div className="relative mb-8 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 pt-6 pb-3 shadow-sm shadow-slate-100/70 transition-colors focus-within:border-orange-400 focus-within:bg-white focus-within:shadow-orange-100">
+                  <label htmlFor="account-address-street" className="absolute -top-2 left-4 bg-white px-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Street Name, Building, House No.</label>
+                  <textarea
+                    id="account-address-street"
+                    rows={4}
+                    value={addressFormData.streetAddress}
+                    onChange={(e) => onAddressFieldChange('streetAddress', e.target.value)}
+                    className="w-full resize-none bg-transparent text-base font-semibold text-slate-800 outline-none sm:text-lg"
+                  />
+                </div>
+
+                <label htmlFor="account-address-default" className="mb-6 flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-slate-700 transition-colors hover:border-slate-300 hover:bg-white">
+                  <input
+                    id="account-address-default"
+                    type="checkbox"
+                    aria-label="Make this my default address"
+                    checked={makeAddressDefault}
+                    onChange={(e) => onToggleDefaultAddress(e.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border-slate-300 text-orange-500 focus:ring-orange-400"
+                  />
+                  <span>
+                    <span className="block text-sm font-bold text-slate-800">Make this my default address</span>
+                    <span className="block text-sm text-slate-500">This address will be selected first during checkout.</span>
+                  </span>
+                </label>
+
+                <div className="flex flex-col gap-6 border-t border-slate-100 pt-6 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="mb-3 text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Label As</p>
+                    <div className="flex gap-3">
+                      {(['Home', 'Work'] as const).map((label) => (
+                        <button
+                          key={label}
+                          type="button"
+                          onClick={() => onSelectLabel(label)}
+                          className={`rounded-2xl px-6 py-3 text-base font-bold transition-all sm:text-lg ${
+                            addressFormData.label === label
+                              ? 'border border-orange-500 bg-orange-50 text-orange-600 shadow-sm shadow-orange-100'
+                              : 'border border-slate-200 bg-white text-slate-400 hover:border-slate-300 hover:text-slate-600'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:gap-4">
+                    <button
+                      type="button"
+                      onClick={onCloseAddressModal}
+                      className="rounded-2xl border border-slate-200 px-6 py-3 text-base font-bold text-slate-600 transition-colors hover:bg-slate-50 sm:text-lg"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isSaving}
+                      onClick={() => void onSubmitAddress()}
+                      className="rounded-2xl bg-orange-500 px-8 py-3 text-base font-bold text-white shadow-lg shadow-orange-200 transition-colors hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-70 sm:text-lg"
+                    >
+                      Submit
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+
+            <AnimatePresence>
+              {addressValidationMessage && (
+                <>
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-[60] bg-slate-900/30"
+                    onClick={onDismissValidation}
+                  />
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.96, y: 12 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.96, y: 12 }}
+                    className="fixed left-1/2 top-1/2 z-[61] w-[min(28rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-[24px] border border-amber-200 bg-white p-6 shadow-[0_24px_70px_rgba(15,23,42,0.22)]"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+                        <X className="h-5 w-5" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="text-lg font-black text-slate-900">Incomplete address details</h4>
+                        <p className="mt-2 text-sm leading-6 text-slate-600">{addressValidationMessage}</p>
+                      </div>
+                    </div>
+                    <div className="mt-6 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={onDismissValidation}
+                        className="rounded-2xl bg-orange-500 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-orange-600"
+                      >
+                        Okay
+                      </button>
+                    </div>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 export default function Account() {
   const { 
     orders, setSelectedOrder, setView,
@@ -357,6 +812,111 @@ export default function Account() {
     setIsLogoutModalOpen(false);
   };
 
+  const openNewAddressModal = () => {
+    setEditingAddressIndex(addressEntries.length);
+    setAddressFormData(createEmptyAddress({
+      full_name: profileData.fullName,
+      phone: profileData.phone,
+    }));
+    setMakeAddressDefault(addressEntries.length === 0);
+    setIsAddressModalOpen(true);
+    setAddressValidationMessage('');
+    setIsProvincePickerOpen(false);
+    setIsCityPickerOpen(false);
+    setSaveStatus({ type: null, message: '' });
+  };
+
+  const openExistingAddressModal = (index: number) => {
+    setEditingAddressIndex(index);
+    setAddressFormData(addressEntries[index]);
+    setMakeAddressDefault(index === 0);
+    setIsAddressModalOpen(true);
+    setAddressValidationMessage('');
+    setIsProvincePickerOpen(false);
+    setIsCityPickerOpen(false);
+    setSaveStatus({ type: null, message: '' });
+  };
+
+  const closeAddressModal = () => {
+    if (isSaving) {
+      return;
+    }
+
+    setIsAddressModalOpen(false);
+    setEditingAddressIndex(null);
+    setMakeAddressDefault(false);
+    setAddressValidationMessage('');
+    setIsProvincePickerOpen(false);
+    setIsCityPickerOpen(false);
+  };
+
+  const handleAddressFieldChange = <K extends keyof SavedAddress>(field: K, value: SavedAddress[K]) => {
+    setAddressFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleProvinceSelect = (province: string) => {
+    setAddressFormData((prev) => ({
+      ...prev,
+      province,
+      city: prev.province === province ? prev.city : '',
+    }));
+    setIsProvincePickerOpen(false);
+  };
+
+  const handleCitySelect = (city: string) => {
+    setAddressFormData((prev) => ({ ...prev, city }));
+    setIsCityPickerOpen(false);
+  };
+
+  const handleAddressLabelSelect = (label: SavedAddress['label']) => {
+    setAddressFormData((prev) => ({ ...prev, label }));
+  };
+
+  const handleSetDefaultAddress = async (index: number) => {
+    await persistAddresses(moveAddressToFront(addressEntries, index), 'Default address updated successfully!');
+  };
+
+  const handleDeleteAddress = async (index: number) => {
+    await persistAddresses(removeAddressAtIndex(addressEntries, index), 'Address deleted successfully!');
+  };
+
+  const handleAddressSubmit = async () => {
+    const missingFields = [
+      !addressFormData.fullName.trim() ? 'Full Name' : null,
+      !addressFormData.phoneNumber.trim() ? 'Phone Number' : null,
+      !addressFormData.streetAddress.trim() ? 'Street Name, Building, House No.' : null,
+    ].filter(Boolean);
+
+    if (missingFields.length > 0) {
+      setAddressValidationMessage(`Please fill in the following before submitting: ${missingFields.join(', ')}.`);
+      return;
+    }
+
+    const normalizedAddressPhone = normalizePhilippinePhone(addressFormData.phoneNumber);
+
+    if (!normalizedAddressPhone) {
+      setAddressValidationMessage(PH_PHONE_MESSAGE);
+      return;
+    }
+
+    const submittedAddresses = buildSubmittedAddresses({
+      addressEntries,
+      addressFormData: {
+        ...addressFormData,
+        phoneNumber: normalizedAddressPhone,
+      },
+      editingAddressIndex,
+      makeAddressDefault,
+    });
+
+    const success = await persistAddresses(submittedAddresses, 'Address saved successfully!');
+
+    if (success) {
+      setAddressFormData(createEmptyAddress(user));
+      setMakeAddressDefault(false);
+    }
+  };
+
   const renderProfileDetails = () => (
     <div className="space-y-8">
       <div className="rounded-[2rem] border border-slate-100 bg-slate-50/70 p-6 sm:p-8">
@@ -554,6 +1114,47 @@ export default function Account() {
   );
 
   const renderAddresses = () => (
+    <AddressBookSection
+      addressEntries={addressEntries}
+      isSaving={isSaving}
+      profileData={{ fullName: profileData.fullName, phone: profileData.phone }}
+      saveStatus={saveStatus}
+      isAddressModalOpen={isAddressModalOpen}
+      editingAddressIndex={editingAddressIndex}
+      addressFormData={addressFormData}
+      makeAddressDefault={makeAddressDefault}
+      addressValidationMessage={addressValidationMessage}
+      isProvincePickerOpen={isProvincePickerOpen}
+      isCityPickerOpen={isCityPickerOpen}
+      provinceOptions={provinceOptions}
+      cityOptions={cityOptions}
+      provincesStatus={provincesStatus}
+      citiesStatus={citiesStatus}
+      onCreateAddress={openNewAddressModal}
+      onEditAddress={openExistingAddressModal}
+      onSetDefaultAddress={handleSetDefaultAddress}
+      onDeleteAddress={handleDeleteAddress}
+      onCloseAddressModal={closeAddressModal}
+      onAddressFieldChange={handleAddressFieldChange}
+      onToggleProvincePicker={() => {
+        setIsProvincePickerOpen((prev) => !prev);
+        setIsCityPickerOpen(false);
+      }}
+      onToggleCityPicker={() => {
+        setIsCityPickerOpen((prev) => !prev);
+        setIsProvincePickerOpen(false);
+      }}
+      onSelectProvince={handleProvinceSelect}
+      onSelectCity={handleCitySelect}
+      onToggleDefaultAddress={setMakeAddressDefault}
+      onSelectLabel={handleAddressLabelSelect}
+      onSubmitAddress={handleAddressSubmit}
+      onDismissValidation={() => setAddressValidationMessage('')}
+    />
+  );
+
+  /*
+  const renderAddressesLegacy = () => (
     <div className="space-y-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -579,6 +1180,7 @@ export default function Account() {
           className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-orange-500 text-white rounded-xl font-black hover:bg-orange-600 transition-all disabled:opacity-70"
         >
           <span className="text-xl leading-none">+</span>
+          {' '}
           Add New Address
         </button>
       </div>
@@ -862,6 +1464,7 @@ export default function Account() {
                   <input
                     id="account-address-default"
                     type="checkbox"
+                    aria-label="Make this my default address"
                     checked={makeAddressDefault}
                     onChange={(e) => setMakeAddressDefault(e.target.checked)}
                     className="mt-1 h-4 w-4 rounded border-slate-300 text-orange-500 focus:ring-orange-400"
@@ -1007,6 +1610,8 @@ export default function Account() {
     </div>
   );
 
+  */
+
   const renderOrderHistory = () => (
     <div className="space-y-6">
       {orders.length === 0 ? (
@@ -1026,7 +1631,8 @@ export default function Account() {
       ) : (
         <div className="space-y-6">
           {orders.map(order => (
-            <div 
+            <button
+              type="button"
               key={order.id}
               onClick={() => {
                 setSelectedOrder(order);
@@ -1068,7 +1674,7 @@ export default function Account() {
                   <p className="text-sm font-bold text-slate-900">{order.items.length} Product{order.items.length > 1 ? 's' : ''}</p>
                 </div>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       )}
@@ -1313,8 +1919,9 @@ export default function Account() {
 
                 <div className="space-y-6">
                   <div>
-                    <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">New Password</label>
+                    <label htmlFor="account-new-password" className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">New Password</label>
                     <input 
+                      id="account-new-password"
                       type="password"
                       value={passwordData.newPassword}
                       onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
@@ -1323,8 +1930,9 @@ export default function Account() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Confirm New Password</label>
+                    <label htmlFor="account-confirm-new-password" className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Confirm New Password</label>
                     <input 
+                      id="account-confirm-new-password"
                       type="password"
                       value={passwordData.confirmPassword}
                       onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}

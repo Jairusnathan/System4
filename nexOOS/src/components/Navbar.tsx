@@ -85,13 +85,14 @@ export default function Navbar() {
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-[4.5rem] gap-8">
           {/* Logo */}
-          <div 
+          <button
+            type="button"
             onClick={() => setView('home')} 
-            className="flex items-center gap-2 cursor-pointer group shrink-0"
+            className="group shrink-0 flex items-center gap-2 cursor-pointer"
           >
             <Pill className="w-6 h-6 text-blue-600" />
             <span className="text-[1.35rem] font-black text-slate-900 tracking-tight">PharmaQuick</span>
-          </div>
+          </button>
 
           {/* Desktop Navigation */}
           <div className="hidden lg:flex items-center gap-8 shrink-0">

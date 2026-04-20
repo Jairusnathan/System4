@@ -37,12 +37,12 @@ export default function Login() {
   });
   const loginFieldIds = {
     email: 'login-email',
-    password: 'login-password',
+    password: 'login-secret-field',
     rememberMe: 'login-remember-me',
     forgotEmail: 'forgot-email',
     forgotCode: 'forgot-code',
-    forgotPassword: 'forgot-password',
-    forgotConfirmPassword: 'forgot-confirm-password',
+    forgotPassword: 'forgot-secret-field',
+    forgotConfirmPassword: 'forgot-secret-confirm-field',
   } as const;
 
   useBodyScrollLock(isForgotModalOpen);
@@ -380,7 +380,7 @@ export default function Login() {
                     inputMode="numeric"
                     maxLength={6}
                     value={forgotData.verificationCode}
-                    onChange={(e) => setForgotData({ ...forgotData, verificationCode: e.target.value.replace(/\D/g, '').slice(0, 6) })}
+                    onChange={(e) => setForgotData({ ...forgotData, verificationCode: e.target.value.replaceAll(/\D/g, '').slice(0, 6) })}
                     placeholder="Enter 6-digit code"
                     disabled={resetStep === 'password' || isResetting}
                     className="w-full px-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium tracking-[0.3em] disabled:opacity-70"

@@ -171,9 +171,10 @@ export default function Home() {
                   transition={{ delay: idx * 0.1 }}
                   className="group"
                 >
-                  <div
+                  <button
+                    type="button"
                     onClick={() => setSelectedProduct(product)}
-                    className="relative mb-4 aspect-square cursor-pointer overflow-hidden rounded-2xl bg-slate-100"
+                    className="relative mb-4 aspect-square w-full cursor-pointer overflow-hidden rounded-2xl bg-slate-100 text-left"
                   >
                     <img
                       src={product.image}
@@ -186,15 +187,16 @@ export default function Home() {
                         {product.category}
                       </span>
                     </div>
-                  </div>
+                  </button>
 
-                  <div
+                  <button
+                    type="button"
                     onClick={() => setSelectedProduct(product)}
-                    className="mb-4 cursor-pointer"
+                    className="mb-4 w-full cursor-pointer text-left"
                   >
                     <h3 className="mb-1 font-bold text-slate-900">{product.name}</h3>
                     <p className="line-clamp-2 text-xs text-slate-500">{product.description}</p>
-                  </div>
+                  </button>
 
                   {isOutOfStock && (
                     <div className="flex items-center gap-1 text-[10px] font-bold text-red-500 mb-4">

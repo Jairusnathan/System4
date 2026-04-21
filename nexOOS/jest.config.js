@@ -13,6 +13,7 @@ const customJestConfig = {
   collectCoverage: true,
   collectCoverageFrom: [
     '<rootDir>/src/lib/api.ts',
+    '<rootDir>/src/lib/auth.ts',
     '<rootDir>/src/lib/date.ts',
     '<rootDir>/src/lib/phone.ts',
   ],

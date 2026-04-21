@@ -16,4 +16,13 @@ describe('buildApiUrl', () => {
 
     expect(buildApiUrl('https://example.com/health')).toBe('https://example.com/health');
   });
+
+  it('uses and normalizes NEXT_PUBLIC_API_BASE_URL when provided', async () => {
+    process.env.NEXT_PUBLIC_API_BASE_URL = ' https://api.greenovate.test/ ';
+
+    const { buildApiUrl } = await import('../../src/lib/api');
+
+    expect(buildApiUrl('/api/auth/login')).toBe('https://api.greenovate.test/api/auth/login');
+    expect(buildApiUrl('api/cart')).toBe('https://api.greenovate.test/api/cart');
+  });
 });

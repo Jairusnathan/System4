@@ -1,3 +1,4 @@
+import jwt from 'jsonwebtoken';
 import { NextResponse } from 'next/server';
 
 import {
@@ -17,6 +18,10 @@ describe('auth token helpers', () => {
     userId: 'user-1',
     email: 'user@example.com',
   };
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
 
   it('signs and verifies access and refresh tokens', () => {
     const accessToken = signAccessToken(payload);
@@ -54,5 +59,12 @@ describe('auth token helpers', () => {
     clearRefreshTokenCookie(response);
     const cookieAfterClear = response.cookies.get(REFRESH_TOKEN_COOKIE_NAME);
     expect(cookieAfterClear?.value).toBe('');
+  });
+
+  it('returns null when jwt verification resolves to a string payload', () => {
+    jest.spyOn(jwt, 'verify').mockReturnValue('plain-string' as jwt.JwtPayload & string);
+
+    expect(verifyAccessToken('string-payload-token')).toBeNull();
+    expect(verifyRefreshToken('string-payload-token')).toBeNull();
   });
 });

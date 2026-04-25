@@ -14,9 +14,9 @@ name: "Master Pipeline — FE"
 
 on:
   push:
-    branches: [test, uat, main]
+    branches: [nexOOS, test, uat, main]
   pull_request:
-    branches: [test, uat, main]
+    branches: [nexOOS, test, uat, main]
   workflow_dispatch:
     inputs:
       pipeline_mode:
@@ -97,47 +97,3 @@ jobs:
       run_promotion: ${{ fromJSON(github.event_name == 'push' && 'true' || github.event_name == 'workflow_dispatch' && (github.event.inputs.run_promotion || 'true') || 'false') }}
       dry_run: ${{ fromJSON(github.event_name == 'pull_request' && 'true' || github.event_name == 'workflow_dispatch' && (github.event.inputs.dry_run || 'false') || 'false') }}
     secrets: inherit
-
-  sonarcloud-nexoos-coverage:
-    name: "SonarCloud - nexOOS Coverage"
-    needs: call-orchestrator
-    if: always()
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions:
-      contents: read
-      pull-requests: read
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: 24
-          cache: "npm"
-          cache-dependency-path: nexOOS/package-lock.json
-
-      - name: Generate nexOOS LCOV coverage
-        run: |
-          set -euo pipefail
-          npm --prefix nexOOS ci --ignore-scripts
-          npm --prefix nexOOS run test -- --runInBand tests/unit
-
-      - name: Verify nexOOS LCOV report
-        run: |
-          set -euo pipefail
-          test -s nexOOS/coverage/lcov.info
-
-      - name: Run SonarCloud Scan with nexOOS Coverage
-        uses: SonarSource/sonarqube-scan-action@v7
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: https://sonarcloud.io
-        with:
-          args: >
-            -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
-            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}

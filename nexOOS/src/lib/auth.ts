@@ -81,7 +81,7 @@ export function verifyRefreshToken(token: string) {
 }
 
 export function verifyToken(token: string) {
-  return verifyAccessToken(token) || verifyRefreshToken(token);
+  return verifyAccessToken(token) ?? verifyRefreshToken(token);
 }
 
 export function setRefreshTokenCookie(

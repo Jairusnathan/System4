@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import type { FormEventHandler } from 'react';
+import { useState } from 'react';
 import { motion } from 'motion/react';
 import { Pill, Mail, ArrowRight, AlertCircle, Loader2, Eye, EyeOff, X, CheckCircle2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -347,7 +348,7 @@ function LoginCard({
   isLoading: boolean;
   error: string;
   showPassword: boolean;
-  onSubmit: (e: React.FormEvent) => void;
+  onSubmit: FormEventHandler<HTMLFormElement>;
   onEmailChange: (value: string) => void;
   onPasswordChange: (value: string) => void;
   onTogglePassword: () => void;
@@ -487,7 +488,7 @@ function useLoginForm({
     setShowPassword(prev => !prev);
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin: FormEventHandler<HTMLFormElement> = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');

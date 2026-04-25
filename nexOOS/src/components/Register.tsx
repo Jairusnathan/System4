@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import type { FormEventHandler } from 'react';
+import { useState } from 'react';
 import { motion } from 'motion/react';
 import { Pill, Mail, ArrowRight, AlertCircle, Loader2, User, Eye, EyeOff, CheckCircle2, Calendar } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -423,7 +424,7 @@ export default function Register() {
     setVerificationCode('');
   };
 
-  const handleRegister = async (e: React.FormEvent) => {
+  const handleRegister: FormEventHandler<HTMLFormElement> = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
@@ -459,7 +460,7 @@ export default function Register() {
     }
   };
 
-  const handleVerifyEmail = async (e: React.FormEvent) => {
+  const handleVerifyEmail: FormEventHandler<HTMLFormElement> = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');

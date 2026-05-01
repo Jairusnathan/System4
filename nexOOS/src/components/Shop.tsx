@@ -25,6 +25,20 @@ const SORT_OPTIONS = [
 
 type SortOption = (typeof SORT_OPTIONS)[number]['value'];
 
+function useDebouncedValue<T>(value: T, delayMs: number) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const timeout = globalThis.setTimeout(() => {
+      setDebouncedValue(value);
+    }, delayMs);
+
+    return () => globalThis.clearTimeout(timeout);
+  }, [delayMs, value]);
+
+  return debouncedValue;
+}
+
 const getProductStock = (product: Product, inventoryStock?: number) => {
   if (typeof product.stock === 'number') {
     return product.stock;
@@ -71,6 +85,8 @@ export default function Shop() {
   const [error, setError] = useState('');
   const [addedProductName, setAddedProductName] = useState('');
   const lastTrackedQuery = useRef('');
+  const debouncedSearchQuery = useDebouncedValue(searchQuery, 300);
+  const debouncedPriceRange = useDebouncedValue(priceRange, 300);
   const productsPerPage = 25;
   const isAllCategoriesSelected = selectedCategories.includes('All');
   const hasCategoryFilter =
@@ -98,13 +114,16 @@ export default function Shop() {
         setError('');
 
         const params = new URLSearchParams();
+        const trimmedSearchQuery = debouncedSearchQuery.trim();
+        const minPrice = debouncedPriceRange.min.trim();
+        const maxPrice = debouncedPriceRange.max.trim();
 
-        if (searchQuery.trim()) params.set('q', searchQuery.trim());
+        if (trimmedSearchQuery) params.set('q', trimmedSearchQuery);
         if (hasCategoryFilter) {
           selectedCategories.forEach((category) => params.append('category', category));
         }
-        if (priceRange.min.trim()) params.set('minPrice', priceRange.min.trim());
-        if (priceRange.max.trim()) params.set('maxPrice', priceRange.max.trim());
+        if (minPrice) params.set('minPrice', minPrice);
+        if (maxPrice) params.set('maxPrice', maxPrice);
         if (inStockOnly) params.set('inStockOnly', 'true');
         if (selectedBranch) params.set('branchId', String(selectedBranch.id));
         params.set('sortBy', sortBy);
@@ -137,7 +156,7 @@ export default function Shop() {
     fetchProducts();
 
     return () => controller.abort();
-  }, [searchQuery, selectedCategories, hasCategoryFilter, priceRange.min, priceRange.max, inStockOnly, sortBy, selectedBranch]);
+  }, [debouncedSearchQuery, selectedCategories, hasCategoryFilter, debouncedPriceRange, inStockOnly, sortBy, selectedBranch]);
 
   useEffect(() => {
     const trimmedQuery = searchQuery.trim();

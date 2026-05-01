@@ -23,9 +23,13 @@ type SecondDatabaseProductRow = {
   low_stock_threshold?: number | string | null;
 };
 
+const PRODUCT_CACHE_TTL_MS = Number(process.env.PRODUCT_CACHE_TTL_MS || 30_000);
+
 @Injectable()
 export class ProductsService {
   private readonly supabaseService: SupabaseService;
+  private catalogCache: { expiresAt: number; products: Product[] } | null = null;
+  private catalogFetchPromise: Promise<Product[]> | null = null;
 
   constructor(supabaseService: SupabaseService) {
     this.supabaseService = supabaseService;
@@ -128,9 +132,35 @@ export class ProductsService {
     if (error) {
       throw error;
     }
+
+    this.catalogCache = null;
   }
 
   private async fetchCatalogProducts(): Promise<Product[]> {
+    const now = Date.now();
+    if (this.catalogCache && this.catalogCache.expiresAt > now) {
+      return this.catalogCache.products;
+    }
+
+    if (this.catalogFetchPromise) {
+      return this.catalogFetchPromise;
+    }
+
+    this.catalogFetchPromise = this.loadCatalogProducts();
+
+    try {
+      const products = await this.catalogFetchPromise;
+      this.catalogCache = {
+        products,
+        expiresAt: Date.now() + PRODUCT_CACHE_TTL_MS,
+      };
+      return products;
+    } finally {
+      this.catalogFetchPromise = null;
+    }
+  }
+
+  private async loadCatalogProducts(): Promise<Product[]> {
     const { data, error } = await this.supabaseService.secondSupabase
       .from('products')
       .select('id, name, price, stock, category, low_stock_threshold')

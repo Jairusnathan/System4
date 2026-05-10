@@ -120,9 +120,15 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     try {
       const res = await fetch(buildApiUrl('/api/branches'));
       const data = await res.json();
-      setBranches(data);
+
+      if (!res.ok) {
+        throw new Error(data?.error || 'Failed to fetch branches.');
+      }
+
+      setBranches(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching branches:', error);
+      setBranches([]);
     }
   }, []);
 
@@ -130,9 +136,15 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     try {
       const res = await fetch(buildApiUrl(`/api/branches/${branchId}/inventory`));
       const data = await res.json();
-      setBranchInventory(data);
+
+      if (!res.ok) {
+        throw new Error(data?.error || 'Failed to fetch branch inventory.');
+      }
+
+      setBranchInventory(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching inventory:', error);
+      setBranchInventory([]);
     }
   }, []);
 

@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="jest tests" tests="86" failures="0" errors="0" time="5.99">
+  <testsuite name="AppAuthService — JWT Operations (OOS-223)" errors="0" failures="0" skipped="0" timestamp="2026-05-11T09:39:46" time="3.555" tests="19">
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) signAccessToken / verifyAccessToken signs and verifies a valid access token" name="AppAuthService — JWT Operations (OOS-223) signAccessToken / verifyAccessToken signs and verifies a valid access token" time="0.07">
+    </testcase>
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) signAccessToken / verifyAccessToken includes an expiry (~15 minutes from now)" name="AppAuthService — JWT Operations (OOS-223) signAccessToken / verifyAccessToken includes an expiry (~15 minutes from now)" time="0.012">
+    </testcase>
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) signAccessToken / verifyAccessToken returns null for an expired access token" name="AppAuthService — JWT Operations (OOS-223) signAccessToken / verifyAccessToken returns null for an expired access token" time="0.01">
+    </testcase>
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) signAccessToken / verifyAccessToken returns null when a refresh token is passed to verifyAccessToken" name="AppAuthService — JWT Operations (OOS-223) signAccessToken / verifyAccessToken returns null when a refresh token is passed to verifyAccessToken" time="0.006">
+    </testcase>
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) signAccessToken / verifyAccessToken returns null for a tampered token" name="AppAuthService — JWT Operations (OOS-223) signAccessToken / verifyAccessToken returns null for a tampered token" time="0.009">
+    </testcase>
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) signAccessToken / verifyAccessToken returns null when signed with a different secret" name="AppAuthService — JWT Operations (OOS-223) signAccessToken / verifyAccessToken returns null when signed with a different secret" time="0.006">
+    </testcase>
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) signRefreshToken / verifyRefreshToken signs and verifies a valid refresh token" name="AppAuthService — JWT Operations (OOS-223) signRefreshToken / verifyRefreshToken signs and verifies a valid refresh token" time="0.009">
+    </testcase>
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) signRefreshToken / verifyRefreshToken includes a 7-day expiry" name="AppAuthService — JWT Operations (OOS-223) signRefreshToken / verifyRefreshToken includes a 7-day expiry" time="0.006">
+    </testcase>
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) signRefreshToken / verifyRefreshToken returns null for an expired refresh token" name="AppAuthService — JWT Operations (OOS-223) signRefreshToken / verifyRefreshToken returns null for an expired refresh token" time="0.011">
+    </testcase>
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) signRefreshToken / verifyRefreshToken returns null when an access token is passed to verifyRefreshToken" name="AppAuthService — JWT Operations (OOS-223) signRefreshToken / verifyRefreshToken returns null when an access token is passed to verifyRefreshToken" time="0.007">
+    </testcase>
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) signRefreshToken / verifyRefreshToken each signed token is unique (no deterministic output)" name="AppAuthService — JWT Operations (OOS-223) signRefreshToken / verifyRefreshToken each signed token is unique (no deterministic output)" time="0.01">
+    </testcase>
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) extractBearerToken extracts the token from a valid Bearer header" name="AppAuthService — JWT Operations (OOS-223) extractBearerToken extracts the token from a valid Bearer header" time="0.005">
+    </testcase>
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) extractBearerToken returns null when header is missing" name="AppAuthService — JWT Operations (OOS-223) extractBearerToken returns null when header is missing" time="0.003">
+    </testcase>
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) extractBearerToken returns null for non-Bearer scheme" name="AppAuthService — JWT Operations (OOS-223) extractBearerToken returns null for non-Bearer scheme" time="0.004">
+    </testcase>
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) extractBearerToken returns null when token part is missing" name="AppAuthService — JWT Operations (OOS-223) extractBearerToken returns null when token part is missing" time="0.005">
+    </testcase>
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) requireUserId returns userId for a valid Bearer access token" name="AppAuthService — JWT Operations (OOS-223) requireUserId returns userId for a valid Bearer access token" time="0.006">
+    </testcase>
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) requireUserId throws UnauthorizedException when authorization header is missing" name="AppAuthService — JWT Operations (OOS-223) requireUserId throws UnauthorizedException when authorization header is missing" time="0.035">
+    </testcase>
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) requireUserId throws UnauthorizedException for an expired token" name="AppAuthService — JWT Operations (OOS-223) requireUserId throws UnauthorizedException for an expired token" time="0.007">
+    </testcase>
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) requireUserId throws UnauthorizedException when a refresh token is used as access" name="AppAuthService — JWT Operations (OOS-223) requireUserId throws UnauthorizedException when a refresh token is used as access" time="0.007">
+    </testcase>
+  </testsuite>
+  <testsuite name="OrderServiceService — Promo &amp; Edge Cases (OOS-212)" errors="0" failures="0" skipped="0" timestamp="2026-05-11T09:39:46" time="3.698" tests="10">
+    <testcase classname="OrderServiceService — Promo &amp; Edge Cases (OOS-212) valid promo codes applies a fixed discount and reduces the total" name="OrderServiceService — Promo &amp; Edge Cases (OOS-212) valid promo codes applies a fixed discount and reduces the total" time="0.044">
+    </testcase>
+    <testcase classname="OrderServiceService — Promo &amp; Edge Cases (OOS-212) valid promo codes redeems the promo code after successful placement" name="OrderServiceService — Promo &amp; Edge Cases (OOS-212) valid promo codes redeems the promo code after successful placement" time="0.005">
+    </testcase>
+    <testcase classname="OrderServiceService — Promo &amp; Edge Cases (OOS-212) valid promo codes does not go below zero total when discount exceeds subtotal" name="OrderServiceService — Promo &amp; Edge Cases (OOS-212) valid promo codes does not go below zero total when discount exceeds subtotal" time="0.006">
+    </testcase>
+    <testcase classname="OrderServiceService — Promo &amp; Edge Cases (OOS-212) invalid promo codes returns 400 when promo code does not exist" name="OrderServiceService — Promo &amp; Edge Cases (OOS-212) invalid promo codes returns 400 when promo code does not exist" time="0.007">
+    </testcase>
+    <testcase classname="OrderServiceService — Promo &amp; Edge Cases (OOS-212) invalid promo codes returns 400 when promo code is expired" name="OrderServiceService — Promo &amp; Edge Cases (OOS-212) invalid promo codes returns 400 when promo code is expired" time="0.007">
+    </testcase>
+    <testcase classname="OrderServiceService — Promo &amp; Edge Cases (OOS-212) invalid promo codes does not call commit-stock when promo validation fails" name="OrderServiceService — Promo &amp; Edge Cases (OOS-212) invalid promo codes does not call commit-stock when promo validation fails" time="0.006">
+    </testcase>
+    <testcase classname="OrderServiceService — Promo &amp; Edge Cases (OOS-212) edge cases defaults to &quot;Cash on Delivery&quot; when paymentMethod is omitted" name="OrderServiceService — Promo &amp; Edge Cases (OOS-212) edge cases defaults to &quot;Cash on Delivery&quot; when paymentMethod is omitted" time="0.005">
+    </testcase>
+    <testcase classname="OrderServiceService — Promo &amp; Edge Cases (OOS-212) edge cases trims whitespace from shipping address" name="OrderServiceService — Promo &amp; Edge Cases (OOS-212) edge cases trims whitespace from shipping address" time="0.005">
+    </testcase>
+    <testcase classname="OrderServiceService — Promo &amp; Edge Cases (OOS-212) edge cases ignores items with quantity &lt; 1 and uses 1 as minimum" name="OrderServiceService — Promo &amp; Edge Cases (OOS-212) edge cases ignores items with quantity &lt; 1 and uses 1 as minimum" time="0.006">
+    </testcase>
+    <testcase classname="OrderServiceService — Promo &amp; Edge Cases (OOS-212) edge cases returns 400 when no promo code is given but field is an empty string" name="OrderServiceService — Promo &amp; Edge Cases (OOS-212) edge cases returns 400 when no promo code is given but field is an empty string" time="0.005">
+    </testcase>
+  </testsuite>
+  <testsuite name="OrderServiceService — Order Placement (OOS-211)" errors="0" failures="0" skipped="0" timestamp="2026-05-11T09:39:46" time="3.636" tests="14">
+    <testcase classname="OrderServiceService — Order Placement (OOS-211) delivery path places an order successfully and returns a receipt number" name="OrderServiceService — Order Placement (OOS-211) delivery path places an order successfully and returns a receipt number" time="0.039">
+    </testcase>
+    <testcase classname="OrderServiceService — Order Placement (OOS-211) delivery path includes shippingAddress in the returned order" name="OrderServiceService — Order Placement (OOS-211) delivery path includes shippingAddress in the returned order" time="0.005">
+    </testcase>
+    <testcase classname="OrderServiceService — Order Placement (OOS-211) delivery path calculates subtotal, VAT, and total correctly" name="OrderServiceService — Order Placement (OOS-211) delivery path calculates subtotal, VAT, and total correctly" time="0.005">
+    </testcase>
+    <testcase classname="OrderServiceService — Order Placement (OOS-211) delivery path uses a delivery fee of 50 when none is provided" name="OrderServiceService — Order Placement (OOS-211) delivery path uses a delivery fee of 50 when none is provided" time="0.004">
+    </testcase>
+    <testcase classname="OrderServiceService — Order Placement (OOS-211) delivery path calls catalog service to prepare items and commit stock" name="OrderServiceService — Order Placement (OOS-211) delivery path calls catalog service to prepare items and commit stock" time="0.008">
+    </testcase>
+    <testcase classname="OrderServiceService — Order Placement (OOS-211) delivery path clears the cart after a successful order" name="OrderServiceService — Order Placement (OOS-211) delivery path clears the cart after a successful order" time="0.005">
+    </testcase>
+    <testcase classname="OrderServiceService — Order Placement (OOS-211) pickup path places an order with zero delivery fee" name="OrderServiceService — Order Placement (OOS-211) pickup path places an order with zero delivery fee" time="0.005">
+    </testcase>
+    <testcase classname="OrderServiceService — Order Placement (OOS-211) pickup path uses GCash payment method correctly" name="OrderServiceService — Order Placement (OOS-211) pickup path uses GCash payment method correctly" time="0.005">
+    </testcase>
+    <testcase classname="OrderServiceService — Order Placement (OOS-211) input validation returns 400 when shipping address is empty" name="OrderServiceService — Order Placement (OOS-211) input validation returns 400 when shipping address is empty" time="0.007">
+    </testcase>
+    <testcase classname="OrderServiceService — Order Placement (OOS-211) input validation returns 400 when cart is empty" name="OrderServiceService — Order Placement (OOS-211) input validation returns 400 when cart is empty" time="0.004">
+    </testcase>
+    <testcase classname="OrderServiceService — Order Placement (OOS-211) input validation returns 400 when all items have invalid IDs" name="OrderServiceService — Order Placement (OOS-211) input validation returns 400 when all items have invalid IDs" time="0.004">
+    </testcase>
+    <testcase classname="OrderServiceService — Order Placement (OOS-211) input validation returns 400 when a product is not found in catalog" name="OrderServiceService — Order Placement (OOS-211) input validation returns 400 when a product is not found in catalog" time="0.003">
+    </testcase>
+    <testcase classname="OrderServiceService — Order Placement (OOS-211) input validation returns 409 when a product is out of stock" name="OrderServiceService — Order Placement (OOS-211) input validation returns 409 when a product is out of stock" time="0.003">
+    </testcase>
+    <testcase classname="OrderServiceService — Order Placement (OOS-211) stock rollback releases reserved stock when transaction insert fails" name="OrderServiceService — Order Placement (OOS-211) stock rollback releases reserved stock when transaction insert fails" time="0.061">
+    </testcase>
+  </testsuite>
+  <testsuite name="OrderServiceService — Status Lifecycle (OOS-213)" errors="0" failures="0" skipped="0" timestamp="2026-05-11T09:39:46" time="3.718" tests="13">
+    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) status mapping maps POS status &quot;paid&quot; → &quot;Processing&quot;" name="OrderServiceService — Status Lifecycle (OOS-213) status mapping maps POS status &quot;paid&quot; → &quot;Processing&quot;" time="0.043">
+    </testcase>
+    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) status mapping maps POS status &quot;preparing&quot; → &quot;Processing&quot;" name="OrderServiceService — Status Lifecycle (OOS-213) status mapping maps POS status &quot;preparing&quot; → &quot;Processing&quot;" time="0.008">
+    </testcase>
+    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) status mapping maps POS status &quot;ready&quot; → &quot;In Transit&quot;" name="OrderServiceService — Status Lifecycle (OOS-213) status mapping maps POS status &quot;ready&quot; → &quot;In Transit&quot;" time="0.01">
+    </testcase>
+    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) status mapping maps POS status &quot;picked_up&quot; → &quot;In Transit&quot;" name="OrderServiceService — Status Lifecycle (OOS-213) status mapping maps POS status &quot;picked_up&quot; → &quot;In Transit&quot;" time="0.018">
+    </testcase>
+    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) status mapping maps POS status &quot;delivered&quot; → &quot;Delivered&quot;" name="OrderServiceService — Status Lifecycle (OOS-213) status mapping maps POS status &quot;delivered&quot; → &quot;Delivered&quot;" time="0.019">
+    </testcase>
+    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) status mapping maps POS status &quot;cancelled&quot; → &quot;Cancelled&quot;" name="OrderServiceService — Status Lifecycle (OOS-213) status mapping maps POS status &quot;cancelled&quot; → &quot;Cancelled&quot;" time="0.009">
+    </testcase>
+    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) status mapping defaults unknown POS statuses to &quot;Processing&quot;" name="OrderServiceService — Status Lifecycle (OOS-213) status mapping defaults unknown POS statuses to &quot;Processing&quot;" time="0.006">
+    </testcase>
+    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) response fields returns rawStatus alongside the mapped status" name="OrderServiceService — Status Lifecycle (OOS-213) response fields returns rawStatus alongside the mapped status" time="0.005">
+    </testcase>
+    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) response fields returns updatedAt from the transaction record" name="OrderServiceService — Status Lifecycle (OOS-213) response fields returns updatedAt from the transaction record" time="0.008">
+    </testcase>
+    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) not found cases returns null when receipt number does not exist" name="OrderServiceService — Status Lifecycle (OOS-213) not found cases returns null when receipt number does not exist" time="0.025">
+    </testcase>
+    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) not found cases returns null when transaction record is missing for a valid receipt" name="OrderServiceService — Status Lifecycle (OOS-213) not found cases returns null when transaction record is missing for a valid receipt" time="0.005">
+    </testcase>
+    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) terminal states &quot;delivered&quot; is a terminal state that should stop polling on the frontend" name="OrderServiceService — Status Lifecycle (OOS-213) terminal states &quot;delivered&quot; is a terminal state that should stop polling on the frontend" time="0.007">
+    </testcase>
+    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) terminal states &quot;cancelled&quot; is a terminal state that should stop polling on the frontend" name="OrderServiceService — Status Lifecycle (OOS-213) terminal states &quot;cancelled&quot; is a terminal state that should stop polling on the frontend" time="0.005">
+    </testcase>
+  </testsuite>
+  <testsuite name="OrderServiceController — Idempotency (OOS-220)" errors="0" failures="0" skipped="0" timestamp="2026-05-11T09:39:46" time="3.91" tests="9">
+    <testcase classname="OrderServiceController — Idempotency (OOS-220) with idempotency key calls placeOrder only once for two requests with the same key" name="OrderServiceController — Idempotency (OOS-220) with idempotency key calls placeOrder only once for two requests with the same key" time="0.1">
+    </testcase>
+    <testcase classname="OrderServiceController — Idempotency (OOS-220) with idempotency key returns the exact same result object on the second call" name="OrderServiceController — Idempotency (OOS-220) with idempotency key returns the exact same result object on the second call" time="0.014">
+    </testcase>
+    <testcase classname="OrderServiceController — Idempotency (OOS-220) with idempotency key processes a new order for a different idempotency key" name="OrderServiceController — Idempotency (OOS-220) with idempotency key processes a new order for a different idempotency key" time="0.009">
+    </testcase>
+    <testcase classname="OrderServiceController — Idempotency (OOS-220) with idempotency key does not serve cache across different idempotency keys" name="OrderServiceController — Idempotency (OOS-220) with idempotency key does not serve cache across different idempotency keys" time="0.008">
+    </testcase>
+    <testcase classname="OrderServiceController — Idempotency (OOS-220) without idempotency key calls placeOrder every time when no key is provided" name="OrderServiceController — Idempotency (OOS-220) without idempotency key calls placeOrder every time when no key is provided" time="0.011">
+    </testcase>
+    <testcase classname="OrderServiceController — Idempotency (OOS-220) auth guard on place order throws UnauthorizedException when no authorization header" name="OrderServiceController — Idempotency (OOS-220) auth guard on place order throws UnauthorizedException when no authorization header" time="0.03">
+    </testcase>
+    <testcase classname="OrderServiceController — Idempotency (OOS-220) auth guard on place order throws UnauthorizedException for an invalid/expired token" name="OrderServiceController — Idempotency (OOS-220) auth guard on place order throws UnauthorizedException for an invalid/expired token" time="0.011">
+    </testcase>
+    <testcase classname="OrderServiceController — Idempotency (OOS-220) error handling throws HttpException when placeOrder returns an error result" name="OrderServiceController — Idempotency (OOS-220) error handling throws HttpException when placeOrder returns an error result" time="0.008">
+    </testcase>
+    <testcase classname="OrderServiceController — Idempotency (OOS-220) error handling does not cache error results" name="OrderServiceController — Idempotency (OOS-220) error handling does not cache error results" time="0.009">
+    </testcase>
+  </testsuite>
+  <testsuite name="AuthController — Integration Tests (OOS-225)" errors="0" failures="0" skipped="0" timestamp="2026-05-11T09:39:46" time="4.105" tests="14">
+    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/login returns an access token and user on valid credentials" name="AuthController — Integration Tests (OOS-225) POST /auth/login returns an access token and user on valid credentials" time="0.043">
+    </testcase>
+    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/login sets a refresh token cookie on successful login" name="AuthController — Integration Tests (OOS-225) POST /auth/login sets a refresh token cookie on successful login" time="0.009">
+    </testcase>
+    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/login access token is verifiable with AppAuthService" name="AuthController — Integration Tests (OOS-225) POST /auth/login access token is verifiable with AppAuthService" time="0.012">
+    </testcase>
+    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/login lowercases and trims the email before lookup" name="AuthController — Integration Tests (OOS-225) POST /auth/login lowercases and trims the email before lookup" time="0.008">
+    </testcase>
+    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/login throws UnauthorizedException for wrong password" name="AuthController — Integration Tests (OOS-225) POST /auth/login throws UnauthorizedException for wrong password" time="0.05">
+    </testcase>
+    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/login throws UnauthorizedException for unknown email" name="AuthController — Integration Tests (OOS-225) POST /auth/login throws UnauthorizedException for unknown email" time="0.006">
+    </testcase>
+    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/login does not include password in the returned user object" name="AuthController — Integration Tests (OOS-225) POST /auth/login does not include password in the returned user object" time="0.009">
+    </testcase>
+    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/refresh returns a new access token when refresh cookie is valid" name="AuthController — Integration Tests (OOS-225) POST /auth/refresh returns a new access token when refresh cookie is valid" time="0.013">
+    </testcase>
+    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/refresh sets a new refresh token cookie (rotation)" name="AuthController — Integration Tests (OOS-225) POST /auth/refresh sets a new refresh token cookie (rotation)" time="0.01">
+    </testcase>
+    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/refresh throws UnauthorizedException when no refresh cookie is present" name="AuthController — Integration Tests (OOS-225) POST /auth/refresh throws UnauthorizedException when no refresh cookie is present" time="0.004">
+    </testcase>
+    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/refresh throws UnauthorizedException for an expired refresh token" name="AuthController — Integration Tests (OOS-225) POST /auth/refresh throws UnauthorizedException for an expired refresh token" time="0.007">
+    </testcase>
+    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/refresh throws UnauthorizedException when access token is used as refresh token" name="AuthController — Integration Tests (OOS-225) POST /auth/refresh throws UnauthorizedException when access token is used as refresh token" time="0.006">
+    </testcase>
+    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/logout clears the refresh token cookie" name="AuthController — Integration Tests (OOS-225) POST /auth/logout clears the refresh token cookie" time="0.006">
+    </testcase>
+    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/logout succeeds even when no refresh cookie is present" name="AuthController — Integration Tests (OOS-225) POST /auth/logout succeeds even when no refresh cookie is present" time="0.002">
+    </testcase>
+  </testsuite>
+  <testsuite name="AuthController — Edge Cases (OOS-226)" errors="0" failures="0" skipped="0" timestamp="2026-05-11T09:39:46" time="4.122" tests="7">
+    <testcase classname="AuthController — Edge Cases (OOS-226) refresh token rotation security rotates normally on first use — revokes old, issues new" name="AuthController — Edge Cases (OOS-226) refresh token rotation security rotates normally on first use — revokes old, issues new" time="0.05">
+    </testcase>
+    <testcase classname="AuthController — Edge Cases (OOS-226) refresh token rotation security detects reuse — throws UnauthorizedException when revoked token is replayed" name="AuthController — Edge Cases (OOS-226) refresh token rotation security detects reuse — throws UnauthorizedException when revoked token is replayed" time="0.112">
+    </testcase>
+    <testcase classname="AuthController — Edge Cases (OOS-226) refresh token rotation security clears cookie on reuse detection to force re-login" name="AuthController — Edge Cases (OOS-226) refresh token rotation security clears cookie on reuse detection to force re-login" time="0.009">
+    </testcase>
+    <testcase classname="AuthController — Edge Cases (OOS-226) refresh token rotation security allows refresh even when token is not in the DB yet (graceful fallback)" name="AuthController — Edge Cases (OOS-226) refresh token rotation security allows refresh even when token is not in the DB yet (graceful fallback)" time="0.009">
+    </testcase>
+    <testcase classname="AuthController — Edge Cases (OOS-226) duplicate email / deactivated account login still works when token family insert fails (table missing)" name="AuthController — Edge Cases (OOS-226) duplicate email / deactivated account login still works when token family insert fails (table missing)" time="0.011">
+    </testcase>
+    <testcase classname="AuthController — Edge Cases (OOS-226) duplicate email / deactivated account throws UnauthorizedException when password is completely wrong" name="AuthController — Edge Cases (OOS-226) duplicate email / deactivated account throws UnauthorizedException when password is completely wrong" time="0.012">
+    </testcase>
+    <testcase classname="AuthController — Edge Cases (OOS-226) duplicate email / deactivated account throws UnauthorizedException when user is not found in DB" name="AuthController — Edge Cases (OOS-226) duplicate email / deactivated account throws UnauthorizedException when user is not found in DB" time="0.003">
+    </testcase>
+  </testsuite>
+</testsuites>

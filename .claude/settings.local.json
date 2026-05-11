@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(dir \"c:\\\\Users\\\\user\\\\Downloads\\\\NEXOOS\\\\nexOOS\\\\src\" -Recurse | Select-Object FullName | Where-Object { $_.FullName -notmatch \"node_modules\" })",
+      "PowerShell(Get-ChildItem \"c:\\\\Users\\\\user\\\\Downloads\\\\NEXOOS\\\\nexOOS\\\\src\" -Recurse -File | ForEach-Object { $_.FullName })",
+      "PowerShell(Get-ChildItem \"c:\\\\Users\\\\user\\\\Downloads\\\\NEXOOS\\\\greenovate-be\" -Name -Force | Where-Object { $_ -notmatch \"node_modules\" })",
+      "PowerShell(Get-ChildItem \"c:\\\\Users\\\\user\\\\Downloads\\\\NEXOOS\\\\greenovate-be\\\\apps\" -Recurse -Filter \".env\" | ForEach-Object { Write-Host \"=== $\\($_.FullName\\) ===\"; Get-Content $_.FullName })",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\user\\\\Downloads\\\\NEXOOS\" -Force)",
+      "Bash(Select-Object -Property Name, PSIsContainer)",
+      "Bash(Format-Table -AutoSize)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\user\\\\Downloads\\\\NEXOOS\" -Recurse -Directory)",
+      "Bash(Select-Object -First 30)",
+      "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\user\\\\Downloads\\\\NEXOOS\" -Recurse -Directory | Select-Object -First 50 | ForEach-Object { $_.FullName })",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\user\\\\Downloads\\\\NEXOOS\\\\greenovate-be\" -Recurse -Directory)",
+      "Bash(Select-Object FullName)",
+      "Bash(Head -30)"
+    ]
+  }
+}

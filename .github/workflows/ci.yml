@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  credential-scan:
+    name: Credential Safety Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Block committed .env files
+        run: |
+          # Fail if any real .env file (not .env.example) was committed
+          FOUND=$(find . \
+            -not -path '*/node_modules/*' \
+            -not -path '*/.git/*' \
+            \( -name '.env' -o -name '.env.*' \) \
+            -not -name '.env.example' \
+            -not -name '.env.test' \
+            | head -20)
+          if [ -n "$FOUND" ]; then
+            echo "❌ Real .env files found in repository:"
+            echo "$FOUND"
+            echo ""
+            echo "These must be removed from git and added to .gitignore."
+            exit 1
+          fi
+          echo "✅ No real .env files found."
+
+  test:
+    name: Unit & Integration Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: greenovate-be/package-lock.json
+
+      - name: Install dependencies
+        working-directory: greenovate-be
+        run: npm ci
+
+      - name: Run unit tests
+        working-directory: greenovate-be
+        run: npm test -- --ci --coverage --testPathPattern="\.spec\.ts$"
+        env:
+          NODE_ENV: test
+          JWT_SECRET: ${{ secrets.JWT_SECRET || 'ci-test-secret' }}
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: greenovate-be/coverage/
+
+  frontend-lint:
+    name: Frontend Type Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: nexOOS/package-lock.json
+
+      - name: Install dependencies
+        working-directory: nexOOS
+        run: npm ci
+
+      - name: Type check
+        working-directory: nexOOS
+        run: npx tsc --noEmit

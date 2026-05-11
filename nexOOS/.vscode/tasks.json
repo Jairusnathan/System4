@@ -1,0 +1,15 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "refresh-lockfile",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"install",
+				"--package-lock-only"
+			],
+			"isBackground": false
+		}
+	]
+}

@@ -1,189 +1,523 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="jest tests" tests="86" failures="0" errors="0" time="5.99">
-  <testsuite name="AppAuthService — JWT Operations (OOS-223)" errors="0" failures="0" skipped="0" timestamp="2026-05-11T09:39:46" time="3.555" tests="19">
-    <testcase classname="AppAuthService — JWT Operations (OOS-223) signAccessToken / verifyAccessToken signs and verifies a valid access token" name="AppAuthService — JWT Operations (OOS-223) signAccessToken / verifyAccessToken signs and verifies a valid access token" time="0.07">
+<testsuites name="jest tests" tests="243" failures="0" errors="0" time="12.841">
+  <testsuite name="ApiCenterSdkService" errors="0" failures="0" skipped="0" timestamp="2026-05-11T21:57:25" time="2.911" tests="24">
+    <testcase classname="ApiCenterSdkService constructor should be defined when baseURL is set" name="ApiCenterSdkService constructor should be defined when baseURL is set" time="0.02">
     </testcase>
-    <testcase classname="AppAuthService — JWT Operations (OOS-223) signAccessToken / verifyAccessToken includes an expiry (~15 minutes from now)" name="AppAuthService — JWT Operations (OOS-223) signAccessToken / verifyAccessToken includes an expiry (~15 minutes from now)" time="0.012">
+    <testcase classname="ApiCenterSdkService constructor should be defined when baseURL is not set (graceful degradation)" name="ApiCenterSdkService constructor should be defined when baseURL is not set (graceful degradation)" time="0.004">
     </testcase>
-    <testcase classname="AppAuthService — JWT Operations (OOS-223) signAccessToken / verifyAccessToken returns null for an expired access token" name="AppAuthService — JWT Operations (OOS-223) signAccessToken / verifyAccessToken returns null for an expired access token" time="0.01">
+    <testcase classname="ApiCenterSdkService constructor initialises client without auth header when apiKey is not set" name="ApiCenterSdkService constructor initialises client without auth header when apiKey is not set" time="0.004">
     </testcase>
-    <testcase classname="AppAuthService — JWT Operations (OOS-223) signAccessToken / verifyAccessToken returns null when a refresh token is passed to verifyAccessToken" name="AppAuthService — JWT Operations (OOS-223) signAccessToken / verifyAccessToken returns null when a refresh token is passed to verifyAccessToken" time="0.006">
+    <testcase classname="ApiCenterSdkService ping() returns false when client is not initialised (no baseURL)" name="ApiCenterSdkService ping() returns false when client is not initialised (no baseURL)" time="0.004">
     </testcase>
-    <testcase classname="AppAuthService — JWT Operations (OOS-223) signAccessToken / verifyAccessToken returns null for a tampered token" name="AppAuthService — JWT Operations (OOS-223) signAccessToken / verifyAccessToken returns null for a tampered token" time="0.009">
+    <testcase classname="ApiCenterSdkService ping() returns true when /api/v1/health/ready GET succeeds" name="ApiCenterSdkService ping() returns true when /api/v1/health/ready GET succeeds" time="0.005">
     </testcase>
-    <testcase classname="AppAuthService — JWT Operations (OOS-223) signAccessToken / verifyAccessToken returns null when signed with a different secret" name="AppAuthService — JWT Operations (OOS-223) signAccessToken / verifyAccessToken returns null when signed with a different secret" time="0.006">
+    <testcase classname="ApiCenterSdkService ping() falls back to /api/v1/health/live when ready endpoint is missing" name="ApiCenterSdkService ping() falls back to /api/v1/health/live when ready endpoint is missing" time="0.003">
     </testcase>
-    <testcase classname="AppAuthService — JWT Operations (OOS-223) signRefreshToken / verifyRefreshToken signs and verifies a valid refresh token" name="AppAuthService — JWT Operations (OOS-223) signRefreshToken / verifyRefreshToken signs and verifies a valid refresh token" time="0.009">
+    <testcase classname="ApiCenterSdkService ping() returns false when all health endpoints fail" name="ApiCenterSdkService ping() returns false when all health endpoints fail" time="0.004">
     </testcase>
-    <testcase classname="AppAuthService — JWT Operations (OOS-223) signRefreshToken / verifyRefreshToken includes a 7-day expiry" name="AppAuthService — JWT Operations (OOS-223) signRefreshToken / verifyRefreshToken includes a 7-day expiry" time="0.006">
+    <testcase classname="ApiCenterSdkService ping() authenticates with tribe credentials before health probe" name="ApiCenterSdkService ping() authenticates with tribe credentials before health probe" time="0.004">
     </testcase>
-    <testcase classname="AppAuthService — JWT Operations (OOS-223) signRefreshToken / verifyRefreshToken returns null for an expired refresh token" name="AppAuthService — JWT Operations (OOS-223) signRefreshToken / verifyRefreshToken returns null for an expired refresh token" time="0.011">
+    <testcase classname="ApiCenterSdkService get() normalizes APICenter path and returns data/correlationId from response headers" name="ApiCenterSdkService get() normalizes APICenter path and returns data/correlationId from response headers" time="0.005">
     </testcase>
-    <testcase classname="AppAuthService — JWT Operations (OOS-223) signRefreshToken / verifyRefreshToken returns null when an access token is passed to verifyRefreshToken" name="AppAuthService — JWT Operations (OOS-223) signRefreshToken / verifyRefreshToken returns null when an access token is passed to verifyRefreshToken" time="0.007">
+    <testcase classname="ApiCenterSdkService get() unwraps APICenter success envelope and falls back to meta correlationId" name="ApiCenterSdkService get() unwraps APICenter success envelope and falls back to meta correlationId" time="0.003">
     </testcase>
-    <testcase classname="AppAuthService — JWT Operations (OOS-223) signRefreshToken / verifyRefreshToken each signed token is unique (no deterministic output)" name="AppAuthService — JWT Operations (OOS-223) signRefreshToken / verifyRefreshToken each signed token is unique (no deterministic output)" time="0.01">
+    <testcase classname="ApiCenterSdkService get() uses tribe credentials to mint APICenter token when configured" name="ApiCenterSdkService get() uses tribe credentials to mint APICenter token when configured" time="0.003">
     </testcase>
-    <testcase classname="AppAuthService — JWT Operations (OOS-223) extractBearerToken extracts the token from a valid Bearer header" name="AppAuthService — JWT Operations (OOS-223) extractBearerToken extracts the token from a valid Bearer header" time="0.005">
+    <testcase classname="ApiCenterSdkService get() throws when client is not initialised" name="ApiCenterSdkService get() throws when client is not initialised" time="0.026">
     </testcase>
-    <testcase classname="AppAuthService — JWT Operations (OOS-223) extractBearerToken returns null when header is missing" name="AppAuthService — JWT Operations (OOS-223) extractBearerToken returns null when header is missing" time="0.003">
+    <testcase classname="ApiCenterSdkService post() normalizes APICenter path and returns data/correlationId from response" name="ApiCenterSdkService post() normalizes APICenter path and returns data/correlationId from response" time="0.004">
     </testcase>
-    <testcase classname="AppAuthService — JWT Operations (OOS-223) extractBearerToken returns null for non-Bearer scheme" name="AppAuthService — JWT Operations (OOS-223) extractBearerToken returns null for non-Bearer scheme" time="0.004">
+    <testcase classname="ApiCenterSdkService post() unwraps APICenter success envelope in POST response" name="ApiCenterSdkService post() unwraps APICenter success envelope in POST response" time="0.002">
     </testcase>
-    <testcase classname="AppAuthService — JWT Operations (OOS-223) extractBearerToken returns null when token part is missing" name="AppAuthService — JWT Operations (OOS-223) extractBearerToken returns null when token part is missing" time="0.005">
+    <testcase classname="ApiCenterSdkService post() throws when client is not initialised" name="ApiCenterSdkService post() throws when client is not initialised" time="0.002">
     </testcase>
-    <testcase classname="AppAuthService — JWT Operations (OOS-223) requireUserId returns userId for a valid Bearer access token" name="AppAuthService — JWT Operations (OOS-223) requireUserId returns userId for a valid Bearer access token" time="0.006">
+    <testcase classname="ApiCenterSdkService post() does not retry failed POST requests" name="ApiCenterSdkService post() does not retry failed POST requests" time="0.002">
     </testcase>
-    <testcase classname="AppAuthService — JWT Operations (OOS-223) requireUserId throws UnauthorizedException when authorization header is missing" name="AppAuthService — JWT Operations (OOS-223) requireUserId throws UnauthorizedException when authorization header is missing" time="0.035">
+    <testcase classname="ApiCenterSdkService kafka helpers kafkaListClusters calls the APICenter external clusters path" name="ApiCenterSdkService kafka helpers kafkaListClusters calls the APICenter external clusters path" time="0.003">
     </testcase>
-    <testcase classname="AppAuthService — JWT Operations (OOS-223) requireUserId throws UnauthorizedException for an expired token" name="AppAuthService — JWT Operations (OOS-223) requireUserId throws UnauthorizedException for an expired token" time="0.007">
+    <testcase classname="ApiCenterSdkService kafka helpers kafkaListTopics URL-encodes cluster id" name="ApiCenterSdkService kafka helpers kafkaListTopics URL-encodes cluster id" time="0.003">
     </testcase>
-    <testcase classname="AppAuthService — JWT Operations (OOS-223) requireUserId throws UnauthorizedException when a refresh token is used as access" name="AppAuthService — JWT Operations (OOS-223) requireUserId throws UnauthorizedException when a refresh token is used as access" time="0.007">
+    <testcase classname="ApiCenterSdkService kafka helpers kafkaProduceRecords URL-encodes path segments and sends records envelope" name="ApiCenterSdkService kafka helpers kafkaProduceRecords URL-encodes path segments and sends records envelope" time="0.003">
     </testcase>
-  </testsuite>
-  <testsuite name="OrderServiceService — Promo &amp; Edge Cases (OOS-212)" errors="0" failures="0" skipped="0" timestamp="2026-05-11T09:39:46" time="3.698" tests="10">
-    <testcase classname="OrderServiceService — Promo &amp; Edge Cases (OOS-212) valid promo codes applies a fixed discount and reduces the total" name="OrderServiceService — Promo &amp; Edge Cases (OOS-212) valid promo codes applies a fixed discount and reduces the total" time="0.044">
+    <testcase classname="ApiCenterSdkService kafka helpers buildTenantTopic normalizes tribe id and suffix" name="ApiCenterSdkService kafka helpers buildTenantTopic normalizes tribe id and suffix" time="0.001">
     </testcase>
-    <testcase classname="OrderServiceService — Promo &amp; Edge Cases (OOS-212) valid promo codes redeems the promo code after successful placement" name="OrderServiceService — Promo &amp; Edge Cases (OOS-212) valid promo codes redeems the promo code after successful placement" time="0.005">
+    <testcase classname="ApiCenterSdkService kafka helpers kafkaGetGovernanceCatalog calls governance endpoint" name="ApiCenterSdkService kafka helpers kafkaGetGovernanceCatalog calls governance endpoint" time="0.003">
     </testcase>
-    <testcase classname="OrderServiceService — Promo &amp; Edge Cases (OOS-212) valid promo codes does not go below zero total when discount exceeds subtotal" name="OrderServiceService — Promo &amp; Edge Cases (OOS-212) valid promo codes does not go below zero total when discount exceeds subtotal" time="0.006">
+    <testcase classname="ApiCenterSdkService kafka helpers kafkaPublish posts to governance publish endpoint" name="ApiCenterSdkService kafka helpers kafkaPublish posts to governance publish endpoint" time="0.003">
     </testcase>
-    <testcase classname="OrderServiceService — Promo &amp; Edge Cases (OOS-212) invalid promo codes returns 400 when promo code does not exist" name="OrderServiceService — Promo &amp; Edge Cases (OOS-212) invalid promo codes returns 400 when promo code does not exist" time="0.007">
+    <testcase classname="ApiCenterSdkService shared service wrappers payment wrapper methods match contract paths" name="ApiCenterSdkService shared service wrappers payment wrapper methods match contract paths" time="0.002">
     </testcase>
-    <testcase classname="OrderServiceService — Promo &amp; Edge Cases (OOS-212) invalid promo codes returns 400 when promo code is expired" name="OrderServiceService — Promo &amp; Edge Cases (OOS-212) invalid promo codes returns 400 when promo code is expired" time="0.007">
-    </testcase>
-    <testcase classname="OrderServiceService — Promo &amp; Edge Cases (OOS-212) invalid promo codes does not call commit-stock when promo validation fails" name="OrderServiceService — Promo &amp; Edge Cases (OOS-212) invalid promo codes does not call commit-stock when promo validation fails" time="0.006">
-    </testcase>
-    <testcase classname="OrderServiceService — Promo &amp; Edge Cases (OOS-212) edge cases defaults to &quot;Cash on Delivery&quot; when paymentMethod is omitted" name="OrderServiceService — Promo &amp; Edge Cases (OOS-212) edge cases defaults to &quot;Cash on Delivery&quot; when paymentMethod is omitted" time="0.005">
-    </testcase>
-    <testcase classname="OrderServiceService — Promo &amp; Edge Cases (OOS-212) edge cases trims whitespace from shipping address" name="OrderServiceService — Promo &amp; Edge Cases (OOS-212) edge cases trims whitespace from shipping address" time="0.005">
-    </testcase>
-    <testcase classname="OrderServiceService — Promo &amp; Edge Cases (OOS-212) edge cases ignores items with quantity &lt; 1 and uses 1 as minimum" name="OrderServiceService — Promo &amp; Edge Cases (OOS-212) edge cases ignores items with quantity &lt; 1 and uses 1 as minimum" time="0.006">
-    </testcase>
-    <testcase classname="OrderServiceService — Promo &amp; Edge Cases (OOS-212) edge cases returns 400 when no promo code is given but field is an empty string" name="OrderServiceService — Promo &amp; Edge Cases (OOS-212) edge cases returns 400 when no promo code is given but field is an empty string" time="0.005">
+    <testcase classname="ApiCenterSdkService shared service wrappers email and sms wrapper methods match contract paths" name="ApiCenterSdkService shared service wrappers email and sms wrapper methods match contract paths" time="0.003">
     </testcase>
   </testsuite>
-  <testsuite name="OrderServiceService — Order Placement (OOS-211)" errors="0" failures="0" skipped="0" timestamp="2026-05-11T09:39:46" time="3.636" tests="14">
-    <testcase classname="OrderServiceService — Order Placement (OOS-211) delivery path places an order successfully and returns a receipt number" name="OrderServiceService — Order Placement (OOS-211) delivery path places an order successfully and returns a receipt number" time="0.039">
+  <testsuite name="validateEnv" errors="0" failures="0" skipped="0" timestamp="2026-05-11T21:57:28" time="0.589" tests="43">
+    <testcase classname="validateEnv happy path returns a fully typed config object for a valid env" name="validateEnv happy path returns a fully typed config object for a valid env" time="0.07">
     </testcase>
-    <testcase classname="OrderServiceService — Order Placement (OOS-211) delivery path includes shippingAddress in the returned order" name="OrderServiceService — Order Placement (OOS-211) delivery path includes shippingAddress in the returned order" time="0.005">
+    <testcase classname="validateEnv happy path accepts production as NODE_ENV" name="validateEnv happy path accepts production as NODE_ENV" time="0.003">
     </testcase>
-    <testcase classname="OrderServiceService — Order Placement (OOS-211) delivery path calculates subtotal, VAT, and total correctly" name="OrderServiceService — Order Placement (OOS-211) delivery path calculates subtotal, VAT, and total correctly" time="0.005">
+    <testcase classname="validateEnv happy path accepts test as NODE_ENV" name="validateEnv happy path accepts test as NODE_ENV" time="0.002">
     </testcase>
-    <testcase classname="OrderServiceService — Order Placement (OOS-211) delivery path uses a delivery fee of 50 when none is provided" name="OrderServiceService — Order Placement (OOS-211) delivery path uses a delivery fee of 50 when none is provided" time="0.004">
+    <testcase classname="validateEnv happy path includes optional API_CENTER_BASE_URL when provided" name="validateEnv happy path includes optional API_CENTER_BASE_URL when provided" time="0.001">
     </testcase>
-    <testcase classname="OrderServiceService — Order Placement (OOS-211) delivery path calls catalog service to prepare items and commit stock" name="OrderServiceService — Order Placement (OOS-211) delivery path calls catalog service to prepare items and commit stock" time="0.008">
+    <testcase classname="validateEnv happy path includes optional API_CENTER_API_KEY when provided" name="validateEnv happy path includes optional API_CENTER_API_KEY when provided" time="0">
     </testcase>
-    <testcase classname="OrderServiceService — Order Placement (OOS-211) delivery path clears the cart after a successful order" name="OrderServiceService — Order Placement (OOS-211) delivery path clears the cart after a successful order" time="0.005">
+    <testcase classname="validateEnv happy path includes optional API_CENTER_TRIBE_ID and API_CENTER_TRIBE_SECRET when provided" name="validateEnv happy path includes optional API_CENTER_TRIBE_ID and API_CENTER_TRIBE_SECRET when provided" time="0.002">
     </testcase>
-    <testcase classname="OrderServiceService — Order Placement (OOS-211) pickup path places an order with zero delivery fee" name="OrderServiceService — Order Placement (OOS-211) pickup path places an order with zero delivery fee" time="0.005">
+    <testcase classname="validateEnv happy path includes optional API_CENTER_TIMEOUT_MS when provided" name="validateEnv happy path includes optional API_CENTER_TIMEOUT_MS when provided" time="0.001">
     </testcase>
-    <testcase classname="OrderServiceService — Order Placement (OOS-211) pickup path uses GCash payment method correctly" name="OrderServiceService — Order Placement (OOS-211) pickup path uses GCash payment method correctly" time="0.005">
+    <testcase classname="validateEnv happy path accepts APICENTER_* aliases" name="validateEnv happy path accepts APICENTER_* aliases" time="0.002">
     </testcase>
-    <testcase classname="OrderServiceService — Order Placement (OOS-211) input validation returns 400 when shipping address is empty" name="OrderServiceService — Order Placement (OOS-211) input validation returns 400 when shipping address is empty" time="0.007">
+    <testcase classname="validateEnv happy path accepts scoped Supabase-only config without default SUPABASE_* trio" name="validateEnv happy path accepts scoped Supabase-only config without default SUPABASE_* trio" time="0.003">
     </testcase>
-    <testcase classname="OrderServiceService — Order Placement (OOS-211) input validation returns 400 when cart is empty" name="OrderServiceService — Order Placement (OOS-211) input validation returns 400 when cart is empty" time="0.004">
+    <testcase classname="validateEnv happy path accepts incomplete default SUPABASE_* when scoped clients are configured" name="validateEnv happy path accepts incomplete default SUPABASE_* when scoped clients are configured" time="0.002">
     </testcase>
-    <testcase classname="OrderServiceService — Order Placement (OOS-211) input validation returns 400 when all items have invalid IDs" name="OrderServiceService — Order Placement (OOS-211) input validation returns 400 when all items have invalid IDs" time="0.004">
+    <testcase classname="validateEnv happy path omits API_CENTER_BASE_URL from result when not set" name="validateEnv happy path omits API_CENTER_BASE_URL from result when not set" time="0.001">
     </testcase>
-    <testcase classname="OrderServiceService — Order Placement (OOS-211) input validation returns 400 when a product is not found in catalog" name="OrderServiceService — Order Placement (OOS-211) input validation returns 400 when a product is not found in catalog" time="0.003">
+    <testcase classname="validateEnv happy path defaults ENABLE_SWAGGER to &quot;false&quot; when not set" name="validateEnv happy path defaults ENABLE_SWAGGER to &quot;false&quot; when not set" time="0.001">
     </testcase>
-    <testcase classname="OrderServiceService — Order Placement (OOS-211) input validation returns 409 when a product is out of stock" name="OrderServiceService — Order Placement (OOS-211) input validation returns 409 when a product is out of stock" time="0.003">
+    <testcase classname="validateEnv happy path uses the provided ENABLE_SWAGGER value when set" name="validateEnv happy path uses the provided ENABLE_SWAGGER value when set" time="0.001">
     </testcase>
-    <testcase classname="OrderServiceService — Order Placement (OOS-211) stock rollback releases reserved stock when transaction insert fails" name="OrderServiceService — Order Placement (OOS-211) stock rollback releases reserved stock when transaction insert fails" time="0.061">
+    <testcase classname="validateEnv happy path trims leading/trailing whitespace from string values" name="validateEnv happy path trims leading/trailing whitespace from string values" time="0.001">
+    </testcase>
+    <testcase classname="validateEnv NODE_ENV validation throws for an invalid NODE_ENV value" name="validateEnv NODE_ENV validation throws for an invalid NODE_ENV value" time="0.018">
+    </testcase>
+    <testcase classname="validateEnv NODE_ENV validation throws when NODE_ENV is missing" name="validateEnv NODE_ENV validation throws when NODE_ENV is missing" time="0.001">
+    </testcase>
+    <testcase classname="validateEnv NODE_ENV validation throws when NODE_ENV is an empty string" name="validateEnv NODE_ENV validation throws when NODE_ENV is an empty string" time="0.001">
+    </testcase>
+    <testcase classname="validateEnv PORT validation throws when PORT is missing" name="validateEnv PORT validation throws when PORT is missing" time="0.001">
+    </testcase>
+    <testcase classname="validateEnv PORT validation throws when PORT is zero" name="validateEnv PORT validation throws when PORT is zero" time="0.002">
+    </testcase>
+    <testcase classname="validateEnv PORT validation throws when PORT is above 65535" name="validateEnv PORT validation throws when PORT is above 65535" time="0.001">
+    </testcase>
+    <testcase classname="validateEnv PORT validation throws when PORT is not a number" name="validateEnv PORT validation throws when PORT is not a number" time="0.001">
+    </testcase>
+    <testcase classname="validateEnv PORT validation accepts PORT at boundary value 1" name="validateEnv PORT validation accepts PORT at boundary value 1" time="0.001">
+    </testcase>
+    <testcase classname="validateEnv PORT validation accepts PORT at boundary value 65535" name="validateEnv PORT validation accepts PORT at boundary value 65535" time="0.001">
+    </testcase>
+    <testcase classname="validateEnv required string fields throws when SUPABASE_URL is missing" name="validateEnv required string fields throws when SUPABASE_URL is missing" time="0.001">
+    </testcase>
+    <testcase classname="validateEnv required string fields throws when SUPABASE_URL is an empty string" name="validateEnv required string fields throws when SUPABASE_URL is an empty string" time="0.002">
+    </testcase>
+    <testcase classname="validateEnv required string fields throws when SUPABASE_URL is whitespace only" name="validateEnv required string fields throws when SUPABASE_URL is whitespace only" time="0.001">
+    </testcase>
+    <testcase classname="validateEnv required string fields throws when SUPABASE_ANON_KEY is missing" name="validateEnv required string fields throws when SUPABASE_ANON_KEY is missing" time="0.002">
+    </testcase>
+    <testcase classname="validateEnv required string fields throws when SUPABASE_ANON_KEY is an empty string" name="validateEnv required string fields throws when SUPABASE_ANON_KEY is an empty string" time="0.001">
+    </testcase>
+    <testcase classname="validateEnv required string fields throws when SUPABASE_ANON_KEY is whitespace only" name="validateEnv required string fields throws when SUPABASE_ANON_KEY is whitespace only" time="0.007">
+    </testcase>
+    <testcase classname="validateEnv required string fields throws when SUPABASE_SERVICE_ROLE_KEY is missing" name="validateEnv required string fields throws when SUPABASE_SERVICE_ROLE_KEY is missing" time="0.001">
+    </testcase>
+    <testcase classname="validateEnv required string fields throws when SUPABASE_SERVICE_ROLE_KEY is an empty string" name="validateEnv required string fields throws when SUPABASE_SERVICE_ROLE_KEY is an empty string" time="0.001">
+    </testcase>
+    <testcase classname="validateEnv required string fields throws when SUPABASE_SERVICE_ROLE_KEY is whitespace only" name="validateEnv required string fields throws when SUPABASE_SERVICE_ROLE_KEY is whitespace only" time="0.001">
+    </testcase>
+    <testcase classname="validateEnv required string fields throws when ALLOWED_ORIGINS is missing" name="validateEnv required string fields throws when ALLOWED_ORIGINS is missing" time="0.001">
+    </testcase>
+    <testcase classname="validateEnv required string fields throws when ALLOWED_ORIGINS is an empty string" name="validateEnv required string fields throws when ALLOWED_ORIGINS is an empty string" time="0.001">
+    </testcase>
+    <testcase classname="validateEnv required string fields throws when ALLOWED_ORIGINS is whitespace only" name="validateEnv required string fields throws when ALLOWED_ORIGINS is whitespace only" time="0.001">
+    </testcase>
+    <testcase classname="validateEnv optional field warnings does not throw when API_CENTER_BASE_URL is missing" name="validateEnv optional field warnings does not throw when API_CENTER_BASE_URL is missing" time="0.003">
+    </testcase>
+    <testcase classname="validateEnv optional field warnings does not throw when API_CENTER_API_KEY is missing" name="validateEnv optional field warnings does not throw when API_CENTER_API_KEY is missing" time="0">
+    </testcase>
+    <testcase classname="validateEnv optional field warnings does not throw when only APICENTER_URL alias is set" name="validateEnv optional field warnings does not throw when only APICENTER_URL alias is set" time="0">
+    </testcase>
+    <testcase classname="validateEnv optional field warnings throws when API_CENTER_TIMEOUT_MS is invalid" name="validateEnv optional field warnings throws when API_CENTER_TIMEOUT_MS is invalid" time="0.001">
+    </testcase>
+    <testcase classname="validateEnv optional field warnings throws when API_CENTER_TIMEOUT_MS is zero" name="validateEnv optional field warnings throws when API_CENTER_TIMEOUT_MS is zero" time="0.002">
+    </testcase>
+    <testcase classname="validateEnv production APICenter requirements throws in production when API center base URL is missing" name="validateEnv production APICenter requirements throws in production when API center base URL is missing" time="0.001">
+    </testcase>
+    <testcase classname="validateEnv production APICenter requirements throws in production when auth variables are missing" name="validateEnv production APICenter requirements throws in production when auth variables are missing" time="0.001">
+    </testcase>
+    <testcase classname="validateEnv production APICenter requirements passes in production with tribe credentials" name="validateEnv production APICenter requirements passes in production with tribe credentials" time="0">
     </testcase>
   </testsuite>
-  <testsuite name="OrderServiceService — Status Lifecycle (OOS-213)" errors="0" failures="0" skipped="0" timestamp="2026-05-11T09:39:46" time="3.718" tests="13">
-    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) status mapping maps POS status &quot;paid&quot; → &quot;Processing&quot;" name="OrderServiceService — Status Lifecycle (OOS-213) status mapping maps POS status &quot;paid&quot; → &quot;Processing&quot;" time="0.043">
+  <testsuite name="SupabaseService" errors="0" failures="0" skipped="0" timestamp="2026-05-11T21:57:29" time="0.994" tests="18">
+    <testcase classname="SupabaseService onModuleInit / getClient should be defined" name="SupabaseService onModuleInit / getClient should be defined" time="0.011">
     </testcase>
-    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) status mapping maps POS status &quot;preparing&quot; → &quot;Processing&quot;" name="OrderServiceService — Status Lifecycle (OOS-213) status mapping maps POS status &quot;preparing&quot; → &quot;Processing&quot;" time="0.008">
+    <testcase classname="SupabaseService onModuleInit / getClient creates a Supabase client when both URL and key are provided" name="SupabaseService onModuleInit / getClient creates a Supabase client when both URL and key are provided" time="0.003">
     </testcase>
-    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) status mapping maps POS status &quot;ready&quot; → &quot;In Transit&quot;" name="OrderServiceService — Status Lifecycle (OOS-213) status mapping maps POS status &quot;ready&quot; → &quot;In Transit&quot;" time="0.01">
+    <testcase classname="SupabaseService onModuleInit / getClient leaves client null when URL is missing" name="SupabaseService onModuleInit / getClient leaves client null when URL is missing" time="0.002">
     </testcase>
-    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) status mapping maps POS status &quot;picked_up&quot; → &quot;In Transit&quot;" name="OrderServiceService — Status Lifecycle (OOS-213) status mapping maps POS status &quot;picked_up&quot; → &quot;In Transit&quot;" time="0.018">
+    <testcase classname="SupabaseService onModuleInit / getClient leaves client null when key is missing" name="SupabaseService onModuleInit / getClient leaves client null when key is missing" time="0.002">
     </testcase>
-    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) status mapping maps POS status &quot;delivered&quot; → &quot;Delivered&quot;" name="OrderServiceService — Status Lifecycle (OOS-213) status mapping maps POS status &quot;delivered&quot; → &quot;Delivered&quot;" time="0.019">
+    <testcase classname="SupabaseService onModuleInit / getClient leaves client null when both URL and key are missing" name="SupabaseService onModuleInit / getClient leaves client null when both URL and key are missing" time="0.002">
     </testcase>
-    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) status mapping maps POS status &quot;cancelled&quot; → &quot;Cancelled&quot;" name="OrderServiceService — Status Lifecycle (OOS-213) status mapping maps POS status &quot;cancelled&quot; → &quot;Cancelled&quot;" time="0.009">
+    <testcase classname="SupabaseService onModuleInit / getClient creates scoped clients for tribe service env pairs" name="SupabaseService onModuleInit / getClient creates scoped clients for tribe service env pairs" time="0.008">
     </testcase>
-    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) status mapping defaults unknown POS statuses to &quot;Processing&quot;" name="OrderServiceService — Status Lifecycle (OOS-213) status mapping defaults unknown POS statuses to &quot;Processing&quot;" time="0.006">
+    <testcase classname="SupabaseService onModuleInit / getClient supports scoped _SUPABASE_SERVICE_ROLE_KEY suffix" name="SupabaseService onModuleInit / getClient supports scoped _SUPABASE_SERVICE_ROLE_KEY suffix" time="0.003">
     </testcase>
-    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) response fields returns rawStatus alongside the mapped status" name="OrderServiceService — Status Lifecycle (OOS-213) response fields returns rawStatus alongside the mapped status" time="0.005">
+    <testcase classname="SupabaseService onModuleInit / getClient ignores incomplete scoped service config" name="SupabaseService onModuleInit / getClient ignores incomplete scoped service config" time="0.003">
     </testcase>
-    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) response fields returns updatedAt from the transaction record" name="OrderServiceService — Status Lifecycle (OOS-213) response fields returns updatedAt from the transaction record" time="0.008">
+    <testcase classname="SupabaseService onModuleInit / getClient returns null for unknown service client" name="SupabaseService onModuleInit / getClient returns null for unknown service client" time="0.004">
     </testcase>
-    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) not found cases returns null when receipt number does not exist" name="OrderServiceService — Status Lifecycle (OOS-213) not found cases returns null when receipt number does not exist" time="0.025">
+    <testcase classname="SupabaseService ping() returns false immediately when client is null" name="SupabaseService ping() returns false immediately when client is null" time="0.002">
     </testcase>
-    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) not found cases returns null when transaction record is missing for a valid receipt" name="OrderServiceService — Status Lifecycle (OOS-213) not found cases returns null when transaction record is missing for a valid receipt" time="0.005">
+    <testcase classname="SupabaseService ping() returns true when listUsers resolves without error" name="SupabaseService ping() returns true when listUsers resolves without error" time="0.004">
     </testcase>
-    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) terminal states &quot;delivered&quot; is a terminal state that should stop polling on the frontend" name="OrderServiceService — Status Lifecycle (OOS-213) terminal states &quot;delivered&quot; is a terminal state that should stop polling on the frontend" time="0.007">
+    <testcase classname="SupabaseService ping() returns false when listUsers resolves with an error object" name="SupabaseService ping() returns false when listUsers resolves with an error object" time="0.003">
     </testcase>
-    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) terminal states &quot;cancelled&quot; is a terminal state that should stop polling on the frontend" name="OrderServiceService — Status Lifecycle (OOS-213) terminal states &quot;cancelled&quot; is a terminal state that should stop polling on the frontend" time="0.005">
+    <testcase classname="SupabaseService ping() returns false when listUsers throws" name="SupabaseService ping() returns false when listUsers throws" time="0.002">
     </testcase>
-  </testsuite>
-  <testsuite name="OrderServiceController — Idempotency (OOS-220)" errors="0" failures="0" skipped="0" timestamp="2026-05-11T09:39:46" time="3.91" tests="9">
-    <testcase classname="OrderServiceController — Idempotency (OOS-220) with idempotency key calls placeOrder only once for two requests with the same key" name="OrderServiceController — Idempotency (OOS-220) with idempotency key calls placeOrder only once for two requests with the same key" time="0.1">
+    <testcase classname="SupabaseService ping() returns false when the 3-second timeout fires before listUsers resolves" name="SupabaseService ping() returns false when the 3-second timeout fires before listUsers resolves" time="0.005">
     </testcase>
-    <testcase classname="OrderServiceController — Idempotency (OOS-220) with idempotency key returns the exact same result object on the second call" name="OrderServiceController — Idempotency (OOS-220) with idempotency key returns the exact same result object on the second call" time="0.014">
+    <testcase classname="SupabaseService ping() pings a scoped service client when service name is provided" name="SupabaseService ping() pings a scoped service client when service name is provided" time="0.003">
     </testcase>
-    <testcase classname="OrderServiceController — Idempotency (OOS-220) with idempotency key processes a new order for a different idempotency key" name="OrderServiceController — Idempotency (OOS-220) with idempotency key processes a new order for a different idempotency key" time="0.009">
+    <testcase classname="SupabaseService ping() returns false when scoped service client is missing" name="SupabaseService ping() returns false when scoped service client is missing" time="0.003">
     </testcase>
-    <testcase classname="OrderServiceController — Idempotency (OOS-220) with idempotency key does not serve cache across different idempotency keys" name="OrderServiceController — Idempotency (OOS-220) with idempotency key does not serve cache across different idempotency keys" time="0.008">
+    <testcase classname="SupabaseService getDefaultOrServiceClient() returns default client when service name is not provided" name="SupabaseService getDefaultOrServiceClient() returns default client when service name is not provided" time="0.002">
     </testcase>
-    <testcase classname="OrderServiceController — Idempotency (OOS-220) without idempotency key calls placeOrder every time when no key is provided" name="OrderServiceController — Idempotency (OOS-220) without idempotency key calls placeOrder every time when no key is provided" time="0.011">
-    </testcase>
-    <testcase classname="OrderServiceController — Idempotency (OOS-220) auth guard on place order throws UnauthorizedException when no authorization header" name="OrderServiceController — Idempotency (OOS-220) auth guard on place order throws UnauthorizedException when no authorization header" time="0.03">
-    </testcase>
-    <testcase classname="OrderServiceController — Idempotency (OOS-220) auth guard on place order throws UnauthorizedException for an invalid/expired token" name="OrderServiceController — Idempotency (OOS-220) auth guard on place order throws UnauthorizedException for an invalid/expired token" time="0.011">
-    </testcase>
-    <testcase classname="OrderServiceController — Idempotency (OOS-220) error handling throws HttpException when placeOrder returns an error result" name="OrderServiceController — Idempotency (OOS-220) error handling throws HttpException when placeOrder returns an error result" time="0.008">
-    </testcase>
-    <testcase classname="OrderServiceController — Idempotency (OOS-220) error handling does not cache error results" name="OrderServiceController — Idempotency (OOS-220) error handling does not cache error results" time="0.009">
+    <testcase classname="SupabaseService getDefaultOrServiceClient() returns scoped client when service is provided" name="SupabaseService getDefaultOrServiceClient() returns scoped client when service is provided" time="0.003">
     </testcase>
   </testsuite>
-  <testsuite name="AuthController — Integration Tests (OOS-225)" errors="0" failures="0" skipped="0" timestamp="2026-05-11T09:39:46" time="4.105" tests="14">
-    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/login returns an access token and user on valid credentials" name="AuthController — Integration Tests (OOS-225) POST /auth/login returns an access token and user on valid credentials" time="0.043">
+  <testsuite name="AllExceptionsFilter" errors="0" failures="0" skipped="0" timestamp="2026-05-11T21:57:30" time="0.551" tests="14">
+    <testcase classname="AllExceptionsFilter HttpException handling returns the correct HTTP status code from an HttpException" name="AllExceptionsFilter HttpException handling returns the correct HTTP status code from an HttpException" time="0.002">
     </testcase>
-    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/login sets a refresh token cookie on successful login" name="AuthController — Integration Tests (OOS-225) POST /auth/login sets a refresh token cookie on successful login" time="0.009">
+    <testcase classname="AllExceptionsFilter HttpException handling serialises a string HttpException response correctly" name="AllExceptionsFilter HttpException handling serialises a string HttpException response correctly" time="0.001">
     </testcase>
-    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/login access token is verifiable with AppAuthService" name="AuthController — Integration Tests (OOS-225) POST /auth/login access token is verifiable with AppAuthService" time="0.012">
+    <testcase classname="AllExceptionsFilter HttpException handling serialises an object HttpException response — string message field" name="AllExceptionsFilter HttpException handling serialises an object HttpException response — string message field" time="0.001">
+    </testcase>
+    <testcase classname="AllExceptionsFilter HttpException handling joins array message fields with a semicolon" name="AllExceptionsFilter HttpException handling joins array message fields with a semicolon" time="0.001">
+    </testcase>
+    <testcase classname="AllExceptionsFilter HttpException handling includes the request path in the error envelope" name="AllExceptionsFilter HttpException handling includes the request path in the error envelope" time="0.001">
+    </testcase>
+    <testcase classname="AllExceptionsFilter HttpException handling includes a timestamp in the error envelope" name="AllExceptionsFilter HttpException handling includes a timestamp in the error envelope" time="0.001">
+    </testcase>
+    <testcase classname="AllExceptionsFilter HttpException handling reads correlationId from req.correlationId when present" name="AllExceptionsFilter HttpException handling reads correlationId from req.correlationId when present" time="0.002">
+    </testcase>
+    <testcase classname="AllExceptionsFilter HttpException handling falls back to x-correlation-id header when req.correlationId is absent" name="AllExceptionsFilter HttpException handling falls back to x-correlation-id header when req.correlationId is absent" time="0">
+    </testcase>
+    <testcase classname="AllExceptionsFilter HttpException handling sets correlationId to null when neither source is present" name="AllExceptionsFilter HttpException handling sets correlationId to null when neither source is present" time="0.001">
+    </testcase>
+    <testcase classname="AllExceptionsFilter non-HttpException handling returns 500 for a plain Error" name="AllExceptionsFilter non-HttpException handling returns 500 for a plain Error" time="0.015">
+    </testcase>
+    <testcase classname="AllExceptionsFilter non-HttpException handling returns &quot;Internal Server Error&quot; message for any unhandled exception" name="AllExceptionsFilter non-HttpException handling returns &quot;Internal Server Error&quot; message for any unhandled exception" time="0.002">
+    </testcase>
+    <testcase classname="AllExceptionsFilter non-HttpException handling handles a non-Error thrown value (string)" name="AllExceptionsFilter non-HttpException handling handles a non-Error thrown value (string)" time="0.002">
+    </testcase>
+    <testcase classname="AllExceptionsFilter non-HttpException handling does not leak error details in production mode" name="AllExceptionsFilter non-HttpException handling does not leak error details in production mode" time="0.001">
+    </testcase>
+    <testcase classname="AllExceptionsFilter non-HttpException handling returns 500 status code in production mode" name="AllExceptionsFilter non-HttpException handling returns 500 status code in production mode" time="0.001">
+    </testcase>
+  </testsuite>
+  <testsuite name="BODY_SIZE_LIMIT" errors="0" failures="0" skipped="0" timestamp="2026-05-11T21:57:31" time="0.36" tests="32">
+    <testcase classname="BODY_SIZE_LIMIT is defined" name="BODY_SIZE_LIMIT is defined" time="0.001">
+    </testcase>
+    <testcase classname="BODY_SIZE_LIMIT equals &quot;5mb&quot;" name="BODY_SIZE_LIMIT equals &quot;5mb&quot;" time="0.001">
+    </testcase>
+    <testcase classname="helmetConfig is defined" name="helmetConfig is defined" time="0.001">
+    </testcase>
+    <testcase classname="helmetConfig has contentSecurityPolicy with defaultSrc self-only" name="helmetConfig has contentSecurityPolicy with defaultSrc self-only" time="0.001">
+    </testcase>
+    <testcase classname="helmetConfig has scriptSrc restricted to self" name="helmetConfig has scriptSrc restricted to self" time="0">
+    </testcase>
+    <testcase classname="helmetConfig has frameAncestors set to none (clickjacking protection)" name="helmetConfig has frameAncestors set to none (clickjacking protection)" time="0.001">
+    </testcase>
+    <testcase classname="helmetConfig has objectSrc set to none" name="helmetConfig has objectSrc set to none" time="0">
+    </testcase>
+    <testcase classname="helmetConfig has hsts maxAge of 1 year (31536000)" name="helmetConfig has hsts maxAge of 1 year (31536000)" time="0">
+    </testcase>
+    <testcase classname="helmetConfig has hsts includeSubDomains enabled" name="helmetConfig has hsts includeSubDomains enabled" time="0">
+    </testcase>
+    <testcase classname="helmetConfig has hsts preload enabled" name="helmetConfig has hsts preload enabled" time="0">
+    </testcase>
+    <testcase classname="helmetConfig has noSniff enabled" name="helmetConfig has noSniff enabled" time="0">
+    </testcase>
+    <testcase classname="helmetConfig has referrerPolicy set to no-referrer" name="helmetConfig has referrerPolicy set to no-referrer" time="0.001">
+    </testcase>
+    <testcase classname="helmetConfig has frameguard disabled (using CSP frame-ancestors instead)" name="helmetConfig has frameguard disabled (using CSP frame-ancestors instead)" time="0">
+    </testcase>
+    <testcase classname="helmetConfigSwagger is defined" name="helmetConfigSwagger is defined" time="0.001">
+    </testcase>
+    <testcase classname="helmetConfigSwagger allows unsafe-inline scripts (required by Swagger UI)" name="helmetConfigSwagger allows unsafe-inline scripts (required by Swagger UI)" time="0">
+    </testcase>
+    <testcase classname="helmetConfigSwagger allows unsafe-inline styles (required by Swagger UI)" name="helmetConfigSwagger allows unsafe-inline styles (required by Swagger UI)" time="0.001">
+    </testcase>
+    <testcase classname="helmetConfigSwagger still enforces frameAncestors none" name="helmetConfigSwagger still enforces frameAncestors none" time="0.004">
+    </testcase>
+    <testcase classname="helmetConfigSwagger still has hsts enabled" name="helmetConfigSwagger still has hsts enabled" time="0.001">
+    </testcase>
+    <testcase classname="helmetConfigSwagger still has noSniff enabled" name="helmetConfigSwagger still has noSniff enabled" time="0.001">
+    </testcase>
+    <testcase classname="corsOptions allows a whitelisted origin" name="corsOptions allows a whitelisted origin" time="0.001">
+    </testcase>
+    <testcase classname="corsOptions allows a second whitelisted origin" name="corsOptions allows a second whitelisted origin" time="0">
+    </testcase>
+    <testcase classname="corsOptions rejects an origin not in the whitelist" name="corsOptions rejects an origin not in the whitelist" time="0.001">
+    </testcase>
+    <testcase classname="corsOptions allows requests with no origin (server-to-server / health probes)" name="corsOptions allows requests with no origin (server-to-server / health probes)" time="0">
+    </testcase>
+    <testcase classname="corsOptions rejects all origins when allowedOriginsEnv is empty string" name="corsOptions rejects all origins when allowedOriginsEnv is empty string" time="0.001">
+    </testcase>
+    <testcase classname="corsOptions rejects all browser origins when allowedOriginsEnv is undefined" name="corsOptions rejects all browser origins when allowedOriginsEnv is undefined" time="0">
+    </testcase>
+    <testcase classname="corsOptions trims whitespace around origin entries" name="corsOptions trims whitespace around origin entries" time="0">
+    </testcase>
+    <testcase classname="corsOptions includes credentials: true" name="corsOptions includes credentials: true" time="0.001">
+    </testcase>
+    <testcase classname="corsOptions exposes X-Request-Id header" name="corsOptions exposes X-Request-Id header" time="0">
+    </testcase>
+    <testcase classname="corsOptions includes standard HTTP methods" name="corsOptions includes standard HTTP methods" time="0.001">
+    </testcase>
+    <testcase classname="corsOptions includes Authorization in allowedHeaders" name="corsOptions includes Authorization in allowedHeaders" time="0.001">
+    </testcase>
+    <testcase classname="corsOptions sets maxAge to 86400 (24h preflight cache)" name="corsOptions sets maxAge to 86400 (24h preflight cache)" time="0">
+    </testcase>
+    <testcase classname="corsOptions does not allow a prefix-matched subdomain attack" name="corsOptions does not allow a prefix-matched subdomain attack" time="0">
+    </testcase>
+  </testsuite>
+  <testsuite name="CorrelationIdMiddleware" errors="0" failures="0" skipped="0" timestamp="2026-05-11T21:57:31" time="0.38" tests="12">
+    <testcase classname="CorrelationIdMiddleware should be defined" name="CorrelationIdMiddleware should be defined" time="0.001">
+    </testcase>
+    <testcase classname="CorrelationIdMiddleware when x-correlation-id header is present and valid attaches the sanitized id to req.correlationId" name="CorrelationIdMiddleware when x-correlation-id header is present and valid attaches the sanitized id to req.correlationId" time="0.001">
+    </testcase>
+    <testcase classname="CorrelationIdMiddleware when x-correlation-id header is present and valid echoes the id in the X-Correlation-ID response header" name="CorrelationIdMiddleware when x-correlation-id header is present and valid echoes the id in the X-Correlation-ID response header" time="0">
+    </testcase>
+    <testcase classname="CorrelationIdMiddleware when x-correlation-id header is present and valid calls next()" name="CorrelationIdMiddleware when x-correlation-id header is present and valid calls next()" time="0">
+    </testcase>
+    <testcase classname="CorrelationIdMiddleware when x-correlation-id header is absent generates a UUID and assigns it to req.correlationId" name="CorrelationIdMiddleware when x-correlation-id header is absent generates a UUID and assigns it to req.correlationId" time="0.001">
+    </testcase>
+    <testcase classname="CorrelationIdMiddleware when x-correlation-id header is absent sets the generated id in the X-Correlation-ID response header" name="CorrelationIdMiddleware when x-correlation-id header is absent sets the generated id in the X-Correlation-ID response header" time="0">
+    </testcase>
+    <testcase classname="CorrelationIdMiddleware when x-correlation-id header is absent calls next()" name="CorrelationIdMiddleware when x-correlation-id header is absent calls next()" time="0">
+    </testcase>
+    <testcase classname="CorrelationIdMiddleware sanitization strips characters outside alphanumeric, hyphen, and underscore" name="CorrelationIdMiddleware sanitization strips characters outside alphanumeric, hyphen, and underscore" time="0">
+    </testcase>
+    <testcase classname="CorrelationIdMiddleware sanitization truncates ids longer than 128 characters to exactly 128" name="CorrelationIdMiddleware sanitization truncates ids longer than 128 characters to exactly 128" time="0.001">
+    </testcase>
+    <testcase classname="CorrelationIdMiddleware sanitization falls back to a generated UUID when the sanitized result is empty" name="CorrelationIdMiddleware sanitization falls back to a generated UUID when the sanitized result is empty" time="0.001">
+    </testcase>
+    <testcase classname="CorrelationIdMiddleware sanitization accepts a valid UUID as-is" name="CorrelationIdMiddleware sanitization accepts a valid UUID as-is" time="0">
+    </testcase>
+    <testcase classname="CorrelationIdMiddleware sanitization handles an array-valued header by falling back to a new UUID" name="CorrelationIdMiddleware sanitization handles an array-valued header by falling back to a new UUID" time="0.001">
+    </testcase>
+  </testsuite>
+  <testsuite name="HealthController" errors="0" failures="0" skipped="0" timestamp="2026-05-11T21:57:31" time="0.812" tests="4">
+    <testcase classname="HealthController should be defined" name="HealthController should be defined" time="0.008">
+    </testcase>
+    <testcase classname="HealthController returns 200 with ok payload when both checks pass" name="HealthController returns 200 with ok payload when both checks pass" time="0.003">
+    </testcase>
+    <testcase classname="HealthController returns 200 with degraded payload when one check fails" name="HealthController returns 200 with degraded payload when one check fails" time="0.004">
+    </testcase>
+    <testcase classname="HealthController throws HttpException 503 when both checks fail" name="HealthController throws HttpException 503 when both checks fail" time="0.012">
+    </testcase>
+  </testsuite>
+  <testsuite name="HealthService" errors="0" failures="0" skipped="0" timestamp="2026-05-11T21:57:32" time="0.728" tests="5">
+    <testcase classname="HealthService should be defined" name="HealthService should be defined" time="0.005">
+    </testcase>
+    <testcase classname="HealthService returns ok when both checks pass" name="HealthService returns ok when both checks pass" time="0.002">
+    </testcase>
+    <testcase classname="HealthService returns degraded when database fails but apiCenter passes" name="HealthService returns degraded when database fails but apiCenter passes" time="0.006">
+    </testcase>
+    <testcase classname="HealthService returns degraded when apiCenter fails but database passes" name="HealthService returns degraded when apiCenter fails but database passes" time="0.001">
+    </testcase>
+    <testcase classname="HealthService returns error when both checks fail" name="HealthService returns error when both checks fail" time="0.001">
+    </testcase>
+  </testsuite>
+  <testsuite name="AppService" errors="0" failures="0" skipped="0" timestamp="2026-05-11T21:57:33" time="0.46" tests="4">
+    <testcase classname="AppService should be defined" name="AppService should be defined" time="0.006">
+    </testcase>
+    <testcase classname="AppService getServiceInfo returns the correct service name" name="AppService getServiceInfo returns the correct service name" time="0.001">
+    </testcase>
+    <testcase classname="AppService getServiceInfo returns the correct version" name="AppService getServiceInfo returns the correct version" time="0.002">
+    </testcase>
+    <testcase classname="AppService getServiceInfo returns an object with both service and version keys" name="AppService getServiceInfo returns an object with both service and version keys" time="0.001">
+    </testcase>
+  </testsuite>
+  <testsuite name="AppController" errors="0" failures="0" skipped="0" timestamp="2026-05-11T21:57:33" time="0.494" tests="1">
+    <testcase classname="AppController root should return service info" name="AppController root should return service info" time="0.006">
+    </testcase>
+  </testsuite>
+  <testsuite name="AuthController — Edge Cases (OOS-226)" errors="0" failures="0" skipped="0" timestamp="2026-05-11T21:57:34" time="0.719" tests="7">
+    <testcase classname="AuthController — Edge Cases (OOS-226) refresh token rotation security rotates normally on first use — revokes old, issues new" name="AuthController — Edge Cases (OOS-226) refresh token rotation security rotates normally on first use — revokes old, issues new" time="0.016">
+    </testcase>
+    <testcase classname="AuthController — Edge Cases (OOS-226) refresh token rotation security detects reuse — throws UnauthorizedException when revoked token is replayed" name="AuthController — Edge Cases (OOS-226) refresh token rotation security detects reuse — throws UnauthorizedException when revoked token is replayed" time="0.029">
+    </testcase>
+    <testcase classname="AuthController — Edge Cases (OOS-226) refresh token rotation security clears cookie on reuse detection to force re-login" name="AuthController — Edge Cases (OOS-226) refresh token rotation security clears cookie on reuse detection to force re-login" time="0.005">
+    </testcase>
+    <testcase classname="AuthController — Edge Cases (OOS-226) refresh token rotation security allows refresh even when token is not in the DB yet (graceful fallback)" name="AuthController — Edge Cases (OOS-226) refresh token rotation security allows refresh even when token is not in the DB yet (graceful fallback)" time="0.006">
+    </testcase>
+    <testcase classname="AuthController — Edge Cases (OOS-226) duplicate email / deactivated account login still works when token family insert fails (table missing)" name="AuthController — Edge Cases (OOS-226) duplicate email / deactivated account login still works when token family insert fails (table missing)" time="0.009">
+    </testcase>
+    <testcase classname="AuthController — Edge Cases (OOS-226) duplicate email / deactivated account throws UnauthorizedException when password is completely wrong" name="AuthController — Edge Cases (OOS-226) duplicate email / deactivated account throws UnauthorizedException when password is completely wrong" time="0.004">
+    </testcase>
+    <testcase classname="AuthController — Edge Cases (OOS-226) duplicate email / deactivated account throws UnauthorizedException when user is not found in DB" name="AuthController — Edge Cases (OOS-226) duplicate email / deactivated account throws UnauthorizedException when user is not found in DB" time="0.003">
+    </testcase>
+  </testsuite>
+  <testsuite name="AuthController — Integration Tests (OOS-225)" errors="0" failures="0" skipped="0" timestamp="2026-05-11T21:57:35" time="0.717" tests="14">
+    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/login returns an access token and user on valid credentials" name="AuthController — Integration Tests (OOS-225) POST /auth/login returns an access token and user on valid credentials" time="0.01">
+    </testcase>
+    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/login sets a refresh token cookie on successful login" name="AuthController — Integration Tests (OOS-225) POST /auth/login sets a refresh token cookie on successful login" time="0.005">
+    </testcase>
+    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/login access token is verifiable with AppAuthService" name="AuthController — Integration Tests (OOS-225) POST /auth/login access token is verifiable with AppAuthService" time="0.006">
     </testcase>
     <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/login lowercases and trims the email before lookup" name="AuthController — Integration Tests (OOS-225) POST /auth/login lowercases and trims the email before lookup" time="0.008">
     </testcase>
-    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/login throws UnauthorizedException for wrong password" name="AuthController — Integration Tests (OOS-225) POST /auth/login throws UnauthorizedException for wrong password" time="0.05">
+    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/login throws UnauthorizedException for wrong password" name="AuthController — Integration Tests (OOS-225) POST /auth/login throws UnauthorizedException for wrong password" time="0.022">
     </testcase>
-    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/login throws UnauthorizedException for unknown email" name="AuthController — Integration Tests (OOS-225) POST /auth/login throws UnauthorizedException for unknown email" time="0.006">
+    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/login throws UnauthorizedException for unknown email" name="AuthController — Integration Tests (OOS-225) POST /auth/login throws UnauthorizedException for unknown email" time="0.004">
     </testcase>
-    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/login does not include password in the returned user object" name="AuthController — Integration Tests (OOS-225) POST /auth/login does not include password in the returned user object" time="0.009">
+    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/login does not include password in the returned user object" name="AuthController — Integration Tests (OOS-225) POST /auth/login does not include password in the returned user object" time="0.005">
     </testcase>
-    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/refresh returns a new access token when refresh cookie is valid" name="AuthController — Integration Tests (OOS-225) POST /auth/refresh returns a new access token when refresh cookie is valid" time="0.013">
+    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/refresh returns a new access token when refresh cookie is valid" name="AuthController — Integration Tests (OOS-225) POST /auth/refresh returns a new access token when refresh cookie is valid" time="0.008">
     </testcase>
-    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/refresh sets a new refresh token cookie (rotation)" name="AuthController — Integration Tests (OOS-225) POST /auth/refresh sets a new refresh token cookie (rotation)" time="0.01">
+    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/refresh sets a new refresh token cookie (rotation)" name="AuthController — Integration Tests (OOS-225) POST /auth/refresh sets a new refresh token cookie (rotation)" time="0.006">
     </testcase>
-    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/refresh throws UnauthorizedException when no refresh cookie is present" name="AuthController — Integration Tests (OOS-225) POST /auth/refresh throws UnauthorizedException when no refresh cookie is present" time="0.004">
+    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/refresh throws UnauthorizedException when no refresh cookie is present" name="AuthController — Integration Tests (OOS-225) POST /auth/refresh throws UnauthorizedException when no refresh cookie is present" time="0.002">
     </testcase>
-    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/refresh throws UnauthorizedException for an expired refresh token" name="AuthController — Integration Tests (OOS-225) POST /auth/refresh throws UnauthorizedException for an expired refresh token" time="0.007">
+    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/refresh throws UnauthorizedException for an expired refresh token" name="AuthController — Integration Tests (OOS-225) POST /auth/refresh throws UnauthorizedException for an expired refresh token" time="0.004">
     </testcase>
-    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/refresh throws UnauthorizedException when access token is used as refresh token" name="AuthController — Integration Tests (OOS-225) POST /auth/refresh throws UnauthorizedException when access token is used as refresh token" time="0.006">
+    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/refresh throws UnauthorizedException when access token is used as refresh token" name="AuthController — Integration Tests (OOS-225) POST /auth/refresh throws UnauthorizedException when access token is used as refresh token" time="0.004">
     </testcase>
-    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/logout clears the refresh token cookie" name="AuthController — Integration Tests (OOS-225) POST /auth/logout clears the refresh token cookie" time="0.006">
+    <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/logout clears the refresh token cookie" name="AuthController — Integration Tests (OOS-225) POST /auth/logout clears the refresh token cookie" time="0.003">
     </testcase>
     <testcase classname="AuthController — Integration Tests (OOS-225) POST /auth/logout succeeds even when no refresh cookie is present" name="AuthController — Integration Tests (OOS-225) POST /auth/logout succeeds even when no refresh cookie is present" time="0.002">
     </testcase>
   </testsuite>
-  <testsuite name="AuthController — Edge Cases (OOS-226)" errors="0" failures="0" skipped="0" timestamp="2026-05-11T09:39:46" time="4.122" tests="7">
-    <testcase classname="AuthController — Edge Cases (OOS-226) refresh token rotation security rotates normally on first use — revokes old, issues new" name="AuthController — Edge Cases (OOS-226) refresh token rotation security rotates normally on first use — revokes old, issues new" time="0.05">
+  <testsuite name="OrderServiceController — Idempotency (OOS-220)" errors="0" failures="0" skipped="0" timestamp="2026-05-11T21:57:35" time="0.352" tests="9">
+    <testcase classname="OrderServiceController — Idempotency (OOS-220) with idempotency key calls placeOrder only once for two requests with the same key" name="OrderServiceController — Idempotency (OOS-220) with idempotency key calls placeOrder only once for two requests with the same key" time="0.007">
     </testcase>
-    <testcase classname="AuthController — Edge Cases (OOS-226) refresh token rotation security detects reuse — throws UnauthorizedException when revoked token is replayed" name="AuthController — Edge Cases (OOS-226) refresh token rotation security detects reuse — throws UnauthorizedException when revoked token is replayed" time="0.112">
+    <testcase classname="OrderServiceController — Idempotency (OOS-220) with idempotency key returns the exact same result object on the second call" name="OrderServiceController — Idempotency (OOS-220) with idempotency key returns the exact same result object on the second call" time="0.005">
     </testcase>
-    <testcase classname="AuthController — Edge Cases (OOS-226) refresh token rotation security clears cookie on reuse detection to force re-login" name="AuthController — Edge Cases (OOS-226) refresh token rotation security clears cookie on reuse detection to force re-login" time="0.009">
+    <testcase classname="OrderServiceController — Idempotency (OOS-220) with idempotency key processes a new order for a different idempotency key" name="OrderServiceController — Idempotency (OOS-220) with idempotency key processes a new order for a different idempotency key" time="0.004">
     </testcase>
-    <testcase classname="AuthController — Edge Cases (OOS-226) refresh token rotation security allows refresh even when token is not in the DB yet (graceful fallback)" name="AuthController — Edge Cases (OOS-226) refresh token rotation security allows refresh even when token is not in the DB yet (graceful fallback)" time="0.009">
+    <testcase classname="OrderServiceController — Idempotency (OOS-220) with idempotency key does not serve cache across different idempotency keys" name="OrderServiceController — Idempotency (OOS-220) with idempotency key does not serve cache across different idempotency keys" time="0.004">
     </testcase>
-    <testcase classname="AuthController — Edge Cases (OOS-226) duplicate email / deactivated account login still works when token family insert fails (table missing)" name="AuthController — Edge Cases (OOS-226) duplicate email / deactivated account login still works when token family insert fails (table missing)" time="0.011">
+    <testcase classname="OrderServiceController — Idempotency (OOS-220) without idempotency key calls placeOrder every time when no key is provided" name="OrderServiceController — Idempotency (OOS-220) without idempotency key calls placeOrder every time when no key is provided" time="0.004">
     </testcase>
-    <testcase classname="AuthController — Edge Cases (OOS-226) duplicate email / deactivated account throws UnauthorizedException when password is completely wrong" name="AuthController — Edge Cases (OOS-226) duplicate email / deactivated account throws UnauthorizedException when password is completely wrong" time="0.012">
+    <testcase classname="OrderServiceController — Idempotency (OOS-220) auth guard on place order throws UnauthorizedException when no authorization header" name="OrderServiceController — Idempotency (OOS-220) auth guard on place order throws UnauthorizedException when no authorization header" time="0.014">
     </testcase>
-    <testcase classname="AuthController — Edge Cases (OOS-226) duplicate email / deactivated account throws UnauthorizedException when user is not found in DB" name="AuthController — Edge Cases (OOS-226) duplicate email / deactivated account throws UnauthorizedException when user is not found in DB" time="0.003">
+    <testcase classname="OrderServiceController — Idempotency (OOS-220) auth guard on place order throws UnauthorizedException for an invalid/expired token" name="OrderServiceController — Idempotency (OOS-220) auth guard on place order throws UnauthorizedException for an invalid/expired token" time="0.003">
+    </testcase>
+    <testcase classname="OrderServiceController — Idempotency (OOS-220) error handling throws HttpException when placeOrder returns an error result" name="OrderServiceController — Idempotency (OOS-220) error handling throws HttpException when placeOrder returns an error result" time="0.004">
+    </testcase>
+    <testcase classname="OrderServiceController — Idempotency (OOS-220) error handling does not cache error results" name="OrderServiceController — Idempotency (OOS-220) error handling does not cache error results" time="0.005">
+    </testcase>
+  </testsuite>
+  <testsuite name="OrderServiceService — Status Lifecycle (OOS-213)" errors="0" failures="0" skipped="0" timestamp="2026-05-11T21:57:36" time="0.61" tests="13">
+    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) status mapping maps POS status &quot;paid&quot; → &quot;Processing&quot;" name="OrderServiceService — Status Lifecycle (OOS-213) status mapping maps POS status &quot;paid&quot; → &quot;Processing&quot;" time="0.006">
+    </testcase>
+    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) status mapping maps POS status &quot;preparing&quot; → &quot;Processing&quot;" name="OrderServiceService — Status Lifecycle (OOS-213) status mapping maps POS status &quot;preparing&quot; → &quot;Processing&quot;" time="0.003">
+    </testcase>
+    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) status mapping maps POS status &quot;ready&quot; → &quot;In Transit&quot;" name="OrderServiceService — Status Lifecycle (OOS-213) status mapping maps POS status &quot;ready&quot; → &quot;In Transit&quot;" time="0.003">
+    </testcase>
+    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) status mapping maps POS status &quot;picked_up&quot; → &quot;In Transit&quot;" name="OrderServiceService — Status Lifecycle (OOS-213) status mapping maps POS status &quot;picked_up&quot; → &quot;In Transit&quot;" time="0.004">
+    </testcase>
+    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) status mapping maps POS status &quot;delivered&quot; → &quot;Delivered&quot;" name="OrderServiceService — Status Lifecycle (OOS-213) status mapping maps POS status &quot;delivered&quot; → &quot;Delivered&quot;" time="0.003">
+    </testcase>
+    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) status mapping maps POS status &quot;cancelled&quot; → &quot;Cancelled&quot;" name="OrderServiceService — Status Lifecycle (OOS-213) status mapping maps POS status &quot;cancelled&quot; → &quot;Cancelled&quot;" time="0.003">
+    </testcase>
+    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) status mapping defaults unknown POS statuses to &quot;Processing&quot;" name="OrderServiceService — Status Lifecycle (OOS-213) status mapping defaults unknown POS statuses to &quot;Processing&quot;" time="0.002">
+    </testcase>
+    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) response fields returns rawStatus alongside the mapped status" name="OrderServiceService — Status Lifecycle (OOS-213) response fields returns rawStatus alongside the mapped status" time="0.001">
+    </testcase>
+    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) response fields returns updatedAt from the transaction record" name="OrderServiceService — Status Lifecycle (OOS-213) response fields returns updatedAt from the transaction record" time="0.002">
+    </testcase>
+    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) not found cases returns null when receipt number does not exist" name="OrderServiceService — Status Lifecycle (OOS-213) not found cases returns null when receipt number does not exist" time="0.003">
+    </testcase>
+    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) not found cases returns null when transaction record is missing for a valid receipt" name="OrderServiceService — Status Lifecycle (OOS-213) not found cases returns null when transaction record is missing for a valid receipt" time="0.003">
+    </testcase>
+    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) terminal states &quot;delivered&quot; is a terminal state that should stop polling on the frontend" name="OrderServiceService — Status Lifecycle (OOS-213) terminal states &quot;delivered&quot; is a terminal state that should stop polling on the frontend" time="0.007">
+    </testcase>
+    <testcase classname="OrderServiceService — Status Lifecycle (OOS-213) terminal states &quot;cancelled&quot; is a terminal state that should stop polling on the frontend" name="OrderServiceService — Status Lifecycle (OOS-213) terminal states &quot;cancelled&quot; is a terminal state that should stop polling on the frontend" time="0.002">
+    </testcase>
+  </testsuite>
+  <testsuite name="OrderServiceService — Promo &amp; Edge Cases (OOS-212)" errors="0" failures="0" skipped="0" timestamp="2026-05-11T21:57:36" time="0.374" tests="10">
+    <testcase classname="OrderServiceService — Promo &amp; Edge Cases (OOS-212) valid promo codes applies a fixed discount and reduces the total" name="OrderServiceService — Promo &amp; Edge Cases (OOS-212) valid promo codes applies a fixed discount and reduces the total" time="0.007">
+    </testcase>
+    <testcase classname="OrderServiceService — Promo &amp; Edge Cases (OOS-212) valid promo codes redeems the promo code after successful placement" name="OrderServiceService — Promo &amp; Edge Cases (OOS-212) valid promo codes redeems the promo code after successful placement" time="0.002">
+    </testcase>
+    <testcase classname="OrderServiceService — Promo &amp; Edge Cases (OOS-212) valid promo codes does not go below zero total when discount exceeds subtotal" name="OrderServiceService — Promo &amp; Edge Cases (OOS-212) valid promo codes does not go below zero total when discount exceeds subtotal" time="0.002">
+    </testcase>
+    <testcase classname="OrderServiceService — Promo &amp; Edge Cases (OOS-212) invalid promo codes returns 400 when promo code does not exist" name="OrderServiceService — Promo &amp; Edge Cases (OOS-212) invalid promo codes returns 400 when promo code does not exist" time="0.003">
+    </testcase>
+    <testcase classname="OrderServiceService — Promo &amp; Edge Cases (OOS-212) invalid promo codes returns 400 when promo code is expired" name="OrderServiceService — Promo &amp; Edge Cases (OOS-212) invalid promo codes returns 400 when promo code is expired" time="0.006">
+    </testcase>
+    <testcase classname="OrderServiceService — Promo &amp; Edge Cases (OOS-212) invalid promo codes does not call commit-stock when promo validation fails" name="OrderServiceService — Promo &amp; Edge Cases (OOS-212) invalid promo codes does not call commit-stock when promo validation fails" time="0.001">
+    </testcase>
+    <testcase classname="OrderServiceService — Promo &amp; Edge Cases (OOS-212) edge cases defaults to &quot;Cash on Delivery&quot; when paymentMethod is omitted" name="OrderServiceService — Promo &amp; Edge Cases (OOS-212) edge cases defaults to &quot;Cash on Delivery&quot; when paymentMethod is omitted" time="0.002">
+    </testcase>
+    <testcase classname="OrderServiceService — Promo &amp; Edge Cases (OOS-212) edge cases trims whitespace from shipping address" name="OrderServiceService — Promo &amp; Edge Cases (OOS-212) edge cases trims whitespace from shipping address" time="0.002">
+    </testcase>
+    <testcase classname="OrderServiceService — Promo &amp; Edge Cases (OOS-212) edge cases ignores items with quantity &lt; 1 and uses 1 as minimum" name="OrderServiceService — Promo &amp; Edge Cases (OOS-212) edge cases ignores items with quantity &lt; 1 and uses 1 as minimum" time="0.002">
+    </testcase>
+    <testcase classname="OrderServiceService — Promo &amp; Edge Cases (OOS-212) edge cases returns 400 when no promo code is given but field is an empty string" name="OrderServiceService — Promo &amp; Edge Cases (OOS-212) edge cases returns 400 when no promo code is given but field is an empty string" time="0.002">
+    </testcase>
+  </testsuite>
+  <testsuite name="OrderServiceService — Order Placement (OOS-211)" errors="0" failures="0" skipped="0" timestamp="2026-05-11T21:57:37" time="0.326" tests="14">
+    <testcase classname="OrderServiceService — Order Placement (OOS-211) delivery path places an order successfully and returns a receipt number" name="OrderServiceService — Order Placement (OOS-211) delivery path places an order successfully and returns a receipt number" time="0.006">
+    </testcase>
+    <testcase classname="OrderServiceService — Order Placement (OOS-211) delivery path includes shippingAddress in the returned order" name="OrderServiceService — Order Placement (OOS-211) delivery path includes shippingAddress in the returned order" time="0.002">
+    </testcase>
+    <testcase classname="OrderServiceService — Order Placement (OOS-211) delivery path calculates subtotal, VAT, and total correctly" name="OrderServiceService — Order Placement (OOS-211) delivery path calculates subtotal, VAT, and total correctly" time="0.008">
+    </testcase>
+    <testcase classname="OrderServiceService — Order Placement (OOS-211) delivery path uses a delivery fee of 50 when none is provided" name="OrderServiceService — Order Placement (OOS-211) delivery path uses a delivery fee of 50 when none is provided" time="0.002">
+    </testcase>
+    <testcase classname="OrderServiceService — Order Placement (OOS-211) delivery path calls catalog service to prepare items and commit stock" name="OrderServiceService — Order Placement (OOS-211) delivery path calls catalog service to prepare items and commit stock" time="0.002">
+    </testcase>
+    <testcase classname="OrderServiceService — Order Placement (OOS-211) delivery path clears the cart after a successful order" name="OrderServiceService — Order Placement (OOS-211) delivery path clears the cart after a successful order" time="0.001">
+    </testcase>
+    <testcase classname="OrderServiceService — Order Placement (OOS-211) pickup path places an order with zero delivery fee" name="OrderServiceService — Order Placement (OOS-211) pickup path places an order with zero delivery fee" time="0.002">
+    </testcase>
+    <testcase classname="OrderServiceService — Order Placement (OOS-211) pickup path uses GCash payment method correctly" name="OrderServiceService — Order Placement (OOS-211) pickup path uses GCash payment method correctly" time="0.003">
+    </testcase>
+    <testcase classname="OrderServiceService — Order Placement (OOS-211) input validation returns 400 when shipping address is empty" name="OrderServiceService — Order Placement (OOS-211) input validation returns 400 when shipping address is empty" time="0.002">
+    </testcase>
+    <testcase classname="OrderServiceService — Order Placement (OOS-211) input validation returns 400 when cart is empty" name="OrderServiceService — Order Placement (OOS-211) input validation returns 400 when cart is empty" time="0.001">
+    </testcase>
+    <testcase classname="OrderServiceService — Order Placement (OOS-211) input validation returns 400 when all items have invalid IDs" name="OrderServiceService — Order Placement (OOS-211) input validation returns 400 when all items have invalid IDs" time="0.001">
+    </testcase>
+    <testcase classname="OrderServiceService — Order Placement (OOS-211) input validation returns 400 when a product is not found in catalog" name="OrderServiceService — Order Placement (OOS-211) input validation returns 400 when a product is not found in catalog" time="0.002">
+    </testcase>
+    <testcase classname="OrderServiceService — Order Placement (OOS-211) input validation returns 409 when a product is out of stock" name="OrderServiceService — Order Placement (OOS-211) input validation returns 409 when a product is out of stock" time="0.002">
+    </testcase>
+    <testcase classname="OrderServiceService — Order Placement (OOS-211) stock rollback releases reserved stock when transaction insert fails" name="OrderServiceService — Order Placement (OOS-211) stock rollback releases reserved stock when transaction insert fails" time="0.018">
+    </testcase>
+  </testsuite>
+  <testsuite name="AppAuthService — JWT Operations (OOS-223)" errors="0" failures="0" skipped="0" timestamp="2026-05-11T21:57:37" time="0.451" tests="19">
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) signAccessToken / verifyAccessToken signs and verifies a valid access token" name="AppAuthService — JWT Operations (OOS-223) signAccessToken / verifyAccessToken signs and verifies a valid access token" time="0.006">
+    </testcase>
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) signAccessToken / verifyAccessToken includes an expiry (~15 minutes from now)" name="AppAuthService — JWT Operations (OOS-223) signAccessToken / verifyAccessToken includes an expiry (~15 minutes from now)" time="0.002">
+    </testcase>
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) signAccessToken / verifyAccessToken returns null for an expired access token" name="AppAuthService — JWT Operations (OOS-223) signAccessToken / verifyAccessToken returns null for an expired access token" time="0.003">
+    </testcase>
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) signAccessToken / verifyAccessToken returns null when a refresh token is passed to verifyAccessToken" name="AppAuthService — JWT Operations (OOS-223) signAccessToken / verifyAccessToken returns null when a refresh token is passed to verifyAccessToken" time="0.003">
+    </testcase>
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) signAccessToken / verifyAccessToken returns null for a tampered token" name="AppAuthService — JWT Operations (OOS-223) signAccessToken / verifyAccessToken returns null for a tampered token" time="0.003">
+    </testcase>
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) signAccessToken / verifyAccessToken returns null when signed with a different secret" name="AppAuthService — JWT Operations (OOS-223) signAccessToken / verifyAccessToken returns null when signed with a different secret" time="0.003">
+    </testcase>
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) signRefreshToken / verifyRefreshToken signs and verifies a valid refresh token" name="AppAuthService — JWT Operations (OOS-223) signRefreshToken / verifyRefreshToken signs and verifies a valid refresh token" time="0.003">
+    </testcase>
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) signRefreshToken / verifyRefreshToken includes a 7-day expiry" name="AppAuthService — JWT Operations (OOS-223) signRefreshToken / verifyRefreshToken includes a 7-day expiry" time="0.002">
+    </testcase>
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) signRefreshToken / verifyRefreshToken returns null for an expired refresh token" name="AppAuthService — JWT Operations (OOS-223) signRefreshToken / verifyRefreshToken returns null for an expired refresh token" time="0.005">
+    </testcase>
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) signRefreshToken / verifyRefreshToken returns null when an access token is passed to verifyRefreshToken" name="AppAuthService — JWT Operations (OOS-223) signRefreshToken / verifyRefreshToken returns null when an access token is passed to verifyRefreshToken" time="0.003">
+    </testcase>
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) signRefreshToken / verifyRefreshToken each signed token is unique (no deterministic output)" name="AppAuthService — JWT Operations (OOS-223) signRefreshToken / verifyRefreshToken each signed token is unique (no deterministic output)" time="0.004">
+    </testcase>
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) extractBearerToken extracts the token from a valid Bearer header" name="AppAuthService — JWT Operations (OOS-223) extractBearerToken extracts the token from a valid Bearer header" time="0.002">
+    </testcase>
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) extractBearerToken returns null when header is missing" name="AppAuthService — JWT Operations (OOS-223) extractBearerToken returns null when header is missing" time="0.001">
+    </testcase>
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) extractBearerToken returns null for non-Bearer scheme" name="AppAuthService — JWT Operations (OOS-223) extractBearerToken returns null for non-Bearer scheme" time="0.001">
+    </testcase>
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) extractBearerToken returns null when token part is missing" name="AppAuthService — JWT Operations (OOS-223) extractBearerToken returns null when token part is missing" time="0.002">
+    </testcase>
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) requireUserId returns userId for a valid Bearer access token" name="AppAuthService — JWT Operations (OOS-223) requireUserId returns userId for a valid Bearer access token" time="0.003">
+    </testcase>
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) requireUserId throws UnauthorizedException when authorization header is missing" name="AppAuthService — JWT Operations (OOS-223) requireUserId throws UnauthorizedException when authorization header is missing" time="0.014">
+    </testcase>
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) requireUserId throws UnauthorizedException for an expired token" name="AppAuthService — JWT Operations (OOS-223) requireUserId throws UnauthorizedException for an expired token" time="0.003">
+    </testcase>
+    <testcase classname="AppAuthService — JWT Operations (OOS-223) requireUserId throws UnauthorizedException when a refresh token is used as access" name="AppAuthService — JWT Operations (OOS-223) requireUserId throws UnauthorizedException when a refresh token is used as access" time="0.004">
     </testcase>
   </testsuite>
 </testsuites>

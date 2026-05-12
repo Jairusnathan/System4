@@ -97,6 +97,83 @@ const cartSnapshot = (items: CartItem[]) =>
     .sort((left, right) => left.localeCompare(right))
     .join('|');
 
+const ORDER_ITEM_PLACEHOLDER_IMAGE =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'>" +
+      "<rect width='96' height='96' rx='24' fill='#e2e8f0'/>" +
+      "<rect x='22' y='26' width='52' height='44' rx='14' fill='#94a3b8'/>" +
+      "<circle cx='48' cy='48' r='12' fill='#f8fafc'/>" +
+    "</svg>",
+  );
+
+const normalizeOrderPayload = (payload: unknown): Order[] => {
+  if (!Array.isArray(payload)) {
+    return [];
+  }
+
+  return payload.map((order, index) => {
+    const row = typeof order === 'object' && order !== null
+      ? (order as Record<string, unknown>)
+      : {};
+    const items = Array.isArray(row.items) ? row.items : [];
+
+    return {
+      id: typeof row.id === 'string' ? row.id : `order-${index}`,
+      receiptNumber:
+        typeof row.receiptNumber === 'string' ? row.receiptNumber : undefined,
+      orderNumber:
+        typeof row.orderNumber === 'string' ? row.orderNumber : undefined,
+      txNo: typeof row.txNo === 'string' ? row.txNo : undefined,
+      date:
+        typeof row.date === 'string'
+          ? row.date
+          : new Date().toISOString(),
+      items: items.map((item, itemIndex) => {
+        const entry = typeof item === 'object' && item !== null
+          ? (item as Record<string, unknown>)
+          : {};
+
+        return {
+          id:
+            typeof entry.id === 'string'
+              ? entry.id
+              : `${typeof row.id === 'string' ? row.id : index}-item-${itemIndex}`,
+          name: typeof entry.name === 'string' ? entry.name : 'Ordered item',
+          description:
+            typeof entry.description === 'string' ? entry.description : '',
+          price: Number(entry.price ?? 0),
+          category:
+            typeof entry.category === 'string'
+              ? entry.category
+              : 'Uncategorized',
+          image:
+            typeof entry.image === 'string' && entry.image.trim()
+              ? entry.image
+              : ORDER_ITEM_PLACEHOLDER_IMAGE,
+          quantity: Math.max(1, Number(entry.quantity ?? 1)),
+        };
+      }),
+      subtotal: Number(row.subtotal ?? 0),
+      deliveryFee: Number(row.deliveryFee ?? 0),
+      discountAmount: Number(row.discountAmount ?? 0),
+      promoCode: typeof row.promoCode === 'string' ? row.promoCode : undefined,
+      total: Number(row.total ?? 0),
+      status:
+        row.status === 'Processing' ||
+        row.status === 'In Transit' ||
+        row.status === 'Delivered' ||
+        row.status === 'Cancelled'
+          ? row.status
+          : 'Processing',
+      shippingAddress:
+        typeof row.shippingAddress === 'string' ? row.shippingAddress : '',
+      paymentMethod:
+        typeof row.paymentMethod === 'string' ? row.paymentMethod : '',
+    };
+  });
+};
+
 export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [view, setView] = useState('home');
   const [accountSubView, setAccountSubView] = useState<AccountSubView>('profile');
@@ -159,6 +236,7 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     setIsLoggedIn(false);
     setUser(null);
     setCart([]);
+    setOrders([]);
     localStorage.removeItem(CART_STORAGE_KEY);
     setView('home');
     setIsCartOpen(false);
@@ -186,6 +264,24 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
+    }
+  }, [handleLogout]);
+
+  const fetchCustomerOrders = useCallback(async () => {
+    try {
+      const res = await fetchWithAuth('/api/orders/my');
+      const data = await res.json().catch(() => ({ data: [] }));
+
+      if (res.ok) {
+        setOrders(normalizeOrderPayload(data?.data));
+      } else {
+        console.error('Error fetching customer orders:', data?.error || data);
+        if (res.status === 401) {
+          handleLogout();
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching customer orders:', error);
     }
   }, [handleLogout]);
 
@@ -344,6 +440,14 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
 
     syncCart();
   }, [cart, isCartSyncReady, persistCartToBackend, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      return;
+    }
+
+    fetchCustomerOrders();
+  }, [fetchCustomerOrders, user?.id]);
 
   const scheduleSessionWarning = useCallback((token: string) => {
     if (sessionExpiryTimerRef.current) clearTimeout(sessionExpiryTimerRef.current);

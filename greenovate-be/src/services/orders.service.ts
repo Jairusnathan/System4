@@ -11,6 +11,32 @@ type CheckoutItem = {
   quantity: number;
 };
 
+type OnlineOrderItemRow = {
+  product_id: string;
+  product_name: string;
+  category: string | null;
+  unit_price: number | string;
+  quantity: number;
+  line_total: number | string;
+};
+
+type OnlineOrderRow = {
+  id: string;
+  receipt_number: string | null;
+  order_number: string | null;
+  tx_no: string | null;
+  created_at: string;
+  subtotal: number | string;
+  delivery_fee: number | string;
+  discount_amount: number | string;
+  total: number | string;
+  promo_code: string | null;
+  fulfillment_status: 'Processing' | 'In Transit' | 'Delivered' | 'Cancelled';
+  shipping_address: string;
+  payment_method: string;
+  online_order_items?: OnlineOrderItemRow[] | null;
+};
+
 @Injectable()
 export class OrdersService {
   private readonly promosService: PromosService;
@@ -35,18 +61,42 @@ export class OrdersService {
 
   async search(orderNumber?: string, status?: string, limit = 20) {
     let query = this.orderAdmin
-      .from('orders')
-      .select('*')
+      .from('online_orders')
+      .select(
+        `
+          id,
+          receipt_number,
+          order_number,
+          tx_no,
+          created_at,
+          subtotal,
+          delivery_fee,
+          discount_amount,
+          total,
+          promo_code,
+          fulfillment_status,
+          shipping_address,
+          payment_method,
+          online_order_items (
+            product_id,
+            product_name,
+            category,
+            unit_price,
+            quantity,
+            line_total
+          )
+        `,
+      )
       .order('created_at', { ascending: false })
       .limit(limit);
 
     if (status) {
-      query = query.eq('status', status);
+      query = query.eq('fulfillment_status', status);
     }
 
     if (orderNumber) {
       query = query.or(
-        `order_number.ilike.%${orderNumber}%,id.ilike.%${orderNumber}%`,
+        `receipt_number.ilike.%${orderNumber}%,order_number.ilike.%${orderNumber}%,tx_no.ilike.%${orderNumber}%`,
       );
     }
 
@@ -55,7 +105,46 @@ export class OrdersService {
       throw error;
     }
 
-    return data ?? [];
+    return this.mapOnlineOrders((data ?? []) as OnlineOrderRow[]);
+  }
+
+  async listCustomerOrders(userId: string, limit = 50) {
+    const { data, error } = await this.orderAdmin
+      .from('online_orders')
+      .select(
+        `
+          id,
+          receipt_number,
+          order_number,
+          tx_no,
+          created_at,
+          subtotal,
+          delivery_fee,
+          discount_amount,
+          total,
+          promo_code,
+          fulfillment_status,
+          shipping_address,
+          payment_method,
+          online_order_items (
+            product_id,
+            product_name,
+            category,
+            unit_price,
+            quantity,
+            line_total
+          )
+        `,
+      )
+      .eq('customer_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      throw error;
+    }
+
+    return this.mapOnlineOrders((data ?? []) as OnlineOrderRow[]);
   }
 
   async placeOrder(userId: string, body: any) {
@@ -313,11 +402,69 @@ export class OrdersService {
 
     const finalReceiptNumber =
       linkedReceipt?.receipt_number ?? receiptNumber;
+    const orderNumberValue = `TXN-${String(insertedTransaction.tx_no ?? receiptId)}`;
+
+    const { data: insertedOnlineOrder, error: onlineOrderError } =
+      await this.orderAdmin
+        .from('online_orders')
+        .insert({
+          customer_id: userId,
+          receipt_id: receiptId,
+          receipt_number: finalReceiptNumber,
+          transaction_id: insertedTransaction.id,
+          order_number: orderNumberValue,
+          tx_no: String(insertedTransaction.tx_no ?? receiptId),
+          branch_id: Number.isFinite(Number(body?.branchId))
+            ? Number(body.branchId)
+            : null,
+          shipping_address: shippingAddress,
+          payment_method: paymentMethod,
+          payment_status: 'paid',
+          fulfillment_status: 'Processing',
+          delivery_method:
+            body?.deliveryMethod === 'claim_at_branch' ||
+            body?.deliveryMethod === 'same_day' ||
+            body?.deliveryMethod === 'scheduled'
+              ? body.deliveryMethod
+              : null,
+          subtotal,
+          delivery_fee: Number(deliveryFee.toFixed(2)),
+          discount_amount: Number(discountAmount.toFixed(2)),
+          total: totalAmount,
+          promo_code: promoResult?.valid ? promoResult.promo.code : null,
+          metadata: {
+            source: 'web-checkout',
+          },
+        })
+        .select('id')
+        .single();
+
+    if (onlineOrderError || !insertedOnlineOrder) {
+      throw onlineOrderError;
+    }
+
+    const { error: onlineOrderItemsError } = await this.orderAdmin
+      .from('online_order_items')
+      .insert(
+        normalizedItems.map((item) => ({
+          online_order_id: insertedOnlineOrder.id,
+          product_id: item.id,
+          product_name: item.name,
+          category: item.category,
+          unit_price: item.price,
+          quantity: item.quantity,
+          line_total: Number((item.price * item.quantity).toFixed(2)),
+        })),
+      );
+
+    if (onlineOrderItemsError) {
+      throw onlineOrderItemsError;
+    }
 
     return {
       order: {
         id: finalReceiptNumber || insertedTransaction.id,
-        orderNumber: finalReceiptNumber,
+        orderNumber: orderNumberValue,
         txNo: String(insertedTransaction.tx_no ?? receiptId),
         date: insertedTransaction.created_at,
         items: normalizedItems,
@@ -366,7 +513,41 @@ export class OrdersService {
 
     if (updateError) throw updateError;
 
+    const { error: onlineOrderUpdateError } = await this.orderAdmin
+      .from('online_orders')
+      .update({ fulfillment_status: 'Cancelled' })
+      .eq('receipt_number', receiptNumber);
+
+    if (onlineOrderUpdateError) throw onlineOrderUpdateError;
+
     return { success: true, status: 'Cancelled' };
+  }
+
+  private mapOnlineOrders(rows: OnlineOrderRow[]) {
+    return rows.map((row) => ({
+      id: row.id,
+      receiptNumber: row.receipt_number ?? undefined,
+      orderNumber: row.order_number ?? undefined,
+      txNo: row.tx_no ?? undefined,
+      date: row.created_at,
+      items: (row.online_order_items ?? []).map((item) => ({
+        id: item.product_id,
+        name: item.product_name,
+        description: '',
+        price: Number(item.unit_price ?? 0),
+        category: item.category ?? 'Uncategorized',
+        image: '',
+        quantity: Number(item.quantity ?? 0),
+      })),
+      subtotal: Number(row.subtotal ?? 0),
+      deliveryFee: Number(row.delivery_fee ?? 0),
+      discountAmount: Number(row.discount_amount ?? 0),
+      promoCode: row.promo_code ?? undefined,
+      total: Number(row.total ?? 0),
+      status: row.fulfillment_status,
+      shippingAddress: row.shipping_address,
+      paymentMethod: row.payment_method,
+    }));
   }
 
   private normalizePaymentMethodForPos(paymentMethod: string) {

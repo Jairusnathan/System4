@@ -57,6 +57,31 @@ export class OrdersController {
     }
   }
 
+  @Get('my')
+  async myOrders(
+    @Headers('authorization') authorization?: string,
+    @Query('limit') limit?: string,
+  ) {
+    try {
+      const userId = this.authService.requireUserId(authorization);
+      const data = await this.ordersService.listCustomerOrders(
+        userId,
+        parseLimit(limit),
+      );
+
+      return {
+        data,
+        meta: {
+          total: data.length,
+        },
+      };
+    } catch (error) {
+      if (error instanceof UnauthorizedException) throw error;
+      console.error('My orders API error:', error);
+      throw new InternalServerErrorException();
+    }
+  }
+
   @Post('place')
   async placeOrder(
     @Headers('authorization') authorization?: string,

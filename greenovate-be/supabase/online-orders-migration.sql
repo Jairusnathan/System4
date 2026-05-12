@@ -15,9 +15,9 @@ $$;
 create table if not exists public.online_orders (
   id uuid primary key default gen_random_uuid(),
   customer_id text not null,
-  receipt_id bigint,
+  receipt_id bigint references public.receipts(receipt_id) on delete set null,
   receipt_number text,
-  transaction_id uuid,
+  transaction_id uuid references public.transactions(id) on delete set null,
   order_number text,
   tx_no text,
   branch_id bigint,

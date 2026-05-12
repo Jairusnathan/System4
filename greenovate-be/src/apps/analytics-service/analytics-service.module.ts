@@ -5,7 +5,13 @@ import { AnalyticsService } from '../../services/analytics.service';
 import { AnalyticsHealthController } from './analytics-health.controller';
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true })],
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      cache: true,
+      envFilePath: ['apps/analytics-service/.env'],
+    }),
+  ],
   controllers: [AnalyticsController, AnalyticsHealthController],
   providers: [AnalyticsService],
 })

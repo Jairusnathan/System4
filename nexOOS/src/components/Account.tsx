@@ -279,7 +279,7 @@ function AddressBookSection({
           const isDefault = index === 0;
 
           return (
-            <div key={getAddressKey(address)} className="p-6 sm:p-8">
+            <div key={`${getAddressKey(address)}-${index}`} className="p-6 sm:p-8">
               <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
                 <div className="flex-1 min-w-0">
                   <h4 className="text-2xl font-black text-slate-900 mb-3">Address</h4>

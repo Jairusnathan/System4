@@ -33,13 +33,19 @@ export class CartServiceService {
   ) {}
 
   private get cartAdmin() {
-    const client = this.supabaseService.getClientForService('CART');
-    if (!client) {
-      throw new Error(
-        'Cart Supabase client is not configured. Set CART_SUPABASE_URL and CART_SUPABASE_SECRET_KEY in .env',
-      );
+    const scopedClient = this.supabaseService.getClientForService('CART');
+    if (scopedClient) {
+      return scopedClient;
     }
-    return client;
+
+    const defaultAdmin = this.supabaseService.getClient();
+    if (defaultAdmin) {
+      return defaultAdmin;
+    }
+
+    throw new Error(
+      'Cart Supabase client is not configured. Set SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY or CART_SUPABASE_URL + CART_SUPABASE_SECRET_KEY in apps/cart-service/.env',
+    );
   }
 
   async getCart(userId: string) {

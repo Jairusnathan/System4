@@ -7,7 +7,13 @@ import { PromoHealthController } from './promo-health.controller';
 import { PromoInternalController } from './promo-internal.controller';
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true })],
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      cache: true,
+      envFilePath: ['apps/promo-service/.env'],
+    }),
+  ],
   controllers: [
     PromosController,
     PromoInternalController,

@@ -14,6 +14,25 @@ import { CORRELATION_ID_HEADER } from '../middleware/correlation-id.middleware';
 
 @Controller('orders')
 export class OrdersGatewayController {
+  @Get('my')
+  async getMyOrders(
+    @Headers('authorization') authorization: string | undefined,
+    @Headers(CORRELATION_ID_HEADER) correlationId: string | undefined,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await requestDownstream<unknown>({
+      baseUrl: SERVICE_URLS.orders,
+      path: '/orders/my',
+      headers: {
+        authorization,
+        [CORRELATION_ID_HEADER]: correlationId,
+      },
+    });
+
+    response.status(result.status);
+    return result.data;
+  }
+
   @Get('search')
   async search(
     @Query('orderNumber') orderNumber: string | undefined,

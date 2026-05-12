@@ -227,7 +227,7 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     }
   }, []);
 
-  const handleLogout = useCallback(() => {
+  const resetClientSession = useCallback(() => {
     clearAccessToken();
     fetch(buildApiUrl('/api/auth/logout'), {
       method: 'POST',
@@ -259,13 +259,13 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
       } else {
         console.error('Error fetching user profile:', data.error);
         if (res.status === 401) {
-          handleLogout();
+          resetClientSession();
         }
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
     }
-  }, [handleLogout]);
+  }, [resetClientSession]);
 
   const fetchCustomerOrders = useCallback(async () => {
     try {
@@ -277,13 +277,13 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
       } else {
         console.error('Error fetching customer orders:', data?.error || data);
         if (res.status === 401) {
-          handleLogout();
+          resetClientSession();
         }
       }
     } catch (error) {
       console.error('Error fetching customer orders:', error);
     }
-  }, [handleLogout]);
+  }, [resetClientSession]);
 
   const persistCartToBackend = useCallback(async (items: CartItem[]) => {
     const res = await fetchWithAuth('/api/cart', {
@@ -304,6 +304,20 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
       throw new Error(payload?.error || 'Failed to sync cart.');
     }
   }, []);
+
+  const handleLogout = useCallback(() => {
+    void (async () => {
+      try {
+        if (user?.id) {
+          await persistCartToBackend(cart);
+        }
+      } catch (error) {
+        console.error('Error saving cart before logout:', error);
+      } finally {
+        resetClientSession();
+      }
+    })();
+  }, [cart, persistCartToBackend, resetClientSession, user?.id]);
 
   useEffect(() => {
     const token = getAccessToken();

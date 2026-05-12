@@ -502,7 +502,11 @@ function useLoginForm({
         setUser(data.user);
         setView('home');
       } else {
-        setError(data.error || 'Invalid credentials');
+        setError(
+          res.status === 401
+            ? 'Invalid email or password.'
+            : data.message || data.error || 'Something went wrong. Please try again.'
+        );
       }
     } catch {
       setError('Something went wrong. Please try again.');

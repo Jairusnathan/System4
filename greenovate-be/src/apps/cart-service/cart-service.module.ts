@@ -4,6 +4,7 @@ import { AppAuthService } from '../../services/auth.service';
 import { CartServiceController } from './cart-service.controller';
 import { CartHealthController } from './cart-health.controller';
 import { CartServiceService } from './cart-service.service';
+import { ProductsService } from '../../services/products.service';
 import { SupabaseService } from '../../services/supabase.service';
 
 @Module({
@@ -11,10 +12,15 @@ import { SupabaseService } from '../../services/supabase.service';
     ConfigModule.forRoot({
       isGlobal: true,
       cache: true,
-      envFilePath: ['apps/cart-service/.env', '.env.local', '.env'],
+      envFilePath: ['apps/cart-service/.env'],
     }),
   ],
   controllers: [CartServiceController, CartHealthController],
-  providers: [AppAuthService, CartServiceService, SupabaseService],
+  providers: [
+    AppAuthService,
+    CartServiceService,
+    ProductsService,
+    SupabaseService,
+  ],
 })
 export class CartServiceModule {}

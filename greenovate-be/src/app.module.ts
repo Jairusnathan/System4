@@ -37,7 +37,7 @@ const shouldValidateEnv = process.env.NODE_ENV === 'production';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: ['.env.local', '.env'],
+      ignoreEnvFile: true,
       cache: true,
       // Fail fast on production misconfiguration while keeping local DX flexible.
       ...(shouldValidateEnv ? { validate: validateEnv } : {}),

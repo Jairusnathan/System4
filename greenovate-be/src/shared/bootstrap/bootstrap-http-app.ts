@@ -3,7 +3,9 @@ import { NestFactory } from '@nestjs/core';
 
 const configureCors = (app: Awaited<ReturnType<typeof NestFactory.create>>) => {
   const configuredOrigins = (
-    process.env.FRONTEND_URL || 'http://localhost:3000'
+    process.env.ALLOWED_ORIGINS ||
+    process.env.FRONTEND_URL ||
+    'http://localhost:3000'
   )
     .split(',')
     .map((origin) => origin.trim())

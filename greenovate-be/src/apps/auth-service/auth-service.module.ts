@@ -11,7 +11,7 @@ import { AuthHealthController } from './auth-health.controller';
     ConfigModule.forRoot({
       isGlobal: true,
       cache: true,
-      envFilePath: ['apps/auth-service/.env', '.env.local', '.env'],
+      envFilePath: ['apps/auth-service/.env'],
     }),
   ],
   controllers: [AuthController, AuthHealthController],

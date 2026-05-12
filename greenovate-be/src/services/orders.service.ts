@@ -50,13 +50,24 @@ export class OrdersService {
   }
 
   private get orderAdmin() {
-    const client = this.supabaseService.getClientForService('ORDER');
-    if (!client) throw new Error('Order Supabase client not configured. Set ORDER_SUPABASE_URL and ORDER_SUPABASE_SECRET_KEY in .env');
-    return client;
+    const scopedClient = this.supabaseService.getClientForService('ORDER');
+    if (scopedClient) {
+      return scopedClient;
+    }
+
+    const defaultAdmin = this.supabaseService.getClient();
+    if (defaultAdmin) {
+      return defaultAdmin;
+    }
+
+    throw new Error('Order Supabase client not configured. Set SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY or ORDER_SUPABASE_URL + ORDER_SUPABASE_SECRET_KEY in apps/order-service/.env');
   }
 
   private get cartAdmin() {
-    return this.supabaseService.getClientForService('CART');
+    return (
+      this.supabaseService.getClientForService('CART') ??
+      this.supabaseService.getClient()
+    );
   }
 
   async search(orderNumber?: string, status?: string, limit = 20) {

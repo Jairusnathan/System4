@@ -148,8 +148,8 @@ export default function ProductDetailsModal() {
                       <button className="w-20 h-20 shrink-0 rounded-xl overflow-hidden border-2 border-blue-500">
                         <img src={selectedProduct.image} alt="Thumbnail" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       </button>
-                      {selectedProduct.images.map((img) => (
-                        <button key={`${selectedProduct.id}-${img}`} className="w-20 h-20 shrink-0 rounded-xl overflow-hidden border-2 border-transparent hover:border-slate-300 transition-colors">
+                      {selectedProduct.images.map((img, idx) => (
+                        <button key={`${selectedProduct.id}-img-${idx}`} className="w-20 h-20 shrink-0 rounded-xl overflow-hidden border-2 border-transparent hover:border-slate-300 transition-colors">
                           <img src={img} alt={`Thumbnail for ${selectedProduct.name}`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                         </button>
                       ))}

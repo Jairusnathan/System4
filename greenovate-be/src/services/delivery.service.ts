@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
+import { requestDownstream } from '../shared/http/request-downstream';
+import { SERVICE_URLS } from '../shared/http/service-urls';
 import { normalizePhilippineLocationName } from '../utils/philippine-locations.util';
-import { BranchesService } from './branches.service';
 import { SupabaseService } from './supabase.service';
 
 type DeliveryRate = {
@@ -187,10 +188,7 @@ const MINDANAO_PROVINCES = new Set(
 
 @Injectable()
 export class DeliveryService {
-  constructor(
-    private readonly supabaseService: SupabaseService,
-    private readonly branchesService: BranchesService,
-  ) {}
+  constructor(private readonly supabaseService: SupabaseService) {}
 
   async autocompleteAddress(_: {
     input?: string;
@@ -400,7 +398,11 @@ export class DeliveryService {
   }
 
   private async findActiveBranch(branchId: number) {
-    const branches = (await this.branchesService.getBranches()) as DeliveryBranch[];
+    const result = await requestDownstream<DeliveryBranch[]>({
+      baseUrl: SERVICE_URLS.catalog,
+      path: '/branches',
+    });
+    const branches = Array.isArray(result.data) ? result.data : [];
     return branches.find((branch) => branch.id === branchId && branch.is_active);
   }
 

@@ -1,69 +1,47 @@
 # START_HERE_BACKEND
 
-This backend is no longer a generic starter. It is the active backend for the PharmaQuick System 4 application.
+This backend is the active service-oriented backend for the PharmaQuick System 4 application.
 
 ## Current Role
 
-- Serves the `nexOOS` frontend
-- Owns the app routes under `/api`
+- Serves the `nexOOS` frontend through `api-gateway`
+- Splits runtime config per service under `apps/<service>/.env`
 - Connects to two Supabase projects
-- Uses template-provided health, security, and APICenter support
+- Keeps the template-provided health, security, and APICenter support where still useful
 
 ## Current Structure
 
 ```text
+apps/
+  api-gateway/
+  auth-service/
+  cart-service/
+  catalog-service/
+  delivery-service/
+  order-service/
+  promo-service/
+  analytics-service/
+
 src/
-  main.ts
-  app.module.ts
-  app.controller.ts
-  app.service.ts
+  apps/
   common/
-  api-center/
-  health/
-  supabase/
   controllers/
   services/
-  utils/
   shared/
-  apps/
+  supabase/
 ```
 
-### Main app routes
+## Environment Layout
 
-- `auth`
-- `branches`
-- `cart`
-- `products`
-- `promos`
-- `orders`
-- `delivery`
-- `locations`
-- `analytics`
-
-### Included app modules under `src/apps`
-
-These were migrated from the previous backend and retained for internal/service-oriented use:
-
-- `api-gateway`
-- `auth-service`
-- `catalog-service`
-- `cart-service`
-- `promo-service`
-- `order-service`
-- `delivery-service`
-- `analytics-service`
-
-### Microservice migration folder
-
-- New top-level service folders now live under `apps/`
-- `apps/api-gateway` is the first extracted service
-- The remaining services have placeholder folders and can be migrated one by one next
+- Each service reads only from its own `apps/<service>/.env`
+- The root `.env` is no longer used for local service startup
+- Shared values must be duplicated into each service that needs them
 
 ## Before Pushing
 
 Verify these files are correct for the target repo:
 
-1. `.env.example`
+1. `apps/*/.env.example`
 2. `package.json`
 3. `Dockerfile`
 4. `README.md`
@@ -72,12 +50,11 @@ Verify these files are correct for the target repo:
 
 ## Local Readiness Checklist
 
-1. Set `ALLOWED_ORIGINS=http://localhost:3000`
-2. Set `PORT=4000`
-3. Fill both primary and secondary Supabase values
-4. Add `JWT_SECRET`
-5. Add SMTP variables if auth email flows are needed
-6. Run lint, typecheck, build, and tests
+1. Set `apps/api-gateway/.env` with the gateway port and downstream service URLs
+2. Fill the Supabase values inside each service env that needs them
+3. Copy `JWT_SECRET` into each dependent service
+4. Add SMTP variables to `apps/auth-service/.env` if auth email flows are needed
+5. Run lint, typecheck, build, and tests
 
 ## Current Commands
 
@@ -92,7 +69,7 @@ npm run test -- --runInBand
 
 ## Deployment Notes
 
-- The Docker image now targets port `4000`
+- The Docker image now boots the API gateway on port `4000`
 - The health endpoint is `/api/health`
-- APICenter config is optional for local development but may affect health status
+- Downstream services still need to run separately
 - This folder should be the only backend pushed for the app

@@ -28,6 +28,21 @@ export class OrderServiceController {
     private readonly orderService: OrderServiceService,
   ) {}
 
+  @Get('my')
+  async getMyOrders(@Headers('authorization') authorization?: string) {
+    try {
+      const userId = this.authService.requireUserId(authorization);
+      const data = await this.orderService.listCustomerOrders(userId);
+      return { data };
+    } catch (error) {
+      if (error instanceof UnauthorizedException || error instanceof HttpException) {
+        throw error;
+      }
+      console.error('Get my orders error:', error);
+      throw new InternalServerErrorException();
+    }
+  }
+
   @Get('search')
   async search(
     @Query('orderNumber') orderNumber?: string,

@@ -19,7 +19,7 @@ import { PromosGatewayController } from './controllers/promos-gateway.controller
     ConfigModule.forRoot({
       isGlobal: true,
       cache: true,
-      envFilePath: ['apps/api-gateway/.env', '.env.local', '.env'],
+      envFilePath: ['apps/api-gateway/.env'],
     }),
   ],
   providers: [{ provide: APP_FILTER, useClass: GatewayExceptionFilter }],

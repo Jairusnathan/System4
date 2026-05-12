@@ -8,6 +8,7 @@ RUN npm ci
 
 # Copy only source files needed for build
 COPY tsconfig*.json nest-cli.json ./
+COPY apps/ ./apps/
 COPY src/ ./src/
 
 RUN npm run build
@@ -37,4 +38,4 @@ EXPOSE 4000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=15s --retries=3 \
   CMD node -e "require('http').get('http://127.0.0.1:4000/api/health', (res) => { if (res.statusCode < 200 || res.statusCode >= 400) process.exit(1); }).on('error', () => process.exit(1));"
 
-CMD ["node", "dist/main"]
+CMD ["node", "dist/apps/api-gateway/src/main.js"]

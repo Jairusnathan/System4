@@ -12,7 +12,7 @@ import { DeliveryHealthController } from './delivery-health.controller';
     ConfigModule.forRoot({
       isGlobal: true,
       cache: true,
-      envFilePath: ['apps/delivery-service/.env', '.env.local', '.env'],
+      envFilePath: ['apps/delivery-service/.env'],
     }),
   ],
   controllers: [

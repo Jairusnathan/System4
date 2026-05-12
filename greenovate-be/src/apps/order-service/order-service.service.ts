@@ -45,6 +45,72 @@ type PromoValidationResult =
 export class OrderServiceService {
   constructor(private readonly supabaseService: SupabaseService) {}
 
+  async listCustomerOrders(userId: string, limit = 50) {
+    const { data, error } = await this.supabaseService.supabaseAdmin
+      .from('online_orders')
+      .select(`
+        id,
+        receipt_number,
+        order_number,
+        tx_no,
+        created_at,
+        subtotal,
+        delivery_fee,
+        discount_amount,
+        total,
+        promo_code,
+        fulfillment_status,
+        shipping_address,
+        payment_method,
+        online_order_items (
+          product_id,
+          product_name,
+          category,
+          unit_price,
+          quantity,
+          line_total
+        )
+      `)
+      .eq('customer_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+
+    return (data ?? []).map((row) => ({
+      id: row.id,
+      receiptNumber: row.receipt_number ?? undefined,
+      orderNumber: row.order_number ?? undefined,
+      txNo: row.tx_no ?? undefined,
+      date: row.created_at,
+      items: (
+        (row.online_order_items ?? []) as Array<{
+          product_id: string;
+          product_name: string;
+          category: string | null;
+          unit_price: number | string;
+          quantity: number;
+        }>
+      ).map((item) => ({
+        id: item.product_id,
+        name: item.product_name,
+        description: '',
+        price: Number(item.unit_price ?? 0),
+        category: item.category ?? 'Uncategorized',
+        image: '',
+        quantity: Number(item.quantity ?? 0),
+      })),
+      subtotal: Number(row.subtotal ?? 0),
+      deliveryFee: Number(row.delivery_fee ?? 0),
+      discountAmount: Number(row.discount_amount ?? 0),
+      promoCode: row.promo_code ?? undefined,
+      total: Number(row.total ?? 0),
+      status: row.fulfillment_status,
+      shippingAddress: row.shipping_address,
+      paymentMethod: row.payment_method,
+    }));
+  }
+
   async search(orderNumber?: string, status?: string, limit = 20) {
     let query = this.supabaseService.supabase
       .from('orders')
@@ -122,6 +188,15 @@ export class OrderServiceService {
       : 50;
     const promoCode =
       typeof payload.promoCode === 'string' ? payload.promoCode.trim() : '';
+    const branchId = Number.isFinite(Number(payload.branchId))
+      ? Number(payload.branchId)
+      : null;
+    const deliveryMethod =
+      payload.deliveryMethod === 'claim_at_branch' ||
+      payload.deliveryMethod === 'same_day' ||
+      payload.deliveryMethod === 'scheduled'
+        ? (payload.deliveryMethod as string)
+        : null;
     const rawItems = Array.isArray(payload.items) ? payload.items : [];
 
     if (!shippingAddress)
@@ -195,19 +270,48 @@ export class OrderServiceService {
     await this.commitStock(normalizedItems);
 
     try {
+      const db = this.supabaseService.supabaseAdmin;
+
+      // Create receipt using issue_next_receipt_number RPC
       const { data: receiptRows, error: receiptError } =
-        await this.supabaseService.secondSupabaseAdmin.rpc(
-          'create_receipt',
-          {},
-        );
+        await db.rpc('issue_next_receipt_number', {});
 
       if (receiptError) {
         throw receiptError;
       }
 
-      const receipt = Array.isArray(receiptRows) ? receiptRows[0] : receiptRows;
-      const receiptId = Number(receipt?.receipt_id);
-      const receiptNumber = String(receipt?.receipt_number ?? '');
+      const raw = Array.isArray(receiptRows) ? receiptRows[0] : receiptRows;
+      let receiptId: number;
+      let receiptNumber: string;
+
+      if (raw && typeof raw === 'object') {
+        receiptId = Number((raw as Record<string, unknown>).receipt_id ?? (raw as Record<string, unknown>).id ?? 0);
+        receiptNumber = String(
+          (raw as Record<string, unknown>).receipt_number ??
+          (raw as Record<string, unknown>).number ??
+          (raw as Record<string, unknown>).receiptNumber ??
+          '',
+        );
+      } else {
+        receiptNumber = String(raw ?? '');
+        const { data: insertedReceipt, error: insertReceiptError } =
+          await db
+            .from('receipts')
+            .insert({ receipt_number: receiptNumber, issued_at: new Date().toISOString() })
+            .select('receipt_id')
+            .single();
+
+        if (insertReceiptError) {
+          const { data: lookupRow } = await db
+            .from('receipts')
+            .select('receipt_id')
+            .eq('receipt_number', receiptNumber)
+            .single();
+          receiptId = Number(lookupRow?.receipt_id ?? 0);
+        } else {
+          receiptId = Number(insertedReceipt?.receipt_id ?? 0);
+        }
+      }
 
       if (!receiptId || !receiptNumber) {
         return { error: 'Invalid receipt response from database', status: 500 };
@@ -221,7 +325,7 @@ export class OrderServiceService {
       );
 
       const { data: insertedTransaction, error: transactionError } =
-        await this.supabaseService.secondSupabaseAdmin
+        await db
           .from('transactions')
           .insert([
             {
@@ -251,7 +355,7 @@ export class OrderServiceService {
       }
 
       const { error: transactionItemsError } =
-        await this.supabaseService.secondSupabaseAdmin
+        await db
           .from('transaction_items')
           .insert(
             normalizedItems.map((item) => ({
@@ -268,6 +372,60 @@ export class OrderServiceService {
         throw transactionItemsError;
       }
 
+      const txNo = String(insertedTransaction.tx_no ?? receiptId);
+      const orderNumber = `TXN-${txNo}`;
+
+      // Insert into online_orders
+      const { data: insertedOnlineOrder, error: onlineOrderError } =
+        await db
+          .from('online_orders')
+          .insert({
+            customer_id: userId,
+            receipt_id: receiptId,
+            receipt_number: receiptNumber,
+            transaction_id: insertedTransaction.id,
+            order_number: orderNumber,
+            tx_no: txNo,
+            branch_id: branchId,
+            shipping_address: shippingAddress,
+            payment_method: paymentMethod,
+            payment_status: 'paid',
+            fulfillment_status: 'Processing',
+            delivery_method: deliveryMethod,
+            subtotal,
+            delivery_fee: Number(deliveryFee.toFixed(2)),
+            discount_amount: Number(discountAmount.toFixed(2)),
+            total: totalAmount,
+            promo_code: promoResult?.valid ? promoResult.promo.code : null,
+            metadata: { source: 'web-checkout' },
+          })
+          .select('id')
+          .single();
+
+      if (onlineOrderError || !insertedOnlineOrder) {
+        throw onlineOrderError;
+      }
+
+      // Insert into online_order_items
+      const { error: onlineOrderItemsError } =
+        await db
+          .from('online_order_items')
+          .insert(
+            normalizedItems.map((item) => ({
+              online_order_id: insertedOnlineOrder.id,
+              product_id: item.id,
+              product_name: item.name,
+              category: item.category,
+              unit_price: item.price,
+              quantity: item.quantity,
+              line_total: Number((item.price * item.quantity).toFixed(2)),
+            })),
+          );
+
+      if (onlineOrderItemsError) {
+        throw onlineOrderItemsError;
+      }
+
       if (promoResult?.valid) {
         try {
           await this.redeemPromoCode(promoResult.promo.id);
@@ -282,8 +440,6 @@ export class OrderServiceService {
         console.error('Cart clear warning:', error);
       }
 
-      const txNo = String(insertedTransaction.tx_no ?? receiptId);
-
       // Publish order.placed event (fire-and-forget — never block the checkout response)
       this.supabaseService.supabase
         .from('order_events')
@@ -294,7 +450,7 @@ export class OrderServiceService {
           user_id: userId,
           payload: {
             receiptNumber,
-            orderNumber: `TXN-${txNo}`,
+            orderNumber,
             total: totalAmount,
             items: normalizedItems.length,
             paymentMethod,
@@ -307,7 +463,7 @@ export class OrderServiceService {
       return {
         order: {
           id: receiptNumber || insertedTransaction.id,
-          orderNumber: `TXN-${txNo}`,
+          orderNumber,
           txNo,
           date: insertedTransaction.created_at,
           items: normalizedItems,

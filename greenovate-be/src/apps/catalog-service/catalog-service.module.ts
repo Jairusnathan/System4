@@ -13,7 +13,7 @@ import { CatalogInternalController } from './controllers/catalog-internal.contro
     ConfigModule.forRoot({
       isGlobal: true,
       cache: true,
-      envFilePath: ['apps/catalog-service/.env', '.env.local', '.env'],
+      envFilePath: ['apps/catalog-service/.env'],
     }),
   ],
   controllers: [

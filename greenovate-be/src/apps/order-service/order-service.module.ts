@@ -11,7 +11,7 @@ import { OrderServiceService } from './order-service.service';
     ConfigModule.forRoot({
       isGlobal: true,
       cache: true,
-      envFilePath: ['apps/order-service/.env', '.env.local', '.env'],
+      envFilePath: ['apps/order-service/.env'],
     }),
   ],
   controllers: [OrderServiceController, OrderHealthController],

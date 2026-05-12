@@ -36,6 +36,8 @@ export interface Branch {
   name: string;
   address: string;
   phone: string;
+  latitude?: number;
+  longitude?: number;
   opening_time: string;
   closing_time: string;
   is_active: boolean;

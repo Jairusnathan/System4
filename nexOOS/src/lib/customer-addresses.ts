@@ -8,8 +8,14 @@ export type SavedAddress = {
   phoneNumber: string;
   province: string;
   city: string;
+  barangay?: string;
   postalCode: string;
   streetAddress: string;
+  formattedAddress?: string;
+  placeId?: string;
+  latitude?: number;
+  longitude?: number;
+  isVerified?: boolean;
   label: 'Home' | 'Work';
 };
 
@@ -21,8 +27,14 @@ export function createEmptySavedAddress(
     phoneNumber: user?.phone || '',
     province: '',
     city: '',
+    barangay: '',
     postalCode: '',
     streetAddress: '',
+    formattedAddress: '',
+    placeId: '',
+    latitude: undefined,
+    longitude: undefined,
+    isVerified: false,
     label: 'Home',
   };
 }
@@ -48,8 +60,18 @@ export function parseSerializedAddresses(
             phoneNumber: entry?.phoneNumber || user?.phone || '',
             province: entry?.province || entry?.region || legacyProvince,
             city: entry?.city || legacyCity,
+            barangay: entry?.barangay || '',
             postalCode: entry?.postalCode || '',
             streetAddress: entry?.streetAddress || '',
+            formattedAddress: entry?.formattedAddress || '',
+            placeId: entry?.placeId || '',
+            latitude:
+              typeof entry?.latitude === 'number' ? entry.latitude : undefined,
+            longitude:
+              typeof entry?.longitude === 'number'
+                ? entry.longitude
+                : undefined,
+            isVerified: entry?.isVerified === true,
             label: entry?.label === 'Work' ? 'Work' : 'Home',
           };
         });
@@ -72,7 +94,16 @@ export function stringifyAddresses(addresses: SavedAddress[]) {
 }
 
 export function formatSavedAddress(address: SavedAddress) {
-  return [address.streetAddress, address.city, address.province]
+  if (address.formattedAddress) {
+    return address.formattedAddress;
+  }
+
+  return [
+    address.streetAddress,
+    address.barangay,
+    address.city,
+    address.province,
+  ]
     .filter(Boolean)
     .join(', ');
 }
@@ -84,8 +115,14 @@ export function getSavedAddressKey(address: SavedAddress) {
     address.phoneNumber,
     address.province,
     address.city,
+    address.barangay || '',
     address.postalCode,
     address.streetAddress,
+    address.formattedAddress || '',
+    address.placeId || '',
+    String(address.latitude ?? ''),
+    String(address.longitude ?? ''),
+    String(address.isVerified ?? false),
   ].join('|');
 }
 

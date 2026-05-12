@@ -2,7 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronLeft, MapPin, CreditCard, CheckCircle2, ShoppingBag, Truck, ShieldCheck, ArrowRight, X, Wallet, Banknote } from 'lucide-react';
+import { ChevronDown, ChevronLeft, MapPin, CreditCard, CheckCircle2, ShoppingBag, Truck, ShieldCheck, ArrowRight, X, Wallet, Banknote } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Order } from '../types';
 import { fetchWithAuth } from '@/lib/auth-client';
@@ -24,9 +24,16 @@ const formatDeliveryAddress = (info: {
   address: string;
   city: string;
   province?: string;
+  barangay?: string;
   postalCode?: string;
+  formattedAddress?: string;
 }) =>
-  [info.address, info.city, info.province, info.postalCode].filter(Boolean).join(', ');
+  info.formattedAddress ||
+  [info.address, info.barangay, info.city, info.province, info.postalCode]
+    .filter(Boolean)
+    .join(', ');
+
+type DeliveryMethod = 'claim_at_branch' | 'same_day' | 'scheduled';
 
 type DeliveryEstimate = {
   fee: number;
@@ -34,6 +41,9 @@ type DeliveryEstimate = {
   etaMaxMinutes: number;
   etaLabel: string;
   matchedLocation: string;
+  deliveryMethod?: DeliveryMethod;
+  branchName?: string;
+  distanceKm?: number;
 };
 
 type AppliedPromo = {
@@ -151,6 +161,27 @@ const isPaymentStepIncomplete = ({
 
 const getDiscountTextClass = (discountAmount: number) => (discountAmount > 0 ? 'text-blue-600' : '');
 
+const getDeliveryMethodCopy = (method: DeliveryMethod) => {
+  if (method === 'claim_at_branch') {
+    return {
+      title: 'Claim at branch',
+      description: 'Pick up your order from the branch you selected.',
+    };
+  }
+
+  if (method === 'same_day') {
+    return {
+      title: 'Same day delivery',
+      description: 'Available for Metro Manila cities and priced from your selected branch to the selected city.',
+    };
+  }
+
+  return {
+    title: 'Scheduled delivery',
+    description: 'Best for addresses outside Metro Manila.',
+  };
+};
+
 export default function Checkout() {
   const { 
     cart, setCart,
@@ -170,8 +201,14 @@ export default function Checkout() {
     address: '',
     city: 'Manila',
     province: '',
+    barangay: '',
     postalCode: '',
+    formattedAddress: '',
+    placeId: '',
+    latitude: undefined as number | undefined,
+    longitude: undefined as number | undefined,
   });
+  const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>('same_day');
   const [shippingError, setShippingError] = useState('');
   const [deliveryEstimate, setDeliveryEstimate] = useState<DeliveryEstimate | null>(null);
   const [deliveryEstimateStatus, setDeliveryEstimateStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
@@ -242,7 +279,12 @@ export default function Checkout() {
       address: address.streetAddress || '',
       city: address.city || 'Manila',
       province: address.province || '',
+      barangay: address.barangay || '',
       postalCode: address.postalCode || '',
+      formattedAddress: address.formattedAddress || formatSavedAddress(address),
+      placeId: address.placeId || '',
+      latitude: address.latitude,
+      longitude: address.longitude,
     });
     setShippingError('');
   }, [user?.full_name, user?.phone]);
@@ -300,7 +342,12 @@ export default function Checkout() {
       address: '',
       city: 'Manila',
       province: '',
+      barangay: '',
       postalCode: '',
+      formattedAddress: '',
+      placeId: '',
+      latitude: undefined,
+      longitude: undefined,
     });
     setShippingError('');
   };
@@ -335,7 +382,7 @@ export default function Checkout() {
     const city = shippingInfo.city.trim();
     const province = shippingInfo.province.trim();
 
-    if (!address || !city || !province) {
+    if (deliveryMethod !== 'claim_at_branch' && (!address || !city || !province)) {
       setDeliveryEstimate(null);
       setDeliveryEstimateStatus('idle');
       setDeliveryEstimateError('');
@@ -358,6 +405,12 @@ export default function Checkout() {
             address,
             city,
             province,
+            barangay: shippingInfo.barangay,
+            latitude: shippingInfo.latitude,
+            longitude: shippingInfo.longitude,
+            placeId: shippingInfo.placeId,
+            branchId: selectedBranch?.id,
+            deliveryMethod,
           }),
         });
 
@@ -392,7 +445,17 @@ export default function Checkout() {
       cancelled = true;
       globalThis.clearTimeout(timeoutId);
     };
-  }, [shippingInfo.address, shippingInfo.city, shippingInfo.province]);
+  }, [
+    deliveryMethod,
+    selectedBranch?.id,
+    shippingInfo.address,
+    shippingInfo.barangay,
+    shippingInfo.city,
+    shippingInfo.latitude,
+    shippingInfo.longitude,
+    shippingInfo.placeId,
+    shippingInfo.province,
+  ]);
 
   React.useEffect(() => {
     const trimmedCode = promoCodeInput.trim();
@@ -461,8 +524,9 @@ export default function Checkout() {
     setIsPlacingOrder(true);
     try {
       const paymentMethodLabel = getPaymentMethodLabel(paymentMethod);
-
-      const shippingAddress = formatDeliveryAddress(shippingInfo);
+      const shippingAddress = deliveryMethod === 'claim_at_branch' && selectedBranch
+        ? `Pickup at ${selectedBranch.name}, ${selectedBranch.address}`
+        : formatDeliveryAddress(shippingInfo);
 
       const res = await fetchWithAuth('/api/orders/place', {
         method: 'POST',
@@ -473,6 +537,8 @@ export default function Checkout() {
         body: JSON.stringify({
           shippingAddress,
           deliveryFee,
+          deliveryMethod,
+          branchId: selectedBranch?.id,
           promoCode: appliedPromo?.code || '',
           paymentMethod: paymentMethodLabel,
           items: cart.map((item) => ({
@@ -583,11 +649,57 @@ export default function Checkout() {
                     <h2 className="text-2xl font-black text-slate-900 tracking-tight">Shipping Information</h2>
                   </div>
                   
+                  <div className="mb-8 rounded-[2.25rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50 sm:p-6">
+                    <p className="text-sm font-black uppercase tracking-[0.22em] text-slate-400">Delivery Method</p>
+                    <div className="mt-5 grid gap-3 md:grid-cols-3">
+                      {([
+                        'claim_at_branch',
+                        'same_day',
+                        'scheduled',
+                      ] as const).map((method) => {
+                        const copy = getDeliveryMethodCopy(method);
+                        const isSelected = deliveryMethod === method;
+
+                        return (
+                          <button
+                            key={method}
+                            type="button"
+                            onClick={() => {
+                              setDeliveryMethod(method);
+                              setShippingError('');
+                            }}
+                            className={`rounded-[1.75rem] border p-4 text-left transition-all ${
+                              isSelected
+                                ? 'border-blue-500 bg-blue-50 shadow-lg shadow-blue-100'
+                                : 'border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-white'
+                            }`}
+                          >
+                            <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">
+                              {method.replaceAll('_', ' ')}
+                            </p>
+                            <p className="mt-3 text-lg font-black text-slate-900">{copy.title}</p>
+                            <p className="mt-2 text-sm leading-6 text-slate-500">{copy.description}</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {selectedBranch && (
+                      <p className="mt-4 text-sm font-medium text-slate-500">
+                        Fulfillment branch: <span className="font-black text-slate-900">{selectedBranch.name}</span>
+                      </p>
+                    )}
+                  </div>
+
                   <div className="mb-8 rounded-[2.25rem] border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-5 shadow-sm shadow-slate-200/60 sm:p-6">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div>
                         <p className="text-sm font-black uppercase tracking-[0.22em] text-slate-400">Saved Addresses</p>
-                        <p className="mt-1 text-sm text-slate-500">{savedAddressPrompt}</p>
+                        <p className="mt-1 text-sm text-slate-500">
+                          {deliveryMethod === 'claim_at_branch'
+                            ? 'Pickup is free. You can still save an address for contact details and future deliveries.'
+                            : savedAddressPrompt}
+                        </p>
                       </div>
                       <button
                         type="button"
@@ -640,13 +752,22 @@ export default function Checkout() {
                     <p className="mt-4 text-sm font-bold text-red-600">{shippingError}</p>
                   )}
                   {deliveryEstimateStatus === 'loading' && (
-                    <p className="mt-4 text-sm font-bold text-slate-500">Checking delivery fee for this address...</p>
+                    <p className="mt-4 text-sm font-bold text-slate-500">
+                      {deliveryMethod === 'claim_at_branch'
+                        ? 'Preparing free pickup details...'
+                        : 'Checking delivery fee for this address...'}
+                    </p>
                   )}
                   {deliveryEstimateStatus === 'ready' && deliveryEstimate && (
                     <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
                       <p className="font-black">Delivery fee: ₱{deliveryEstimate.fee.toFixed(2)}</p>
                       <p className="mt-1 font-medium">ETA: {deliveryEstimate.etaLabel}</p>
                       <p className="mt-1 text-xs font-bold uppercase tracking-wider text-blue-600">Matched area: {deliveryEstimate.matchedLocation}</p>
+                      {typeof deliveryEstimate.distanceKm === 'number' && (
+                        <p className="mt-1 text-xs font-bold uppercase tracking-wider text-blue-600">
+                          Branch distance: {deliveryEstimate.distanceKm.toFixed(2)} km
+                        </p>
+                      )}
                     </div>
                   )}
                   {deliveryEstimateStatus === 'error' && deliveryEstimateError && (
@@ -677,7 +798,7 @@ export default function Checkout() {
                       setShippingError('');
                       setCheckoutStep(2);
                     }}
-                    disabled={selectedSavedAddressIndex === null || !deliveryEstimate || isBelowMinOrder}
+                    disabled={selectedSavedAddressIndex === null || !deliveryEstimate || isBelowMinOrder || !selectedBranch}
                     className="w-full mt-10 py-4 bg-blue-600 text-white rounded-2xl font-black text-lg hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group"
                   >
                     Continue to Payment
@@ -854,7 +975,7 @@ export default function Checkout() {
                                         placeholder="Select province"
                                         className="w-full bg-transparent text-base font-semibold text-slate-800 outline-none placeholder:font-medium placeholder:text-slate-300 sm:text-lg"
                                       />
-                                      <span className={getPickerChevronClass(isProvincePickerOpen)}>▾</span>
+                                      <ChevronDown className={`${getPickerChevronClass(isProvincePickerOpen)} h-5 w-5 shrink-0`} />
                                     </button>
                                   </div>
 
@@ -872,8 +993,14 @@ export default function Checkout() {
                                               ...prev,
                                               province,
                                               city: prev.province === province ? prev.city : '',
+                                              barangay: '',
+                                              formattedAddress: '',
+                                              placeId: '',
+                                              latitude: undefined,
+                                              longitude: undefined,
                                             }));
                                             setIsProvincePickerOpen(false);
+                                            setCheckoutAddressError('');
                                           }}
                                           className={`block w-full rounded-xl px-3 py-2 text-left font-medium transition-colors ${checkoutAddressForm.province === province ? 'bg-blue-50 text-blue-600' : 'hover:bg-slate-50'}`}
                                         >
@@ -903,7 +1030,7 @@ export default function Checkout() {
                                         placeholder="Select city"
                                         className="w-full bg-transparent text-base font-semibold text-slate-800 outline-none placeholder:font-medium placeholder:text-slate-300 sm:text-lg"
                                       />
-                                      <span className={getPickerChevronClass(isCityPickerOpen)}>▾</span>
+                                      <ChevronDown className={`${getPickerChevronClass(isCityPickerOpen)} h-5 w-5 shrink-0`} />
                                     </button>
                                   </div>
 
@@ -923,8 +1050,17 @@ export default function Checkout() {
                                           key={city}
                                           type="button"
                                           onClick={() => {
-                                            setCheckoutAddressForm((prev) => ({ ...prev, city }));
+                                            setCheckoutAddressForm((prev) => ({
+                                              ...prev,
+                                              city,
+                                              barangay: '',
+                                              formattedAddress: '',
+                                              placeId: '',
+                                              latitude: undefined,
+                                              longitude: undefined,
+                                            }));
                                             setIsCityPickerOpen(false);
+                                            setCheckoutAddressError('');
                                           }}
                                           className={`block w-full rounded-xl px-3 py-2 text-left font-medium transition-colors ${checkoutAddressForm.city === city ? 'bg-blue-50 text-blue-600' : 'hover:bg-slate-50'}`}
                                         >
@@ -953,9 +1089,21 @@ export default function Checkout() {
                                   id="checkout-address-street"
                                   rows={4}
                                   value={checkoutAddressForm.streetAddress}
-                                  onChange={(e) => setCheckoutAddressForm((prev) => ({ ...prev, streetAddress: e.target.value }))}
+                                  onChange={(e) =>
+                                    setCheckoutAddressForm((prev) => ({
+                                      ...prev,
+                                      streetAddress: e.target.value,
+                                      formattedAddress: '',
+                                      placeId: '',
+                                      latitude: undefined,
+                                      longitude: undefined,
+                                    }))
+                                  }
                                   className="w-full resize-none bg-transparent text-base font-semibold text-slate-800 outline-none sm:text-lg"
                                 />
+                                <p className="mt-3 text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
+                                  Street details are used as delivery notes. Same day pricing is based on your selected city and branch.
+                                </p>
                               </div>
 
                               <label htmlFor="checkout-address-default" className="mb-6 flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-slate-700 transition-colors hover:border-slate-300 hover:bg-white">
@@ -1296,10 +1444,16 @@ export default function Checkout() {
                   <div className="space-y-8">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
-                        <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Shipping To</h3>
+                        <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4">
+                          {deliveryMethod === 'claim_at_branch' ? 'Pickup Contact' : 'Shipping To'}
+                        </h3>
                         <p className="font-black text-slate-900 mb-1">{shippingInfo.fullName}</p>
                         <p className="text-sm text-slate-600 mb-1">{shippingInfo.phone}</p>
-                        <p className="text-sm text-slate-600 leading-relaxed">{formatDeliveryAddress(shippingInfo) || 'Address will be confirmed during checkout.'}</p>
+                        <p className="text-sm text-slate-600 leading-relaxed">
+                          {deliveryMethod === 'claim_at_branch' && selectedBranch
+                            ? `${selectedBranch.name}, ${selectedBranch.address}`
+                            : formatDeliveryAddress(shippingInfo) || 'Address will be confirmed during checkout.'}
+                        </p>
                       </div>
                       <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
                         <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Payment Method</h3>
@@ -1311,12 +1465,20 @@ export default function Checkout() {
                         </div>
                       </div>
                     </div>
+                    <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
+                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Delivery Method</h3>
+                      <p className="font-black text-slate-900">{getDeliveryMethodCopy(deliveryMethod).title}</p>
+                      <p className="mt-2 text-sm text-slate-600">{getDeliveryMethodCopy(deliveryMethod).description}</p>
+                    </div>
                     {deliveryEstimate && (
                       <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
                         <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Delivery Estimate</h3>
                         <p className="font-black text-slate-900 mb-1">₱{deliveryEstimate.fee.toFixed(2)}</p>
                         <p className="text-sm text-slate-600 mb-1">ETA: {deliveryEstimate.etaLabel}</p>
                         <p className="text-sm text-slate-600">{deliveryEstimate.matchedLocation}</p>
+                        {typeof deliveryEstimate.distanceKm === 'number' && (
+                          <p className="text-sm text-slate-600 mt-1">Branch distance: {deliveryEstimate.distanceKm.toFixed(2)} km</p>
+                        )}
                       </div>
                     )}
                     <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
@@ -1446,7 +1608,11 @@ export default function Checkout() {
                 {selectedBranch && (
                   <div className="flex items-center gap-3 text-xs text-slate-500 bg-blue-50 p-4 rounded-2xl">
                     <Truck className="w-5 h-5 text-blue-600 shrink-0" />
-                    <p className="font-medium leading-relaxed">Delivering from <span className="font-black text-blue-700">{selectedBranch.name}</span>. Estimated time: <span className="font-black text-blue-700">{deliveryEstimate?.etaLabel || 'Waiting for address'}</span>.</p>
+                    <p className="font-medium leading-relaxed">
+                      {deliveryMethod === 'claim_at_branch'
+                        ? <>Pickup branch: <span className="font-black text-blue-700">{selectedBranch.name}</span>. <span className="font-black text-blue-700">{deliveryEstimate?.etaLabel || 'Preparing pickup details'}</span>.</>
+                        : <>Delivering from <span className="font-black text-blue-700">{selectedBranch.name}</span>. Estimated time: <span className="font-black text-blue-700">{deliveryEstimate?.etaLabel || 'Waiting for address'}</span>.</>}
+                    </p>
                   </div>
                 )}
               </div>

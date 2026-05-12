@@ -48,6 +48,7 @@ chmod +x .githooks/pre-commit
 Open your Supabase SQL editor and run:
 
 ```
+greenovate-be/supabase/branches-migration.sql         → main Supabase
 greenovate-be/supabase/refresh-tokens-migration.sql   → main Supabase
 greenovate-be/supabase/order-events-migration.sql     → main Supabase
 ```

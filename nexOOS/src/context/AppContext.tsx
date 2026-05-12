@@ -124,9 +124,14 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     try {
       const res = await fetch(buildApiUrl('/api/branches'));
       const data = await res.json();
-      setBranches(data);
+      setBranches(Array.isArray(data) ? data : []);
+
+      if (!Array.isArray(data)) {
+        console.error('Branches API returned a non-array payload:', data);
+      }
     } catch (error) {
       console.error('Error fetching branches:', error);
+      setBranches([]);
     }
   }, []);
 
@@ -134,9 +139,14 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     try {
       const res = await fetch(buildApiUrl(`/api/branches/${branchId}/inventory`));
       const data = await res.json();
-      setBranchInventory(data);
+      setBranchInventory(Array.isArray(data) ? data : []);
+
+      if (!Array.isArray(data)) {
+        console.error('Branch inventory API returned a non-array payload:', data);
+      }
     } catch (error) {
       console.error('Error fetching inventory:', error);
+      setBranchInventory([]);
     }
   }, []);
 

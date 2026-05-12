@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ChevronLeft, Package, Truck, CheckCircle2, X } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { fetchWithAuth } from '@/lib/auth-client';
+import type { Order } from '../types';
 
 const getDisplayOrderNumber = (order: { receiptNumber?: string; orderNumber?: string; id: string }) =>
   order.receiptNumber || order.orderNumber || order.id;
@@ -54,7 +55,7 @@ export default function OrderStatus() {
     let timeoutId: ReturnType<typeof setTimeout>;
     const { id, receiptNumber, status } = selectedOrder;
 
-    const applyStatusUpdate = (newStatus: string) => {
+    const applyStatusUpdate = (newStatus: Order['status']) => {
       setOrders((prev) => prev.map((o) => o.id === id ? { ...o, status: newStatus } : o));
       setSelectedOrder({ ...selectedOrder, status: newStatus });
     };
@@ -64,7 +65,10 @@ export default function OrderStatus() {
         const res = await fetch(`/api/orders/track?receiptNumber=${encodeURIComponent(receiptNumber!)}`);
         if (res.ok) {
           const data = await res.json();
-          if (data.status && data.status !== status) applyStatusUpdate(data.status);
+          if (typeof data.status === 'string' && data.status !== status) {
+            const nextStatus = data.status as Order['status'];
+            applyStatusUpdate(nextStatus);
+          }
           delayRef.current = 30_000;
         }
       } catch {

@@ -8,7 +8,13 @@ import { SupabaseService } from '../../services/supabase.service';
 import { DeliveryHealthController } from './delivery-health.controller';
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true })],
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      cache: true,
+      envFilePath: ['apps/delivery-service/.env', '.env.local', '.env'],
+    }),
+  ],
   controllers: [
     DeliveryController,
     LocationsController,

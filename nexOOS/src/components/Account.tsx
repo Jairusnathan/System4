@@ -2,7 +2,7 @@
 
 import React, { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { User, Package, MapPin, LogOut, ChevronRight, Clock, CheckCircle2, X, Settings, Lock, Camera, ArrowLeft, Trash2 } from 'lucide-react';
+import { User, Package, MapPin, LogOut, ChevronRight, ChevronDown, Clock, CheckCircle2, X, Settings, Lock, Camera, ArrowLeft, Trash2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import {
   ensureAccessToken,
@@ -406,7 +406,7 @@ function AddressBookSection({
                           placeholder="Select province"
                           className="w-full bg-transparent text-base font-semibold text-slate-800 outline-none placeholder:font-medium placeholder:text-slate-300 sm:text-lg"
                         />
-                        <span className={`text-slate-400 text-xl transition-transform ${isProvincePickerOpen ? 'rotate-180' : ''}`}>â–¾</span>
+                        <ChevronDown className={`h-5 w-5 shrink-0 text-slate-400 transition-transform ${isProvincePickerOpen ? 'rotate-180' : ''}`} />
                       </button>
                     </div>
 
@@ -441,7 +441,7 @@ function AddressBookSection({
                           placeholder="Select city"
                           className="w-full bg-transparent text-base font-semibold text-slate-800 outline-none placeholder:font-medium placeholder:text-slate-300 sm:text-lg"
                         />
-                        <span className={`text-slate-400 text-xl transition-transform ${isCityPickerOpen ? 'rotate-180' : ''}`}>â–¾</span>
+                        <ChevronDown className={`h-5 w-5 shrink-0 text-slate-400 transition-transform ${isCityPickerOpen ? 'rotate-180' : ''}`} />
                       </button>
                     </div>
 

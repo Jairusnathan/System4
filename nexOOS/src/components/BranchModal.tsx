@@ -29,6 +29,7 @@ export default function BranchModal() {
   } = useAppContext();
 
   const [pendingBranch, setPendingBranch] = useState<Branch | null>(null);
+  const safeBranches = Array.isArray(branches) ? branches : [];
 
   useBodyScrollLock(isBranchModalOpen);
 
@@ -64,7 +65,7 @@ export default function BranchModal() {
             
             <div className="p-6 overflow-y-auto">
               <div className="grid gap-4">
-                {branches.map(branch => {
+                {safeBranches.map(branch => {
                   const isOpen = isBranchOpen(branch);
                   const isSelected = selectedBranch?.id === branch.id;
                   

@@ -101,3 +101,53 @@ export async function fetchWithAuth(
 
   return response;
 }
+
+const sleep = (ms: number) =>
+  new Promise<void>((resolve) => {
+    globalThis.setTimeout(resolve, ms);
+  });
+
+const isRetryableStatus = (status: number) =>
+  [408, 425, 429, 500, 502, 503, 504].includes(status);
+
+export async function fetchWithAuthRetry(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+  options?: {
+    attempts?: number;
+    initialDelayMs?: number;
+  },
+) {
+  const attempts = Math.max(1, options?.attempts ?? 4);
+  const initialDelayMs = Math.max(0, options?.initialDelayMs ?? 500);
+
+  let lastResponse: Response | null = null;
+  let lastError: unknown = null;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const response = await fetchWithAuth(input, init);
+      lastResponse = response;
+
+      if (!isRetryableStatus(response.status) || attempt === attempts) {
+        return response;
+      }
+    } catch (error) {
+      lastError = error;
+
+      if (attempt === attempts) {
+        throw error;
+      }
+    }
+
+    await sleep(initialDelayMs * attempt);
+  }
+
+  if (lastResponse) {
+    return lastResponse;
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error('Authenticated request failed.');
+}

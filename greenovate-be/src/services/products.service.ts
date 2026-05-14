@@ -23,6 +23,11 @@ type SecondDatabaseProductRow = {
   low_stock_threshold?: number | string | null;
 };
 
+type ProductSalesRow = {
+  product_id: number | string | null;
+  quantity: number | string | null;
+};
+
 const PRODUCT_CACHE_TTL_MS = Number(process.env.PRODUCT_CACHE_TTL_MS || 30_000);
 
 @Injectable()
@@ -172,12 +177,58 @@ export class ProductsService {
       return [];
     }
 
-    return (data ?? []).map((row) =>
-      this.mapSecondDatabaseProduct(row as SecondDatabaseProductRow),
+    const productRows = (data ?? []) as SecondDatabaseProductRow[];
+    const soldByProductId = await this.loadSoldCounts(
+      productRows.map((row) => String(row.id)),
+    );
+
+    return productRows.map((row) =>
+      this.mapSecondDatabaseProduct(
+        row,
+        soldByProductId.get(String(row.id)) ?? 0,
+      ),
     );
   }
 
-  private mapSecondDatabaseProduct(row: SecondDatabaseProductRow): Product {
+  private async loadSoldCounts(productIds: string[]) {
+    const uniqueIds = [...new Set(productIds.filter(Boolean))];
+
+    if (uniqueIds.length === 0) {
+      return new Map<string, number>();
+    }
+
+    const { data, error } = await this.supabaseService.supabaseAdmin
+      .from('online_order_items')
+      .select('product_id, quantity')
+      .in('product_id', uniqueIds);
+
+    if (error) {
+      console.error('Product sold-count fetch failed:', error);
+      return new Map<string, number>();
+    }
+
+    const soldByProductId = new Map<string, number>();
+
+    for (const row of (data ?? []) as ProductSalesRow[]) {
+      const productId = String(row.product_id ?? '').trim();
+
+      if (!productId) {
+        continue;
+      }
+
+      soldByProductId.set(
+        productId,
+        (soldByProductId.get(productId) ?? 0) + this.toNumber(row.quantity),
+      );
+    }
+
+    return soldByProductId;
+  }
+
+  private mapSecondDatabaseProduct(
+    row: SecondDatabaseProductRow,
+    sold = 0,
+  ): Product {
     const id = String(row.id);
     const category = row.category?.trim() || 'Uncategorized';
 
@@ -194,6 +245,7 @@ export class ProductsService {
         Stock: String(this.toNumber(row.stock)),
       },
       stock: this.toNumber(row.stock),
+      sold: Math.max(0, Math.trunc(sold)),
     };
   }
 

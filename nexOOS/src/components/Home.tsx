@@ -4,7 +4,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { ArrowRight, ShoppingBag, X, MapPin } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
-import { buildApiUrl } from '@/lib/api';
+import { fetchJsonWithRetry } from '@/lib/api';
 import { Product } from '../types';
 
 const partnerBrands = [
@@ -13,6 +13,34 @@ const partnerBrands = [
 ];
 
 const getPartnerBrandKey = (brand: string, list: 'primary' | 'duplicate') => `${list}-${brand}`;
+
+const normalizeProducts = (products: Product[]) => {
+  const seen = new Set<string>();
+
+  return products.filter((product) => {
+    const signature = [
+      product.id?.trim() || 'missing-id',
+      product.name?.trim() || 'missing-name',
+      product.category?.trim() || 'missing-category',
+      String(product.price ?? ''),
+    ].join('|');
+
+    if (seen.has(signature)) {
+      return false;
+    }
+
+    seen.add(signature);
+    return true;
+  });
+};
+
+const getProductRenderKey = (product: Product, idx: number) =>
+  [
+    product.id?.trim() || 'missing-id',
+    product.name?.trim() || 'missing-name',
+    product.category?.trim() || 'missing-category',
+    idx,
+  ].join('|');
 
 export default function Home() {
   const {
@@ -45,16 +73,12 @@ export default function Home() {
           params.set('branchId', String(selectedBranch.id));
         }
 
-        const response = await fetch(buildApiUrl(`/api/products?${params.toString()}`), {
-          signal: controller.signal,
-        });
-        const payload = await response.json();
+        const payload = await fetchJsonWithRetry<{ data?: Product[] }>(
+          `/api/products?${params.toString()}`,
+          { signal: controller.signal },
+        );
 
-        if (!response.ok) {
-          throw new Error(payload.error || 'Failed to load featured products.');
-        }
-
-        setFeaturedProducts((payload.data ?? []).slice(0, 4));
+        setFeaturedProducts(normalizeProducts(payload.data ?? []).slice(0, 4));
       } catch (error) {
         if ((error as Error).name === 'AbortError') {
           return;
@@ -167,7 +191,7 @@ export default function Home() {
 
               return (
                 <motion.div
-                  key={product.id}
+                  key={getProductRenderKey(product, idx)}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.1 }}

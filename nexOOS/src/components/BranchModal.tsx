@@ -36,7 +36,7 @@ export default function BranchModal() {
   return (
     <AnimatePresence>
       {isBranchModalOpen && (
-        <>
+        <React.Fragment key="branch-selector-modal">
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -120,13 +120,13 @@ export default function BranchModal() {
               </div>
             </div>
           </motion.div>
-        </>
+        </React.Fragment>
       )}
 
       {/* Cart-clear confirmation when switching branches */}
       <AnimatePresence>
         {pendingBranch && (
-          <>
+          <React.Fragment key={`branch-confirm-${pendingBranch.id}`}>
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -168,7 +168,7 @@ export default function BranchModal() {
                 </div>
               </div>
             </motion.div>
-          </>
+          </React.Fragment>
         )}
       </AnimatePresence>
     </AnimatePresence>

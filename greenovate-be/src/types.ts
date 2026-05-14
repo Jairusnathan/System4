@@ -8,6 +8,7 @@ export interface Product {
   images?: string[];
   specifications?: Record<string, string>;
   stock?: number;
+  sold?: number;
 }
 
 export interface SavedAddress {

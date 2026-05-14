@@ -6,10 +6,10 @@ import { Product, Branch, BranchInventory, Order, CartItem, User } from '../type
 import {
   clearAccessToken,
   fetchWithAuth,
+  fetchWithAuthRetry,
   getAccessToken,
-  refreshAccessToken,
 } from '@/lib/auth-client';
-import { buildApiUrl } from '@/lib/api';
+import { buildApiUrl, fetchJsonWithRetry } from '@/lib/api';
 
 type AccountSubView = 'profile' | 'addresses' | 'orders' | 'settings';
 
@@ -51,6 +51,16 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 const CART_STORAGE_KEY = 'cart';
+const INACTIVITY_WARNING_MS = 13 * 60 * 1000;
+const INACTIVITY_LOGOUT_MS = 15 * 60 * 1000;
+const INACTIVITY_EVENTS: Array<keyof WindowEventMap> = [
+  'mousedown',
+  'mousemove',
+  'keydown',
+  'scroll',
+  'touchstart',
+  'click',
+];
 
 const areCartItemsEqual = (left: CartItem[], right: CartItem[]) => {
   if (left.length !== right.length) {
@@ -190,7 +200,8 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSessionExpiryModalOpen, setIsSessionExpiryModalOpen] = useState(false);
-  const sessionExpiryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inactivityWarningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inactivityLogoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isCartHydrated, setIsCartHydrated] = useState(false);
   const [isCartSyncReady, setIsCartSyncReady] = useState(false);
   const syncedCartUserIdRef = useRef<string | null>(null);
@@ -199,9 +210,12 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
 
   const fetchBranches = useCallback(async () => {
     try {
-      const res = await fetch(buildApiUrl('/api/branches'));
-      const data = await res.json();
-      setBranches(Array.isArray(data) ? data : []);
+      const data = await fetchJsonWithRetry<unknown[]>(
+        '/api/branches',
+        undefined,
+        { attempts: 6, initialDelayMs: 600 },
+      );
+      setBranches(Array.isArray(data) ? (data as Branch[]) : []);
 
       if (!Array.isArray(data)) {
         console.error('Branches API returned a non-array payload:', data);
@@ -214,9 +228,12 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
 
   const fetchBranchInventory = useCallback(async (branchId: number) => {
     try {
-      const res = await fetch(buildApiUrl(`/api/branches/${branchId}/inventory`));
-      const data = await res.json();
-      setBranchInventory(Array.isArray(data) ? data : []);
+      const data = await fetchJsonWithRetry<unknown[]>(
+        `/api/branches/${branchId}/inventory`,
+        undefined,
+        { attempts: 6, initialDelayMs: 600 },
+      );
+      setBranchInventory(Array.isArray(data) ? (data as BranchInventory[]) : []);
 
       if (!Array.isArray(data)) {
         console.error('Branch inventory API returned a non-array payload:', data);
@@ -286,7 +303,7 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
   }, [resetClientSession]);
 
   const persistCartToBackend = useCallback(async (items: CartItem[]) => {
-    const res = await fetchWithAuth('/api/cart', {
+    const res = await fetchWithAuthRetry('/api/cart', {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -318,6 +335,32 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
       }
     })();
   }, [cart, persistCartToBackend, resetClientSession, user?.id]);
+
+  const clearInactivityTimers = useCallback(() => {
+    if (inactivityWarningTimerRef.current) {
+      clearTimeout(inactivityWarningTimerRef.current);
+      inactivityWarningTimerRef.current = null;
+    }
+
+    if (inactivityLogoutTimerRef.current) {
+      clearTimeout(inactivityLogoutTimerRef.current);
+      inactivityLogoutTimerRef.current = null;
+    }
+  }, []);
+
+  const resetInactivityTimers = useCallback(() => {
+    clearInactivityTimers();
+    setIsSessionExpiryModalOpen(false);
+
+    inactivityWarningTimerRef.current = setTimeout(() => {
+      setIsSessionExpiryModalOpen(true);
+    }, INACTIVITY_WARNING_MS);
+
+    inactivityLogoutTimerRef.current = setTimeout(() => {
+      setIsSessionExpiryModalOpen(false);
+      handleLogout();
+    }, INACTIVITY_LOGOUT_MS);
+  }, [clearInactivityTimers, handleLogout]);
 
   useEffect(() => {
     const token = getAccessToken();
@@ -387,7 +430,10 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
 
     const syncCartFromBackend = async () => {
       try {
-        const res = await fetchWithAuth('/api/cart');
+        const res = await fetchWithAuthRetry('/api/cart', undefined, {
+          attempts: 5,
+          initialDelayMs: 600,
+        });
         const payload = await res.json().catch(() => ({ items: [] }));
 
         if (!res.ok) {
@@ -418,8 +464,6 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
           }
         }
       } catch (error) {
-        console.error('Error syncing cart from backend:', error);
-
         if (!isCancelled) {
           syncedCartUserIdRef.current = user.id;
           setIsCartSyncReady(true);
@@ -447,8 +491,8 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     const syncCart = async () => {
       try {
         await persistCartToBackend(cart);
-      } catch (error) {
-        console.error('Error syncing cart to backend:', error);
+      } catch {
+        // Ignore transient cart sync failures; the next cart change will retry.
       }
     };
 
@@ -463,33 +507,31 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     fetchCustomerOrders();
   }, [fetchCustomerOrders, user?.id]);
 
-  const scheduleSessionWarning = useCallback((token: string) => {
-    if (sessionExpiryTimerRef.current) clearTimeout(sessionExpiryTimerRef.current);
-    try {
-      const [, b64] = token.split('.');
-      const { exp } = JSON.parse(atob(b64.replace(/-/g, '+').replace(/_/g, '/')));
-      if (typeof exp !== 'number') return;
-      const delay = exp * 1000 - 2 * 60 * 1000 - Date.now();
-      if (delay > 0) {
-        sessionExpiryTimerRef.current = setTimeout(() => setIsSessionExpiryModalOpen(true), delay);
-      } else if (Date.now() < exp * 1000) {
-        setIsSessionExpiryModalOpen(true);
-      }
-    } catch { /* ignore JWT parse errors */ }
-  }, []);
-
   useEffect(() => {
     if (!isLoggedIn) {
       setIsSessionExpiryModalOpen(false);
-      if (sessionExpiryTimerRef.current) {
-        clearTimeout(sessionExpiryTimerRef.current);
-        sessionExpiryTimerRef.current = null;
-      }
+      clearInactivityTimers();
       return;
     }
-    const token = getAccessToken();
-    if (token) scheduleSessionWarning(token);
-  }, [isLoggedIn, scheduleSessionWarning]);
+
+    resetInactivityTimers();
+
+    const handleUserActivity = () => {
+      resetInactivityTimers();
+    };
+
+    for (const eventName of INACTIVITY_EVENTS) {
+      window.addEventListener(eventName, handleUserActivity, { passive: true });
+    }
+
+    return () => {
+      for (const eventName of INACTIVITY_EVENTS) {
+        window.removeEventListener(eventName, handleUserActivity);
+      }
+
+      clearInactivityTimers();
+    };
+  }, [clearInactivityTimers, isLoggedIn, resetInactivityTimers]);
 
   const addToCart = useCallback((
     product: Product,
@@ -586,16 +628,6 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     searchQuery,
   ]);
 
-  const handleExtendSession = useCallback(async () => {
-    setIsSessionExpiryModalOpen(false);
-    const newToken = await refreshAccessToken();
-    if (newToken) {
-      scheduleSessionWarning(newToken);
-    } else {
-      handleLogout();
-    }
-  }, [scheduleSessionWarning, handleLogout]);
-
   return (
     <AppContext.Provider value={contextValue}>
       {children}
@@ -619,22 +651,19 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
                 <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-5">
                   <span className="text-3xl">⏱</span>
                 </div>
-                <h3 className="text-xl font-black text-slate-900 mb-2 tracking-tight">Session Expiring Soon</h3>
-                <p className="text-slate-500 text-sm leading-relaxed mb-7">
-                  Your session is about to expire. Stay logged in to keep shopping without interruption.
+                <h3 className="text-xl font-black text-slate-900 mb-2 tracking-tight">Inactive Session</h3>
+                <p className="text-slate-500 text-sm leading-relaxed mb-4">
+                  You&apos;ll be logged out automatically in 2 minutes if there&apos;s still no activity.
+                </p>
+                <p className="text-slate-500 text-xs leading-relaxed mb-7">
+                  Move the mouse, scroll, tap anywhere, or press any key to keep using your account.
                 </p>
                 <div className="flex gap-3">
                   <button
-                    onClick={handleLogout}
-                    className="flex-1 py-3 bg-slate-100 text-slate-700 rounded-2xl font-bold hover:bg-slate-200 transition-colors"
-                  >
-                    Log Out
-                  </button>
-                  <button
-                    onClick={handleExtendSession}
+                    onClick={resetInactivityTimers}
                     className="flex-1 py-3 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-100"
                   >
-                    Stay Logged In
+                    I&apos;m Active
                   </button>
                 </div>
               </div>

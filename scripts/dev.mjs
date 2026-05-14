@@ -11,11 +11,13 @@ const services = [
     name: "backend",
     cwd: path.join(rootDir, "greenovate-be"),
     args: ["run", "start:dev"],
+    bootstrapOnly: true,
   },
   {
     name: "frontend",
     cwd: path.join(rootDir, "nexOOS"),
     args: ["run", "dev"],
+    bootstrapOnly: false,
   },
 ];
 
@@ -28,6 +30,37 @@ for (const service of services) {
 
 let shuttingDown = false;
 const children = [];
+
+const sleep = (ms) =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+async function isBackendReady() {
+  try {
+    const response = await fetch("http://127.0.0.1:4000/api/health");
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function waitForBackendReady({
+  timeoutMs = 90000,
+  intervalMs = 1000,
+} = {}) {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    if (await isBackendReady()) {
+      return true;
+    }
+
+    await sleep(intervalMs);
+  }
+
+  return false;
+}
 
 function shutdown(exitCode = 0) {
   if (shuttingDown) {
@@ -53,7 +86,31 @@ function shutdown(exitCode = 0) {
   }, 1500).unref();
 }
 
-for (const service of services) {
+async function main() {
+  const backendService = services.find((service) => service.name === "backend");
+  const frontendService = services.find((service) => service.name === "frontend");
+
+  if (!backendService || !frontendService) {
+    console.error("[dev] Missing backend or frontend service configuration.");
+    process.exit(1);
+  }
+
+  startService(backendService);
+  console.log("[dev] Waiting for backend health at http://127.0.0.1:4000/api/health ...");
+
+  const backendReady = await waitForBackendReady();
+  if (!backendReady) {
+    console.warn(
+      "[dev] Backend did not become healthy within 90s. Starting frontend anyway.",
+    );
+  } else {
+    console.log("[dev] Backend is healthy. Starting frontend.");
+  }
+
+  startService(frontendService);
+}
+
+function startService(service) {
   const child = spawn(npmCommand, service.args, {
     cwd: service.cwd,
     env: process.env,
@@ -73,6 +130,10 @@ for (const service of services) {
       return;
     }
 
+    if (service.bootstrapOnly && (code === 0 || signal === "SIGINT")) {
+      return;
+    }
+
     if (code === 0 || signal === "SIGINT") {
       shutdown(0);
       return;
@@ -87,3 +148,8 @@ for (const service of services) {
 
 process.on("SIGINT", () => shutdown(0));
 process.on("SIGTERM", () => shutdown(0));
+
+main().catch((error) => {
+  console.error("[dev] Failed to start development environment:", error);
+  shutdown(1);
+});

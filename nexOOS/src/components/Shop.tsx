@@ -13,7 +13,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
-import { buildApiUrl } from '@/lib/api';
+import { buildApiUrl, fetchJsonWithRetry } from '@/lib/api';
 import { Product } from '../types';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
@@ -46,6 +46,34 @@ const getPaginationButtonClassName = (isCurrentPage: boolean) =>
       ? 'bg-blue-600 text-white shadow-lg shadow-blue-100'
       : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
   }`;
+
+const normalizeProducts = (products: Product[]) => {
+  const seen = new Set<string>();
+
+  return products.filter((product) => {
+    const signature = [
+      product.id?.trim() || 'missing-id',
+      product.name?.trim() || 'missing-name',
+      product.category?.trim() || 'missing-category',
+      String(product.price ?? ''),
+    ].join('|');
+
+    if (seen.has(signature)) {
+      return false;
+    }
+
+    seen.add(signature);
+    return true;
+  });
+};
+
+const getProductRenderKey = (product: Product, idx: number) =>
+  [
+    product.id?.trim() || 'missing-id',
+    product.name?.trim() || 'missing-name',
+    product.category?.trim() || 'missing-category',
+    idx,
+  ].join('|');
 
 export default function Shop() {
   const {
@@ -109,16 +137,12 @@ export default function Shop() {
         if (selectedBranch) params.set('branchId', String(selectedBranch.id));
         params.set('sortBy', sortBy);
 
-        const response = await fetch(buildApiUrl(`/api/products?${params.toString()}`), {
-          signal: controller.signal,
-        });
-        const payload = await response.json();
+        const payload = await fetchJsonWithRetry<{ data?: Product[] }>(
+          `/api/products?${params.toString()}`,
+          { signal: controller.signal },
+        );
 
-        if (!response.ok) {
-          throw new Error(payload.error || 'Failed to load products');
-        }
-
-        setProducts(payload.data ?? []);
+        setProducts(normalizeProducts(payload.data ?? []));
       } catch (err) {
         if ((err as Error).name === 'AbortError') {
           return;
@@ -245,7 +269,7 @@ export default function Shop() {
     content = (
       <>
         <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          {currentProducts.map((product) => {
+          {currentProducts.map((product, idx) => {
             const inventoryItem = selectedBranch
               ? branchInventory.find((inv) => inv.product_id === product.id)
               : null;
@@ -256,7 +280,7 @@ export default function Shop() {
 
             return (
               <motion.div
-                key={product.id}
+                key={getProductRenderKey(product, idx)}
                 layout
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -410,7 +434,7 @@ export default function Shop() {
     <main className="flex-1 bg-slate-50 py-7 lg:py-8">
       <AnimatePresence>
         {addedProductName && (
-          <>
+          <React.Fragment key={`shop-added-${addedProductName}`}>
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -434,13 +458,13 @@ export default function Shop() {
                 <p className="text-slate-500 font-medium">{addedProductName}</p>
               </div>
             </motion.div>
-          </>
+          </React.Fragment>
         )}
       </AnimatePresence>
 
       <AnimatePresence>
         {isFilterModalOpen && (
-          <>
+          <React.Fragment key="shop-filter-modal">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -521,7 +545,7 @@ export default function Shop() {
                 </div>
               </div>
             </motion.div>
-          </>
+          </React.Fragment>
         )}
       </AnimatePresence>
 

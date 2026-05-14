@@ -135,23 +135,11 @@ const getPaymentMethodIcon = (paymentMethod: string) => {
 
 const isPaymentStepIncomplete = ({
   paymentMethod,
-  gcashInfo,
-  mayaInfo,
   cardInfo,
 }: {
   paymentMethod: string;
-  gcashInfo: { number: string; reference: string };
-  mayaInfo: { number: string; reference: string };
   cardInfo: { number: string; name: string; expiry: string; cvv: string };
 }) => {
-  if (paymentMethod === 'gcash') {
-    return !gcashInfo.number || !gcashInfo.reference;
-  }
-
-  if (paymentMethod === 'maya') {
-    return !mayaInfo.number || !mayaInfo.reference;
-  }
-
   if (paymentMethod === 'card') {
     return !cardInfo.number || !cardInfo.name || !cardInfo.expiry || !cardInfo.cvv;
   }
@@ -267,8 +255,6 @@ export default function Checkout() {
   const paymentMethodLabel = getPaymentMethodLabel(paymentMethod);
   const paymentStepIncomplete = isPaymentStepIncomplete({
     paymentMethod,
-    gcashInfo,
-    mayaInfo,
     cardInfo,
   });
 
@@ -1328,41 +1314,7 @@ export default function Checkout() {
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
                       className="space-y-6 overflow-hidden mt-6"
-                    >
-                      <div className="bg-[#f4f8ff] border border-blue-200 p-5 rounded-xl text-sm text-[#1e3a8a]">
-                        <p className="font-bold mb-3 text-base">GCash Payment Instructions:</p>
-                        <ol className="space-y-2 list-decimal list-inside">
-                          <li>Send ₱{orderTotal.toFixed(2)} to GCash number: <span className="font-bold">0917-123-4567</span></li>
-                          <li>Account Name: <span className="font-bold">HealthPlus Pharmacy</span></li>
-                          <li>Enter your GCash number and reference number below</li>
-                        </ol>
-                      </div>
-
-                      <div className="space-y-4">
-                        <div>
-                          <label htmlFor="checkout-gcash-number" className="block text-sm font-bold text-slate-700 mb-1.5">Your GCash Number *</label>
-                          <input 
-                            id="checkout-gcash-number"
-                            type="text"
-                            placeholder="09XX-XXX-XXXX"
-                            value={gcashInfo.number}
-                            onChange={(e) => setGcashInfo({...gcashInfo, number: e.target.value})}
-                            className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="checkout-gcash-reference" className="block text-sm font-bold text-slate-700 mb-1.5">GCash Reference Number *</label>
-                          <input 
-                            id="checkout-gcash-reference"
-                            type="text"
-                            placeholder="Enter reference number"
-                            value={gcashInfo.reference}
-                            onChange={(e) => setGcashInfo({...gcashInfo, reference: e.target.value})}
-                            className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                          />
-                        </div>
-                      </div>
-                    </motion.div>
+                    />
                   )}
 
                   {paymentMethod === 'maya' && (
@@ -1370,41 +1322,7 @@ export default function Checkout() {
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
                       className="space-y-6 overflow-hidden mt-6"
-                    >
-                      <div className="bg-[#f0fdf4] border border-blue-200 p-5 rounded-xl text-sm text-[#064e3b]">
-                        <p className="font-bold mb-3 text-base">Maya Payment Instructions:</p>
-                        <ol className="space-y-2 list-decimal list-inside">
-                          <li>Send ₱{orderTotal.toFixed(2)} to Maya number: <span className="font-bold">0918-765-4321</span></li>
-                          <li>Account Name: <span className="font-bold">HealthPlus Pharmacy</span></li>
-                          <li>Enter your Maya number and reference number below</li>
-                        </ol>
-                      </div>
-
-                      <div className="space-y-4">
-                        <div>
-                          <label htmlFor="checkout-maya-number" className="block text-sm font-bold text-slate-700 mb-1.5">Your Maya Number *</label>
-                          <input 
-                            id="checkout-maya-number"
-                            type="text"
-                            placeholder="09XX-XXX-XXXX"
-                            value={mayaInfo.number}
-                            onChange={(e) => setMayaInfo({...mayaInfo, number: e.target.value})}
-                            className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="checkout-maya-reference" className="block text-sm font-bold text-slate-700 mb-1.5">Maya Reference Number *</label>
-                          <input 
-                            id="checkout-maya-reference"
-                            type="text"
-                            placeholder="Enter reference number"
-                            value={mayaInfo.reference}
-                            onChange={(e) => setMayaInfo({...mayaInfo, reference: e.target.value})}
-                            className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                          />
-                        </div>
-                      </div>
-                    </motion.div>
+                    />
                   )}
                   
                   <div className="flex gap-4 mt-8">

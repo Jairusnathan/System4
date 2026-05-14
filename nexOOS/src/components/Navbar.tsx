@@ -13,6 +13,25 @@ interface ProductSuggestion {
   category: string;
 }
 
+const normalizeSuggestions = (items: ProductSuggestion[]) => {
+  const seen = new Set<string>();
+
+  return items.filter((item) => {
+    const signature = [
+      item.id?.trim() || 'missing-id',
+      item.name?.trim() || 'missing-name',
+      item.category?.trim() || 'missing-category',
+    ].join('|');
+
+    if (seen.has(signature)) {
+      return false;
+    }
+
+    seen.add(signature);
+    return true;
+  });
+};
+
 export default function Navbar() {
   const { 
     view, setView, 
@@ -65,7 +84,7 @@ export default function Navbar() {
           throw new Error(payload.error || 'Failed to load suggestions');
         }
 
-        setSuggestions(payload.data ?? []);
+        setSuggestions(normalizeSuggestions(payload.data ?? []));
       } catch (error) {
         if ((error as Error).name !== 'AbortError') {
           console.error('Suggestion fetch failed:', error);
@@ -135,9 +154,13 @@ export default function Navbar() {
             />
             {showSuggestions && suggestions.length > 0 && (
               <div className="absolute top-[calc(100%+0.75rem)] left-0 right-0 bg-white border border-slate-100 rounded-3xl shadow-xl overflow-hidden">
-                {suggestions.map((suggestion) => (
+                {suggestions.map((suggestion, idx) => (
                   <button
-                    key={suggestion.id}
+                    key={[
+                      suggestion.id?.trim() || 'missing-id',
+                      suggestion.name?.trim() || 'missing-name',
+                      idx,
+                    ].join('|')}
                     onMouseDown={() => {
                       setSearchQuery(suggestion.name);
                       setView('shop');
@@ -222,7 +245,7 @@ export default function Navbar() {
 
       <AnimatePresence>
         {isLogoutModalOpen && (
-          <>
+          <React.Fragment key="navbar-logout-modal">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -261,7 +284,7 @@ export default function Navbar() {
                 </div>
               </div>
             </motion.div>
-          </>
+          </React.Fragment>
         )}
       </AnimatePresence>
     </nav>

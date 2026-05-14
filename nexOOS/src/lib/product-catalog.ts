@@ -70,6 +70,7 @@ const mapSecondDatabaseProduct = (row: SecondDatabaseProductRow): Product => {
       Stock: String(toNumber(row.stock)),
     },
     stock: toNumber(row.stock),
+    sold: 0,
   };
 };
 

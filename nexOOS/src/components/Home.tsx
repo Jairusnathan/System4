@@ -6,6 +6,7 @@ import { ArrowRight, ShoppingBag, X, MapPin } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { fetchJsonWithRetry } from '@/lib/api';
 import { Product } from '../types';
+import { applyPersonalization, getBrowseHistoryCount } from '@/hooks/useBrowsingHistory';
 
 const partnerBrands = [
   'Pfizer', 'Johnson & Johnson', 'Bayer', 'GSK', 'Novartis',
@@ -78,7 +79,13 @@ export default function Home() {
           { signal: controller.signal },
         );
 
-        setFeaturedProducts(normalizeProducts(payload?.data ?? []).slice(0, 4));
+        const fetched = normalizeProducts(payload?.data ?? []);
+        if (getBrowseHistoryCount() >= 3) {
+          const { products: personalized } = applyPersonalization(fetched);
+          setFeaturedProducts(personalized.slice(0, 4));
+        } else {
+          setFeaturedProducts(fetched.slice(0, 4));
+        }
       } catch (error) {
         if ((error as Error).name === 'AbortError') {
           return;

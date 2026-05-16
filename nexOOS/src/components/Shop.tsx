@@ -11,14 +11,18 @@ import {
   X,
   SlidersHorizontal,
   ChevronDown,
+  TrendingUp,
+  Sparkles,
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { buildApiUrl, fetchJsonWithRetry } from '@/lib/api';
 import { Product } from '../types';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import { applyPersonalization, getBrowseHistoryCount } from '@/hooks/useBrowsingHistory';
 
 const CATEGORIES = ['All', 'Medicines', 'First Aid', 'Personal Care', 'Vitamins'];
 const SORT_OPTIONS = [
+  { label: '✨ For You', value: 'for-you' },
   { label: 'Price: Low to High', value: 'price-asc' },
   { label: 'Price: High to Low', value: 'price-desc' },
 ] as const;
@@ -91,7 +95,7 @@ export default function Shop() {
   const [pendingCategories, setPendingCategories] = useState<string[]>(['All']);
   const [priceRange, setPriceRange] = useState({ min: '', max: '' });
   const [inStockOnly, setInStockOnly] = useState(false);
-  const [sortBy, setSortBy] = useState<SortOption>('price-asc');
+  const [sortBy, setSortBy] = useState<SortOption>('for-you');
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [products, setProducts] = useState<Product[]>([]);
@@ -135,14 +139,22 @@ export default function Shop() {
         if (priceRange.max.trim()) params.set('maxPrice', priceRange.max.trim());
         if (inStockOnly) params.set('inStockOnly', 'true');
         if (selectedBranch) params.set('branchId', String(selectedBranch.id));
-        params.set('sortBy', sortBy);
+        // For 'for-you' fetch popularity from API, then reorder client-side
+        params.set('sortBy', sortBy === 'for-you' ? 'popularity' : sortBy);
 
         const payload = await fetchJsonWithRetry<{ data?: Product[] }>(
           `/api/products?${params.toString()}`,
           { signal: controller.signal },
         );
 
-        setProducts(normalizeProducts(payload?.data ?? []));
+        const fetched = normalizeProducts(payload?.data ?? []);
+
+        if (sortBy === 'for-you' && getBrowseHistoryCount() >= 3) {
+          const { products: personalized } = applyPersonalization(fetched);
+          setProducts(personalized);
+        } else {
+          setProducts(fetched);
+        }
       } catch (err) {
         if ((err as Error).name === 'AbortError') {
           return;
@@ -209,7 +221,7 @@ export default function Shop() {
     setPendingCategories(['All']);
     setPriceRange({ min: '', max: '' });
     setInStockOnly(false);
-    setSortBy('price-asc');
+    setSortBy('for-you');
     setSearchQuery('');
   }
 
@@ -336,6 +348,13 @@ export default function Shop() {
                       {product.description}
                     </p>
                   </button>
+
+                  {typeof product.sold === 'number' && (
+                    <div className="mb-2 flex items-center gap-1 text-[10px] font-semibold text-emerald-600">
+                      <TrendingUp className="h-3 w-3" />
+                      {product.sold.toLocaleString()} sold
+                    </div>
+                  )}
 
                   <div className="mt-auto flex items-center justify-between pt-3.5">
                     <div className="text-sm font-black tracking-tight text-slate-900 lg:text-base">
@@ -659,6 +678,19 @@ export default function Shop() {
             </button>
           </div>
         </div>
+
+        {sortBy === 'for-you' && getBrowseHistoryCount() >= 3 && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-4 flex items-center gap-2.5 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3"
+          >
+            <Sparkles className="h-4 w-4 shrink-0 text-blue-500" />
+            <p className="text-sm font-semibold text-blue-700">
+              Personalized for you — based on your browsing history
+            </p>
+          </motion.div>
+        )}
 
         <div>{content}</div>
       </div>

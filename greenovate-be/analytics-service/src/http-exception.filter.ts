@@ -1,0 +1,20 @@
+﻿import { ExceptionFilter, Catch, ArgumentsHost, HttpException } from '@nestjs/common';
+import { Request, Response } from 'express';
+
+@Catch()
+export class HttpExceptionFilter implements ExceptionFilter {
+  catch(exception: Error, host: ArgumentsHost) {
+    const ctx = host.switchToHttp();
+    const response = ctx.getResponse<Response>();
+    const request = ctx.getRequest<Request>();
+
+    console.error(`GLOBAL ERROR on ${request.url}:`, exception.stack);
+
+    const status = exception instanceof HttpException ? exception.getStatus() : 500;
+    response.status(status).json({
+      statusCode: status,
+      message: exception.message,
+      error: exception.name,
+    });
+  }
+}

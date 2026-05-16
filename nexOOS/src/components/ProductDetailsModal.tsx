@@ -7,6 +7,7 @@ import { useAppContext } from '../context/AppContext';
 import { Product } from '../types';
 import { fetchJsonWithRetry } from '@/lib/api';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import { recordProductView } from '@/hooks/useBrowsingHistory';
 
 const getAvailableStock = (
   selectedStock: number | undefined,
@@ -34,7 +35,7 @@ const renderStockAvailability = (
       <div className="flex items-center gap-2 text-blue-600 bg-blue-50 px-3 py-2 rounded-lg inline-flex">
         <CheckCircle2 className="w-5 h-5" />
         <span className="font-medium">In Stock</span>
-        {typeof sold === 'number' && sold > 0 && (
+        {typeof sold === 'number' && (
           <span className="text-sm opacity-80">({sold} sold)</span>
         )}
       </div>
@@ -81,6 +82,8 @@ export default function ProductDetailsModal() {
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
   const [isLoadingRelated, setIsLoadingRelated] = useState(false);
   const [relatedError, setRelatedError] = useState('');
+  const [recommendations, setRecommendations] = useState<Product[]>([]);
+  const [isLoadingRecs, setIsLoadingRecs] = useState(false);
 
   useBodyScrollLock(Boolean(selectedProduct) || Boolean(addedProductName));
 
@@ -95,6 +98,30 @@ export default function ProductDetailsModal() {
 
     return () => globalThis.clearTimeout(timeout);
   }, [addedProductName]);
+
+  useEffect(() => {
+    if (!selectedProduct) {
+      setRecommendations([]);
+      setIsLoadingRecs(false);
+      return;
+    }
+
+    // Record this view for personalization
+    recordProductView(selectedProduct.id, selectedProduct.category);
+
+    const ctrl = new AbortController();
+    setIsLoadingRecs(true);
+
+    fetchJsonWithRetry<{ data?: Product[] }>(
+      `/api/products/${selectedProduct.id}/recommendations?limit=4`,
+      { signal: ctrl.signal },
+    )
+      .then((payload) => setRecommendations(normalizeProducts(payload?.data ?? [])))
+      .catch(() => setRecommendations([]))
+      .finally(() => { if (!ctrl.signal.aborted) setIsLoadingRecs(false); });
+
+    return () => ctrl.abort();
+  }, [selectedProduct]);
 
   useEffect(() => {
     if (!selectedProduct) {
@@ -318,6 +345,56 @@ export default function ProductDetailsModal() {
                   </div>
                 </div>
               </div>
+
+              {(isLoadingRecs || recommendations.length > 0) && (
+                <div className="mt-10 border-t border-slate-100 pt-8">
+                  <div className="mb-5">
+                    <h3 className="text-2xl font-black text-slate-900 tracking-tight">Frequently Bought Together</h3>
+                    <p className="text-sm text-slate-500">Customers who bought this also bought these.</p>
+                  </div>
+
+                  {isLoadingRecs && (
+                    <div className="rounded-3xl border border-slate-200 bg-slate-50 px-6 py-8 text-center text-slate-500">
+                      Analyzing purchase patterns...
+                    </div>
+                  )}
+
+                  {!isLoadingRecs && recommendations.length > 0 && (
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                      {recommendations.map((product, idx) => {
+                        const invItem = selectedBranch ? branchInventory.find((inv) => inv.product_id === product.id) : null;
+                        const recStock = getAvailableStock(product.stock, invItem?.stock);
+                        const outOfStock = Boolean(selectedBranch && recStock === 0);
+                        return (
+                          <motion.div
+                            key={`rec-${product.id}-${idx}`}
+                            initial={{ opacity: 0, y: 16 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: idx * 0.05 }}
+                            className="group overflow-hidden rounded-[1.5rem] border border-blue-100 bg-white shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl"
+                          >
+                            <button type="button" onClick={() => setSelectedProduct(product)} className="block w-full text-left">
+                              <div className="aspect-square overflow-hidden bg-slate-50">
+                                <img src={product.image} alt={product.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" referrerPolicy="no-referrer" />
+                              </div>
+                              <div className="p-4">
+                                <span className="mb-2 inline-flex rounded-full bg-green-50 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-green-600">
+                                  Often paired
+                                </span>
+                                <h4 className="line-clamp-2 min-h-[2.8rem] text-sm font-black tracking-tight text-slate-900">{product.name}</h4>
+                                <p className="mt-1 text-lg font-black text-slate-900">PHP {product.price.toFixed(2)}</p>
+                                <p className={`mt-2 text-xs font-bold ${outOfStock ? 'text-red-500' : 'text-slate-500'}`}>
+                                  {outOfStock ? 'Out of stock in this branch' : 'Tap to view details'}
+                                </p>
+                              </div>
+                            </button>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="mt-10 border-t border-slate-100 pt-8">
                 <div className="mb-5 flex items-end justify-between gap-4">

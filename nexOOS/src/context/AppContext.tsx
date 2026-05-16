@@ -232,6 +232,7 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSessionExpiryModalOpen, setIsSessionExpiryModalOpen] = useState(false);
+  const [isInactivityLoggedOutModalOpen, setIsInactivityLoggedOutModalOpen] = useState(false);
   const inactivityWarningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inactivityLogoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isCartHydrated, setIsCartHydrated] = useState(false);
@@ -391,6 +392,7 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     inactivityLogoutTimerRef.current = setTimeout(() => {
       setIsSessionExpiryModalOpen(false);
       handleLogout();
+      setIsInactivityLoggedOutModalOpen(true);
     }, INACTIVITY_LOGOUT_MS);
   }, [clearInactivityTimers, handleLogout]);
 
@@ -715,6 +717,47 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
                     I&apos;m Active
                   </button>
                 </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isInactivityLoggedOutModalOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[9998]"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm bg-white rounded-3xl shadow-2xl z-[9999] overflow-hidden"
+            >
+              <div className="p-7 text-center">
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-5">
+                  <span className="text-3xl">🔒</span>
+                </div>
+                <h3 className="text-xl font-black text-slate-900 mb-2 tracking-tight">
+                  You&apos;ve Been Logged Out
+                </h3>
+                <p className="text-slate-500 text-sm leading-relaxed mb-2">
+                  For your security, you were automatically logged out after{' '}
+                  <span className="font-semibold text-slate-700">15 minutes of inactivity</span>.
+                </p>
+                <p className="text-slate-400 text-xs leading-relaxed mb-7">
+                  Your cart has been saved. Please log in again to continue shopping.
+                </p>
+                <button
+                  onClick={() => setIsInactivityLoggedOutModalOpen(false)}
+                  className="w-full py-3 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-100"
+                >
+                  OK, Log Me In
+                </button>
               </div>
             </motion.div>
           </>

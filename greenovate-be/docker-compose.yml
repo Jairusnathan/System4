@@ -1,0 +1,149 @@
+services:
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "4000:4000"
+    environment:
+      - API_GATEWAY_PORT=4000
+      - AUTH_SERVICE_URL=http://auth-service:4101
+      - CART_SERVICE_URL=http://cart-service:4102
+      - CATALOG_SERVICE_URL=http://catalog-service:4103
+      - ORDER_SERVICE_URL=http://order-service:4104
+      - DELIVERY_SERVICE_URL=http://delivery-service:4105
+      - PROMO_SERVICE_URL=http://promo-service:4106
+      - ANALYTICS_SERVICE_URL=http://analytics-service:4107
+    env_file:
+      - ./api-gateway/.env
+    depends_on:
+      - auth-service
+      - cart-service
+      - catalog-service
+      - order-service
+      - delivery-service
+      - promo-service
+      - analytics-service
+
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "4101:4101"
+    environment:
+      - AUTH_SERVICE_PORT=4101
+    env_file:
+      - ./auth-service/.env
+
+  cart-service:
+    build:
+      context: ./cart-service
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "4102:4102"
+    environment:
+      - CART_SERVICE_PORT=4102
+    env_file:
+      - ./cart-service/.env
+
+  catalog-service:
+    build:
+      context: ./catalog-service
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "4103:4103"
+    environment:
+      - CATALOG_SERVICE_PORT=4103
+    env_file:
+      - ./catalog-service/.env
+
+  order-service:
+    build:
+      context: ./order-service
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "4104:4104"
+    environment:
+      - ORDER_SERVICE_PORT=4104
+    env_file:
+      - ./order-service/.env
+
+  delivery-service:
+    build:
+      context: ./delivery-service
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "4105:4105"
+    environment:
+      - DELIVERY_SERVICE_PORT=4105
+    env_file:
+      - ./delivery-service/.env
+
+  promo-service:
+    build:
+      context: ./promo-service
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "4106:4106"
+    environment:
+      - PROMO_SERVICE_PORT=4106
+    env_file:
+      - ./promo-service/.env
+
+  analytics-service:
+    build:
+      context: ./analytics-service
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "4107:4107"
+    environment:
+      - ANALYTICS_SERVICE_PORT=4107
+    env_file:
+      - ./analytics-service/.env
+
+  # ── InfluxDB (k6 Metrics Storage) ────────────────────────────────────────────
+  influxdb:
+    image: influxdb:1.8-alpine
+    ports:
+      - "8086:8086"
+    environment:
+      - INFLUXDB_DB=k6
+      - INFLUXDB_HTTP_MAX_BODY_SIZE=0
+    volumes:
+      - influxdb-data:/var/lib/influxdb
+    healthcheck:
+      test: ["CMD", "influx", "-execute", "SHOW DATABASES"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Grafana (Load Test Dashboard) ───────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.4.0
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      influxdb:
+        condition: service_healthy
+
+volumes:
+  influxdb-data:
+  grafana-data:

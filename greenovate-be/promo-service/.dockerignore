@@ -1,0 +1,9 @@
+﻿node_modules/
+dist/
+dist-tsc/
+npm-debug.log
+.DS_Store
+.git/
+.vscode/
+tests/
+coverage/

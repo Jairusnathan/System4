@@ -1,28 +1,53 @@
 $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
-Set-Location $root
 
 $services = @(
-  @{ Name = 'api-gateway'; Port = 4000; Script = 'dist/apps/api-gateway/src/main.js' },
-  @{ Name = 'auth-service'; Port = 4101; Script = 'dist/src/apps/auth-service/main.js' },
-  @{ Name = 'catalog-service'; Port = 4102; Script = 'dist/src/apps/catalog-service/main.js' },
-  @{ Name = 'cart-service'; Port = 4103; Script = 'dist/src/apps/cart-service/main.js' },
-  @{ Name = 'promo-service'; Port = 4104; Script = 'dist/src/apps/promo-service/main.js' },
-  @{ Name = 'order-service'; Port = 4105; Script = 'dist/src/apps/order-service/main.js' },
-  @{ Name = 'delivery-service'; Port = 4106; Script = 'dist/src/apps/delivery-service/main.js' },
-  @{ Name = 'analytics-service'; Port = 4107; Script = 'dist/src/apps/analytics-service/main.js' }
+  'api-gateway',
+  'auth-service',
+  'cart-service',
+  'catalog-service',
+  'order-service',
+  'delivery-service',
+  'promo-service',
+  'analytics-service'
 )
 
-foreach ($service in $services) {
-  $connections = Get-NetTCPConnection -LocalPort $service.Port -State Listen -ErrorAction SilentlyContinue
-  foreach ($connection in $connections) {
-    Stop-Process -Id $connection.OwningProcess -Force -ErrorAction SilentlyContinue
+# Kill any leftover node processes on service ports
+@(4000,4101,4102,4103,4104,4105,4106,4107) | ForEach-Object {
+  $conn = Get-NetTCPConnection -LocalPort $_ -State Listen -ErrorAction SilentlyContinue
+  if ($conn) { Stop-Process -Id $conn.OwningProcess -Force -ErrorAction SilentlyContinue }
+}
+
+Write-Host "Starting all Greenovate microservices..."
+
+$jobs = @()
+foreach ($svc in $services) {
+  $svcPath = Join-Path $root $svc
+  $job = Start-Job -ScriptBlock {
+    param($path, $name)
+    Set-Location $path
+    npm run start:dev 2>&1 | ForEach-Object { "[$name] $_" }
+  } -ArgumentList $svcPath, $svc
+  $jobs += $job
+  Write-Host "  Starting: $svc"
+}
+
+Write-Host ""
+Write-Host "All services building... (this takes 30-60 seconds)"
+Write-Host "Press Ctrl+C to stop all services."
+Write-Host ""
+
+try {
+  while ($true) {
+    foreach ($job in $jobs) {
+      $output = Receive-Job -Job $job -ErrorAction SilentlyContinue
+      if ($output) { $output | ForEach-Object { Write-Host $_ } }
+    }
+    Start-Sleep -Milliseconds 300
   }
+} finally {
+  Write-Host ""
+  Write-Host "Stopping all services..."
+  $jobs | ForEach-Object { Stop-Job -Job $_ -ErrorAction SilentlyContinue; Remove-Job -Job $_ -Force -ErrorAction SilentlyContinue }
 }
-
-foreach ($service in $services) {
-  Start-Process -FilePath 'node' -ArgumentList $service.Script -WorkingDirectory $root -WindowStyle Hidden
-}
-
-Write-Output 'Core services started: api-gateway, auth-service, catalog-service, cart-service, promo-service, order-service, delivery-service, analytics-service'

@@ -1321,18 +1321,6 @@ export default function Account() {
             <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${settings.emailNotifications ? 'left-7' : 'left-1'}`} />
           </button>
         </div>
-        <div className="flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50 transition-colors">
-          <div>
-            <h4 className="font-black text-slate-900">SMS Notifications</h4>
-            <p className="text-sm text-slate-500">Receive delivery updates via SMS</p>
-          </div>
-          <button 
-            onClick={() => setSettings({...settings, smsNotifications: !settings.smsNotifications})}
-            className={`w-12 h-6 rounded-full transition-all relative ${settings.smsNotifications ? 'bg-blue-600' : 'bg-slate-200'}`}
-          >
-            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${settings.smsNotifications ? 'left-7' : 'left-1'}`} />
-          </button>
-        </div>
       </div>
 
       <div className="pt-8 border-t border-slate-100">

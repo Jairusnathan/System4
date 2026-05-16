@@ -1,0 +1,9 @@
+{
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "eslint.workingDirectories": [
+    "api-gateway", "auth-service", "cart-service",
+    "catalog-service", "order-service", "delivery-service",
+    "promo-service", "analytics-service"
+  ]
+}

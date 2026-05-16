@@ -198,7 +198,11 @@ export class ProductsService {
     }
 
     try {
-      const { data, error } = await this.supabaseService.supabaseAdmin
+      const orderClient =
+        this.supabaseService.getClientForService('order') ??
+        this.supabaseService.supabaseAdmin;
+
+      const { data, error } = await orderClient
         .from('online_order_items')
         .select('product_id, quantity')
         .in('product_id', uniqueIds);

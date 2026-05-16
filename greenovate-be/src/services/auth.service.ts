@@ -48,14 +48,21 @@ export class AppAuthService {
   }
 
   requireUserId(authorization?: string | null) {
+    return this.requireUser(authorization).userId;
+  }
+
+  requireUser(authorization?: string | null) {
     const token = this.extractBearerToken(authorization);
     const decoded = token ? this.verifyAccessToken(token) : null;
 
-    if (!decoded?.userId) {
+    if (!decoded?.userId || !decoded?.email) {
       throw new UnauthorizedException('Invalid or expired token');
     }
 
-    return decoded.userId as string;
+    return {
+      userId: decoded.userId as string,
+      email: decoded.email as string,
+    };
   }
 
   setRefreshTokenCookie(response: Response, refreshToken: string) {

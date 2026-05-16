@@ -77,6 +77,35 @@ const areCartItemsEqual = (left: CartItem[], right: CartItem[]) => {
   });
 };
 
+const getMaxCartQuantity = (item: Pick<CartItem, 'stock'>) => {
+  if (
+    typeof item.stock === 'number' &&
+    Number.isFinite(item.stock) &&
+    item.stock > 0
+  ) {
+    return Math.max(1, Math.trunc(item.stock));
+  }
+
+  return null;
+};
+
+const clampCartItemQuantity = (item: CartItem) => {
+  const maxQuantity = getMaxCartQuantity(item);
+
+  return {
+    ...item,
+    quantity:
+      maxQuantity === null
+        ? Math.max(1, Math.trunc(item.quantity))
+        : Math.min(Math.max(1, Math.trunc(item.quantity)), maxQuantity),
+  };
+};
+
+const sanitizeCartItems = (items: CartItem[]) =>
+  items
+    .map((item) => clampCartItemQuantity(item))
+    .filter((item) => item.quantity > 0);
+
 const mergeCartItems = (localItems: CartItem[], remoteItems: CartItem[]) => {
   const merged = new Map<string, CartItem>();
 
@@ -90,7 +119,10 @@ const mergeCartItems = (localItems: CartItem[], remoteItems: CartItem[]) => {
     if (existing) {
       merged.set(item.id, {
         ...existing,
-        quantity: existing.quantity + item.quantity,
+        // Prefer the larger quantity when the same product already exists in
+        // both guest and remote carts so repeated dev-mode hydration does not
+        // keep inflating the count for one logical cart item.
+        quantity: Math.max(existing.quantity, item.quantity),
       });
       continue;
     }
@@ -98,7 +130,7 @@ const mergeCartItems = (localItems: CartItem[], remoteItems: CartItem[]) => {
     merged.set(item.id, { ...item });
   }
 
-  return Array.from(merged.values());
+  return sanitizeCartItems(Array.from(merged.values()));
 };
 
 const cartSnapshot = (items: CartItem[]) =>
@@ -372,8 +404,9 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     const savedCart = localStorage.getItem(CART_STORAGE_KEY);
     if (savedCart) {
       const parsedCart = JSON.parse(savedCart) as CartItem[];
-      setCart(parsedCart);
-      initialLocalCartSnapshotRef.current = cartSnapshot(parsedCart);
+      const sanitizedCart = sanitizeCartItems(parsedCart);
+      setCart(sanitizedCart);
+      initialLocalCartSnapshotRef.current = cartSnapshot(sanitizedCart);
     }
 
     setIsCartHydrated(true);
@@ -440,7 +473,9 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
           throw new Error(payload?.error || 'Failed to load cart.');
         }
 
-        const remoteItems = Array.isArray(payload?.items) ? payload.items : [];
+        const remoteItems = sanitizeCartItems(
+          Array.isArray(payload?.items) ? payload.items : [],
+        );
         const localSnapshot = cartSnapshot(cart);
         const initialLocalSnapshot = initialLocalCartSnapshotRef.current;
         const remoteSnapshot = cartSnapshot(remoteItems);
@@ -463,7 +498,7 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
             await persistCartToBackend(nextItems);
           }
         }
-      } catch (error) {
+      } catch {
         if (!isCancelled) {
           syncedCartUserIdRef.current = user.id;
           setIsCartSyncReady(true);
@@ -540,11 +575,20 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     setCart(prev => {
       const existingItem = prev.find(item => item.id === product.id);
       if (existingItem) {
-        return prev.map(item => 
-          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+        const maxQuantity = getMaxCartQuantity(existingItem);
+        return prev.map(item =>
+          item.id === product.id
+            ? {
+                ...item,
+                quantity:
+                  maxQuantity === null
+                    ? item.quantity + 1
+                    : Math.min(item.quantity + 1, maxQuantity),
+              }
+            : item
         );
       }
-      return [...prev, { ...product, quantity: 1 }];
+      return sanitizeCartItems([...prev, { ...product, quantity: 1 }]);
     });
 
     if (options?.openCart !== false) {
@@ -556,7 +600,12 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     setCart(prev => {
       return prev.map(item => {
         if (item.id === id) {
-          const newQuantity = Math.max(0, item.quantity + delta);
+          const maxQuantity = getMaxCartQuantity(item);
+          const nextQuantity = item.quantity + delta;
+          const newQuantity =
+            maxQuantity === null
+              ? Math.max(0, nextQuantity)
+              : Math.min(Math.max(0, nextQuantity), maxQuantity);
           return { ...item, quantity: newQuantity };
         }
         return item;

@@ -101,6 +101,11 @@ export default function CartDrawer() {
                             <h4 className="font-medium text-slate-900 line-clamp-1">{item.name}</h4>
                             <p className="text-slate-900 font-semibold">₱{item.price.toFixed(2)}</p>
                           </div>
+                          {typeof item.stock === 'number' && item.stock > 0 && (
+                            <p className="mt-1 text-xs text-slate-500">
+                              {item.stock} left in stock
+                            </p>
+                          )}
                           <div className="flex items-center gap-3 mt-2">
                             <button 
                               onClick={() => updateQuantity(item.id, -1)}
@@ -111,7 +116,8 @@ export default function CartDrawer() {
                             <span className="text-sm font-medium w-4 text-center">{item.quantity}</span>
                             <button 
                               onClick={() => updateQuantity(item.id, 1)}
-                              className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+                              disabled={typeof item.stock === 'number' && item.stock > 0 && item.quantity >= item.stock}
+                              className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                             >
                               <Plus className="w-3 h-3" />
                             </button>

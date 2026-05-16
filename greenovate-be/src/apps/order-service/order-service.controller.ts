@@ -18,7 +18,10 @@ const parseLimit = (value?: string) => {
 };
 
 // In-memory idempotency cache: key → cached result, expires after 10 minutes
-const idempotencyCache = new Map<string, { result: unknown; expiresAt: number }>();
+const idempotencyCache = new Map<
+  string,
+  { result: unknown; expiresAt: number }
+>();
 const IDEMPOTENCY_TTL_MS = 10 * 60 * 1000;
 
 @Controller('orders')
@@ -35,7 +38,10 @@ export class OrderServiceController {
       const data = await this.orderService.listCustomerOrders(userId);
       return { data };
     } catch (error) {
-      if (error instanceof UnauthorizedException || error instanceof HttpException) {
+      if (
+        error instanceof UnauthorizedException ||
+        error instanceof HttpException
+      ) {
         throw error;
       }
       console.error('Get my orders error:', error);
@@ -76,7 +82,9 @@ export class OrderServiceController {
       throw new HttpException({ error: 'receiptNumber is required' }, 400);
     }
     try {
-      const result = await this.orderService.getOrderStatus(receiptNumber.trim());
+      const result = await this.orderService.getOrderStatus(
+        receiptNumber.trim(),
+      );
       if (!result) {
         throw new HttpException({ error: 'Order not found' }, 404);
       }
@@ -96,8 +104,11 @@ export class OrderServiceController {
     @Body() body?: unknown,
   ) {
     try {
-      const userId = this.authService.requireUserId(authorization);
-      if (correlationId) console.log(`[order-service] place-order correlationId=${correlationId}`);
+      const user = this.authService.requireUser(authorization);
+      if (correlationId)
+        console.log(
+          `[order-service] place-order correlationId=${correlationId}`,
+        );
 
       if (idempotencyKey) {
         const cached = idempotencyCache.get(idempotencyKey);
@@ -110,7 +121,9 @@ export class OrderServiceController {
         }
       }
 
-      const result = await this.orderService.placeOrder(userId, body);
+      const result = await this.orderService.placeOrder(user.userId, body, {
+        email: user.email,
+      });
 
       if ('error' in result) {
         throw new HttpException({ error: result.error }, result.status ?? 500);

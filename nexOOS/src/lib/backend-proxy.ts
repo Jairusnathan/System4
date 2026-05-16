@@ -59,15 +59,26 @@ export async function proxyToBackend(request: Request, options: ProxyOptions) {
     ? `${backendBaseUrl.replace(/\/$/, '')}${targetPath}`
     : buildApiUrl(targetPath);
 
-  const response = await fetch(targetUrl, {
-    method: options.method ?? request.method,
-    headers: copyRequestHeaders(request),
-    body: request.method === 'GET' || request.method === 'HEAD' ? undefined : await request.text(),
-  });
+  try {
+    const response = await fetch(targetUrl, {
+      method: options.method ?? request.method,
+      headers: copyRequestHeaders(request),
+      body: request.method === 'GET' || request.method === 'HEAD' ? undefined : await request.text(),
+    });
 
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers: copyResponseHeaders(response.headers),
-  });
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: copyResponseHeaders(response.headers),
+    });
+  } catch (error) {
+    console.error(`Backend proxy request failed for ${targetPath}:`, error);
+
+    return Response.json(
+      {
+        error: 'Backend service is temporarily unavailable.',
+      },
+      { status: 503 },
+    );
+  }
 }

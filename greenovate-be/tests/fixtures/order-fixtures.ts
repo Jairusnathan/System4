@@ -86,10 +86,12 @@ export function makeChain(resolveValue: { data: unknown; error: unknown }) {
 }
 
 /** Builds a full secondSupabaseAdmin mock for a happy-path order placement. */
-export function makeSecondAdminMock(overrides: {
-  receiptData?: { receipt_id: number; receipt_number: string };
-  transactionData?: Record<string, unknown>;
-} = {}) {
+export function makeSecondAdminMock(
+  overrides: {
+    receiptData?: { receipt_id: number; receipt_number: string };
+    transactionData?: Record<string, unknown>;
+  } = {},
+) {
   const receiptData = overrides.receiptData ?? {
     receipt_id: 1001,
     receipt_number: '0000016985',
@@ -119,6 +121,21 @@ export function makeSecondAdminMock(overrides: {
       if (table === 'transaction_items') {
         return { insert: jest.fn().mockResolvedValue({ error: null }) };
       }
+      if (table === 'online_orders') {
+        return {
+          insert: jest.fn().mockReturnValue({
+            select: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({
+                data: { id: 'online-order-001' },
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === 'online_order_items') {
+        return { insert: jest.fn().mockResolvedValue({ error: null }) };
+      }
       if (table === 'receipts') {
         return makeChain({ data: receiptData, error: null });
       }
@@ -133,16 +150,18 @@ export function makeSupabaseMock() {
     from: jest.fn().mockReturnValue({
       select: jest.fn().mockReturnThis(),
       insert: jest.fn().mockReturnValue({
-        then: jest.fn().mockImplementation((cb: (v: { error: null }) => void) => {
-          cb({ error: null });
-          return Promise.resolve();
-        }),
+        then: jest
+          .fn()
+          .mockImplementation((cb: (v: { error: null }) => void) => {
+            cb({ error: null });
+            return Promise.resolve();
+          }),
       }),
       eq: jest.fn().mockReturnThis(),
       order: jest.fn().mockReturnThis(),
       limit: jest.fn().mockReturnThis(),
       single: jest.fn().mockResolvedValue({ data: null, error: null }),
-      then: (_resolve: unknown, _reject?: unknown) => Promise.resolve({ data: null, error: null }),
+      then: () => Promise.resolve({ data: null, error: null }),
     }),
   };
 }

@@ -142,7 +142,7 @@ export default function Shop() {
           { signal: controller.signal },
         );
 
-        setProducts(normalizeProducts(payload.data ?? []));
+        setProducts(normalizeProducts(payload?.data ?? []));
       } catch (err) {
         if ((err as Error).name === 'AbortError') {
           return;

@@ -71,7 +71,10 @@ export class CartServiceService {
 
       return {
         ...(product ?? this.buildFallbackProduct(productId)),
-        quantity: Math.max(1, Number(row.quantity ?? 1)),
+        quantity: this.clampQuantityToStock(
+          Math.max(1, Number(row.quantity ?? 1)),
+          product?.stock,
+        ),
       };
     });
   }
@@ -94,18 +97,30 @@ export class CartServiceService {
         quantity: Math.max(1, Math.trunc(item.quantity)),
       }));
 
-    const mergedItems = Array.from(
+    const mergedItemsById = Array.from(
       normalizedItems.reduce((map, item) => {
         const current = map.get(item.id) ?? 0;
         map.set(item.id, current + item.quantity);
         return map;
       }, new Map<string, number>()),
-    ).map(([productId, quantity]) => ({
-      customer_id: userId,
-      product_id: productId,
-      branch_id: null,
-      quantity,
-    }));
+    );
+    const products = await this.fetchProductsByIds(
+      mergedItemsById.map(([productId]) => productId),
+    );
+    const stockByProductId = new Map(
+      products.map((product) => [product.id, product.stock]),
+    );
+    const mergedItems = mergedItemsById
+      .map(([productId, quantity]) => ({
+        customer_id: userId,
+        product_id: productId,
+        branch_id: null,
+        quantity: this.clampQuantityToStock(
+          quantity,
+          stockByProductId.get(productId),
+        ),
+      }))
+      .filter((item) => item.quantity > 0);
 
     const { error: deleteError } = await this.cartAdmin
       .from('cart_items')
@@ -167,5 +182,15 @@ export class CartServiceService {
       console.error('Cart product lookup failed:', error);
       return [];
     }
+  }
+
+  private clampQuantityToStock(quantity: number, stock?: number) {
+    const normalizedQuantity = Math.max(1, Math.trunc(quantity));
+
+    if (typeof stock !== 'number' || !Number.isFinite(stock) || stock <= 0) {
+      return normalizedQuantity;
+    }
+
+    return Math.min(normalizedQuantity, Math.max(1, Math.trunc(stock)));
   }
 }

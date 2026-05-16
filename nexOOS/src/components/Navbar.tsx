@@ -84,7 +84,7 @@ export default function Navbar() {
           throw new Error(payload.error || 'Failed to load suggestions');
         }
 
-        setSuggestions(normalizeSuggestions(payload.data ?? []));
+        setSuggestions(normalizeSuggestions(payload?.data ?? []));
       } catch (error) {
         if ((error as Error).name !== 'AbortError') {
           console.error('Suggestion fetch failed:', error);

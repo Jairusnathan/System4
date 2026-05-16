@@ -197,32 +197,37 @@ export class ProductsService {
       return new Map<string, number>();
     }
 
-    const { data, error } = await this.supabaseService.supabaseAdmin
-      .from('online_order_items')
-      .select('product_id, quantity')
-      .in('product_id', uniqueIds);
+    try {
+      const { data, error } = await this.supabaseService.supabaseAdmin
+        .from('online_order_items')
+        .select('product_id, quantity')
+        .in('product_id', uniqueIds);
 
-    if (error) {
-      console.error('Product sold-count fetch failed:', error);
-      return new Map<string, number>();
-    }
-
-    const soldByProductId = new Map<string, number>();
-
-    for (const row of (data ?? []) as ProductSalesRow[]) {
-      const productId = String(row.product_id ?? '').trim();
-
-      if (!productId) {
-        continue;
+      if (error) {
+        console.error('Product sold-count fetch failed:', error);
+        return new Map<string, number>();
       }
 
-      soldByProductId.set(
-        productId,
-        (soldByProductId.get(productId) ?? 0) + this.toNumber(row.quantity),
-      );
-    }
+      const soldByProductId = new Map<string, number>();
 
-    return soldByProductId;
+      for (const row of (data ?? []) as ProductSalesRow[]) {
+        const productId = String(row.product_id ?? '').trim();
+
+        if (!productId) {
+          continue;
+        }
+
+        soldByProductId.set(
+          productId,
+          (soldByProductId.get(productId) ?? 0) + this.toNumber(row.quantity),
+        );
+      }
+
+      return soldByProductId;
+    } catch (error) {
+      console.error('Product sold-count fetch skipped:', error);
+      return new Map<string, number>();
+    }
   }
 
   private mapSecondDatabaseProduct(

@@ -1,5 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { OrderServiceService } from './order-service.service';
+import { MailerService } from '../../services/mailer.service';
 import { SupabaseService } from '../../services/supabase.service';
 import { requestDownstream } from '../../shared/http/request-downstream';
 import {
@@ -21,11 +22,20 @@ jest.mock('../../shared/http/request-downstream', () => ({
   requestDownstream: jest.fn(),
 }));
 
-const mockRequest = requestDownstream as jest.MockedFunction<typeof requestDownstream>;
+const mockRequest = requestDownstream as jest.MockedFunction<
+  typeof requestDownstream
+>;
 
 describe('OrderServiceService — Order Placement (OOS-211)', () => {
   let service: OrderServiceService;
   let secondAdmin: ReturnType<typeof makeSecondAdminMock>;
+  let mailerServiceMock: {
+    isConfigured: jest.Mock<boolean, []>;
+    sendOrderConfirmationEmail: jest.Mock<
+      Promise<void>,
+      [string, string, unknown]
+    >;
+  };
 
   const setupDownstreamMocks = () => {
     mockRequest.mockImplementation(({ path }: { path: string }) => {
@@ -41,14 +51,23 @@ describe('OrderServiceService — Order Placement (OOS-211)', () => {
 
   beforeEach(async () => {
     secondAdmin = makeSecondAdminMock();
+    mailerServiceMock = {
+      isConfigured: jest.fn().mockReturnValue(false),
+      sendOrderConfirmationEmail: jest.fn().mockResolvedValue(undefined),
+    };
 
     const module = await Test.createTestingModule({
       providers: [
         OrderServiceService,
         {
+          provide: MailerService,
+          useValue: mailerServiceMock,
+        },
+        {
           provide: SupabaseService,
           useValue: {
             supabase: makeSupabaseMock(),
+            supabaseAdmin: secondAdmin,
             secondSupabaseAdmin: secondAdmin,
           },
         },
@@ -75,7 +94,9 @@ describe('OrderServiceService — Order Placement (OOS-211)', () => {
     });
 
     it('includes shippingAddress in the returned order', async () => {
-      const body = buildOrderBody({ shippingAddress: '456 Rizal Ave, Quezon City' });
+      const body = buildOrderBody({
+        shippingAddress: '456 Rizal Ave, Quezon City',
+      });
       const result = await service.placeOrder(TEST_USER_ID, body);
 
       expect('order' in result).toBe(true);
@@ -118,13 +139,34 @@ describe('OrderServiceService — Order Placement (OOS-211)', () => {
       const calls = mockRequest.mock.calls.map(([input]) => input.path);
       expect(calls).toContain('/internal/cart/clear');
     });
+
+    it('sends an order confirmation email when SMTP is configured', async () => {
+      mailerServiceMock.isConfigured.mockReturnValue(true);
+      await service.placeOrder(TEST_USER_ID, buildOrderBody(), {
+        email: 'buyer@example.com',
+        fullName: 'Buyer Name',
+      });
+      await Promise.resolve();
+
+      expect(mailerServiceMock.sendOrderConfirmationEmail).toHaveBeenCalledWith(
+        'buyer@example.com',
+        'Buyer Name',
+        expect.objectContaining({
+          receiptNumber: '0000016985',
+          paymentMethod: 'Cash on Delivery',
+        }),
+      );
+    });
   });
 
   // ── Pickup path (zero delivery fee) ─────────────────────────────────────────
 
   describe('pickup path', () => {
     it('places an order with zero delivery fee', async () => {
-      const result = await service.placeOrder(TEST_USER_ID, buildPickupOrderBody());
+      const result = await service.placeOrder(
+        TEST_USER_ID,
+        buildPickupOrderBody(),
+      );
 
       expect('order' in result).toBe(true);
       if (!('order' in result)) return;
@@ -132,7 +174,10 @@ describe('OrderServiceService — Order Placement (OOS-211)', () => {
     });
 
     it('uses GCash payment method correctly', async () => {
-      const result = await service.placeOrder(TEST_USER_ID, buildPickupOrderBody());
+      const result = await service.placeOrder(
+        TEST_USER_ID,
+        buildPickupOrderBody(),
+      );
 
       expect('order' in result).toBe(true);
       if (!('order' in result)) return;
@@ -148,7 +193,10 @@ describe('OrderServiceService — Order Placement (OOS-211)', () => {
         TEST_USER_ID,
         buildOrderBody({ shippingAddress: '' }),
       );
-      expect(result).toMatchObject({ error: 'Shipping address is required', status: 400 });
+      expect(result).toMatchObject({
+        error: 'Shipping address is required',
+        status: 400,
+      });
     });
 
     it('returns 400 when cart is empty', async () => {
@@ -171,7 +219,11 @@ describe('OrderServiceService — Order Placement (OOS-211)', () => {
       mockRequest.mockImplementation(({ path }: { path: string }) => {
         if (path === '/internal/products/prepare-order')
           return Promise.resolve(mockPrepareItems([MISSING_PRODUCT]));
-        return Promise.resolve({ status: 200, data: {}, headers: new Headers() });
+        return Promise.resolve({
+          status: 200,
+          data: {},
+          headers: new Headers(),
+        });
       });
 
       const result = await service.placeOrder(
@@ -185,12 +237,18 @@ describe('OrderServiceService — Order Placement (OOS-211)', () => {
       mockRequest.mockImplementation(({ path }: { path: string }) => {
         if (path === '/internal/products/prepare-order')
           return Promise.resolve(mockPrepareItems([OUT_OF_STOCK_PRODUCT]));
-        return Promise.resolve({ status: 200, data: {}, headers: new Headers() });
+        return Promise.resolve({
+          status: 200,
+          data: {},
+          headers: new Headers(),
+        });
       });
 
       const result = await service.placeOrder(
         TEST_USER_ID,
-        buildOrderBody({ items: [{ id: OUT_OF_STOCK_PRODUCT.id, quantity: 1 }] }),
+        buildOrderBody({
+          items: [{ id: OUT_OF_STOCK_PRODUCT.id, quantity: 1 }],
+        }),
       );
       expect(result).toMatchObject({ status: 409 });
     });
@@ -205,7 +263,10 @@ describe('OrderServiceService — Order Placement (OOS-211)', () => {
           return {
             insert: jest.fn().mockReturnValue({
               select: jest.fn().mockReturnValue({
-                single: jest.fn().mockResolvedValue({ data: null, error: new Error('DB error') }),
+                single: jest.fn().mockResolvedValue({
+                  data: null,
+                  error: new Error('DB error'),
+                }),
               }),
             }),
           };

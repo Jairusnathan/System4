@@ -1,11 +1,17 @@
 import { Injectable } from '@nestjs/common';
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import nodemailer from 'nodemailer';
 
 @Injectable()
 export class MailerService {
+  private authServiceMailEnvCache: Record<string, string> | null = null;
+
   isConfigured() {
     return Boolean(
-      process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS,
+      this.getMailEnv('SMTP_HOST') &&
+      this.getMailEnv('SMTP_USER') &&
+      this.getMailEnv('SMTP_PASS'),
     );
   }
 
@@ -153,7 +159,9 @@ export class MailerService {
 
   private get smtpFrom() {
     return (
-      process.env.SMTP_FROM || process.env.SMTP_USER || 'no-reply@example.com'
+      this.getMailEnv('SMTP_FROM') ||
+      this.getMailEnv('SMTP_USER') ||
+      'no-reply@example.com'
     );
   }
 
@@ -163,13 +171,67 @@ export class MailerService {
     }
 
     return nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT || 587),
-      secure: Number(process.env.SMTP_PORT || 587) === 465,
+      host: this.getMailEnv('SMTP_HOST'),
+      port: Number(this.getMailEnv('SMTP_PORT') || 587),
+      secure: Number(this.getMailEnv('SMTP_PORT') || 587) === 465,
       auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
+        user: this.getMailEnv('SMTP_USER'),
+        pass: this.getMailEnv('SMTP_PASS'),
       },
     });
+  }
+
+  private getMailEnv(key: string) {
+    const directValue = process.env[key]?.trim();
+    if (directValue) {
+      return directValue;
+    }
+
+    return this.loadAuthServiceMailEnv()[key];
+  }
+
+  private loadAuthServiceMailEnv() {
+    if (this.authServiceMailEnvCache !== null) {
+      return this.authServiceMailEnvCache;
+    }
+
+    const envPath = resolve(process.cwd(), 'apps/auth-service/.env');
+    if (!existsSync(envPath)) {
+      this.authServiceMailEnvCache = {};
+      return this.authServiceMailEnvCache;
+    }
+
+    const parsed: Record<string, string> = {};
+    const content = readFileSync(envPath, 'utf8');
+
+    for (const rawLine of content.split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith('#')) {
+        continue;
+      }
+
+      const separatorIndex = line.indexOf('=');
+      if (separatorIndex <= 0) {
+        continue;
+      }
+
+      const key = line.slice(0, separatorIndex).trim();
+      if (!key.startsWith('SMTP_')) {
+        continue;
+      }
+
+      const value = line
+        .slice(separatorIndex + 1)
+        .trim()
+        .replace(/^"(.*)"$/, '$1')
+        .replace(/^'(.*)'$/, '$1');
+
+      if (value) {
+        parsed[key] = value;
+      }
+    }
+
+    this.authServiceMailEnvCache = parsed;
+    return parsed;
   }
 }

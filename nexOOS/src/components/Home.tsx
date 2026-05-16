@@ -78,7 +78,7 @@ export default function Home() {
           { signal: controller.signal },
         );
 
-        setFeaturedProducts(normalizeProducts(payload.data ?? []).slice(0, 4));
+        setFeaturedProducts(normalizeProducts(payload?.data ?? []).slice(0, 4));
       } catch (error) {
         if ((error as Error).name === 'AbortError') {
           return;

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { MailerService } from '../../services/mailer.service';
 import { SupabaseService } from '../../services/supabase.service';
 import { requestDownstream } from '../../shared/http/request-downstream';
 import { SERVICE_URLS } from '../../shared/http/service-urls';
@@ -6,6 +7,11 @@ import { SERVICE_URLS } from '../../shared/http/service-urls';
 type CheckoutItem = {
   id: string;
   quantity: number;
+};
+
+type CustomerContact = {
+  email?: string;
+  fullName?: string;
 };
 
 type PreparedOrderItem = {
@@ -43,12 +49,19 @@ type PromoValidationResult =
 
 @Injectable()
 export class OrderServiceService {
-  constructor(private readonly supabaseService: SupabaseService) {}
+  private readonly fallbackProductImage =
+    'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&q=80&w=800&h=800';
+
+  constructor(
+    private readonly supabaseService: SupabaseService,
+    private readonly mailerService: MailerService,
+  ) {}
 
   async listCustomerOrders(userId: string, limit = 50) {
     const { data, error } = await this.supabaseService.supabaseAdmin
       .from('online_orders')
-      .select(`
+      .select(
+        `
         id,
         receipt_number,
         order_number,
@@ -70,7 +83,8 @@ export class OrderServiceService {
           quantity,
           line_total
         )
-      `)
+      `,
+      )
       .eq('customer_id', userId)
       .order('created_at', { ascending: false })
       .limit(limit);
@@ -97,7 +111,7 @@ export class OrderServiceService {
         description: '',
         price: Number(item.unit_price ?? 0),
         category: item.category ?? 'Uncategorized',
-        image: '',
+        image: this.buildOrderItemImage(item.product_id),
         quantity: Number(item.quantity ?? 0),
       })),
       subtotal: Number(row.subtotal ?? 0),
@@ -169,7 +183,7 @@ export class OrderServiceService {
     };
   }
 
-  async placeOrder(userId: string, body: unknown) {
+  async placeOrder(userId: string, body: unknown, customer?: CustomerContact) {
     const payload =
       typeof body === 'object' && body !== null
         ? (body as Record<string, unknown>)
@@ -273,8 +287,10 @@ export class OrderServiceService {
       const db = this.supabaseService.supabaseAdmin;
 
       // Create receipt using issue_next_receipt_number RPC
-      const { data: receiptRows, error: receiptError } =
-        await db.rpc('issue_next_receipt_number', {});
+      const { data: receiptRows, error: receiptError } = await db.rpc(
+        'issue_next_receipt_number',
+        {},
+      );
 
       if (receiptError) {
         throw receiptError;
@@ -285,21 +301,27 @@ export class OrderServiceService {
       let receiptNumber: string;
 
       if (raw && typeof raw === 'object') {
-        receiptId = Number((raw as Record<string, unknown>).receipt_id ?? (raw as Record<string, unknown>).id ?? 0);
-        receiptNumber = String(
+        const receiptNumberValue =
           (raw as Record<string, unknown>).receipt_number ??
           (raw as Record<string, unknown>).number ??
-          (raw as Record<string, unknown>).receiptNumber ??
-          '',
+          (raw as Record<string, unknown>).receiptNumber;
+        receiptId = Number(
+          (raw as Record<string, unknown>).receipt_id ??
+            (raw as Record<string, unknown>).id ??
+            0,
         );
+        receiptNumber =
+          typeof receiptNumberValue === 'string' ? receiptNumberValue : '';
       } else {
         receiptNumber = String(raw ?? '');
-        const { data: insertedReceipt, error: insertReceiptError } =
-          await db
-            .from('receipts')
-            .insert({ receipt_number: receiptNumber, issued_at: new Date().toISOString() })
-            .select('receipt_id')
-            .single();
+        const { data: insertedReceipt, error: insertReceiptError } = await db
+          .from('receipts')
+          .insert({
+            receipt_number: receiptNumber,
+            issued_at: new Date().toISOString(),
+          })
+          .select('receipt_id')
+          .single();
 
         if (insertReceiptError) {
           const { data: lookupRow } = await db
@@ -324,49 +346,47 @@ export class OrderServiceService {
         Math.max(0, subtotal + deliveryFee - discountAmount).toFixed(2),
       );
 
-      const { data: insertedTransaction, error: transactionError } =
-        await db
-          .from('transactions')
-          .insert([
-            {
-              status: 'paid',
-              paid_at: new Date().toISOString(),
-              subtotal,
-              total_amount: totalAmount,
-              payment_method: this.normalizePaymentMethodForPos(paymentMethod),
-              vat,
-              items_count: normalizedItems.reduce(
-                (sum, item) => sum + item.quantity,
-                0,
-              ),
-              discount_type: promoResult?.valid
-                ? promoResult.promo.discount_type
-                : 'None',
-              discount_amount: discountAmount,
-              receipt_id: receiptId,
-              cashier_name: 'Ecommerce',
-            },
-          ])
-          .select('*')
-          .single();
+      const { data: insertedTransaction, error: transactionError } = await db
+        .from('transactions')
+        .insert([
+          {
+            status: 'paid',
+            paid_at: new Date().toISOString(),
+            subtotal,
+            total_amount: totalAmount,
+            payment_method: this.normalizePaymentMethodForPos(paymentMethod),
+            vat,
+            items_count: normalizedItems.reduce(
+              (sum, item) => sum + item.quantity,
+              0,
+            ),
+            discount_type: promoResult?.valid
+              ? promoResult.promo.discount_type
+              : 'None',
+            discount_amount: discountAmount,
+            receipt_id: receiptId,
+            cashier_name: 'Ecommerce',
+          },
+        ])
+        .select('*')
+        .single();
 
       if (transactionError || !insertedTransaction) {
         throw transactionError;
       }
 
-      const { error: transactionItemsError } =
-        await db
-          .from('transaction_items')
-          .insert(
-            normalizedItems.map((item) => ({
-              transaction_id: insertedTransaction.id,
-              name: item.name,
-              category: item.category,
-              unit_price: item.price,
-              quantity: item.quantity,
-              line_total: Number((item.price * item.quantity).toFixed(2)),
-            })),
-          );
+      const { error: transactionItemsError } = await db
+        .from('transaction_items')
+        .insert(
+          normalizedItems.map((item) => ({
+            transaction_id: insertedTransaction.id,
+            name: item.name,
+            category: item.category,
+            unit_price: item.price,
+            quantity: item.quantity,
+            line_total: Number((item.price * item.quantity).toFixed(2)),
+          })),
+        );
 
       if (transactionItemsError) {
         throw transactionItemsError;
@@ -376,51 +396,49 @@ export class OrderServiceService {
       const orderNumber = `TXN-${txNo}`;
 
       // Insert into online_orders
-      const { data: insertedOnlineOrder, error: onlineOrderError } =
-        await db
-          .from('online_orders')
-          .insert({
-            customer_id: userId,
-            receipt_id: receiptId,
-            receipt_number: receiptNumber,
-            transaction_id: insertedTransaction.id,
-            order_number: orderNumber,
-            tx_no: txNo,
-            branch_id: branchId,
-            shipping_address: shippingAddress,
-            payment_method: paymentMethod,
-            payment_status: 'paid',
-            fulfillment_status: 'Processing',
-            delivery_method: deliveryMethod,
-            subtotal,
-            delivery_fee: Number(deliveryFee.toFixed(2)),
-            discount_amount: Number(discountAmount.toFixed(2)),
-            total: totalAmount,
-            promo_code: promoResult?.valid ? promoResult.promo.code : null,
-            metadata: { source: 'web-checkout' },
-          })
-          .select('id')
-          .single();
+      const { data: insertedOnlineOrder, error: onlineOrderError } = await db
+        .from('online_orders')
+        .insert({
+          customer_id: userId,
+          receipt_id: receiptId,
+          receipt_number: receiptNumber,
+          transaction_id: insertedTransaction.id,
+          order_number: orderNumber,
+          tx_no: txNo,
+          branch_id: branchId,
+          shipping_address: shippingAddress,
+          payment_method: paymentMethod,
+          payment_status: 'paid',
+          fulfillment_status: 'Processing',
+          delivery_method: deliveryMethod,
+          subtotal,
+          delivery_fee: Number(deliveryFee.toFixed(2)),
+          discount_amount: Number(discountAmount.toFixed(2)),
+          total: totalAmount,
+          promo_code: promoResult?.valid ? promoResult.promo.code : null,
+          metadata: { source: 'web-checkout' },
+        })
+        .select('id')
+        .single();
 
       if (onlineOrderError || !insertedOnlineOrder) {
         throw onlineOrderError;
       }
 
       // Insert into online_order_items
-      const { error: onlineOrderItemsError } =
-        await db
-          .from('online_order_items')
-          .insert(
-            normalizedItems.map((item) => ({
-              online_order_id: insertedOnlineOrder.id,
-              product_id: item.id,
-              product_name: item.name,
-              category: item.category,
-              unit_price: item.price,
-              quantity: item.quantity,
-              line_total: Number((item.price * item.quantity).toFixed(2)),
-            })),
-          );
+      const { error: onlineOrderItemsError } = await db
+        .from('online_order_items')
+        .insert(
+          normalizedItems.map((item) => ({
+            online_order_id: insertedOnlineOrder.id,
+            product_id: item.id,
+            product_name: item.name,
+            category: item.category,
+            unit_price: item.price,
+            quantity: item.quantity,
+            line_total: Number((item.price * item.quantity).toFixed(2)),
+          })),
+        );
 
       if (onlineOrderItemsError) {
         throw onlineOrderItemsError;
@@ -441,6 +459,39 @@ export class OrderServiceService {
       }
 
       // Publish order.placed event (fire-and-forget — never block the checkout response)
+      if (this.mailerService.isConfigured()) {
+        void (async () => {
+          try {
+            const recipientEmail = customer?.email?.trim();
+            if (recipientEmail) {
+              await this.mailerService.sendOrderConfirmationEmail(
+                recipientEmail,
+                customer?.fullName?.trim() || 'Customer',
+                {
+                  receiptNumber,
+                  items: normalizedItems.map((item) => ({
+                    name: item.name,
+                    quantity: item.quantity,
+                    price: item.price,
+                  })),
+                  subtotal,
+                  deliveryFee: Number(deliveryFee.toFixed(2)),
+                  discountAmount: Number(discountAmount.toFixed(2)),
+                  total: totalAmount,
+                  paymentMethod,
+                  shippingAddress,
+                },
+              );
+            }
+          } catch (error) {
+            console.error(
+              '[order-service] Order confirmation email error:',
+              error,
+            );
+          }
+        })();
+      }
+
       this.supabaseService.supabase
         .from('order_events')
         .insert({
@@ -457,7 +508,11 @@ export class OrderServiceService {
           },
         })
         .then(({ error }) => {
-          if (error) console.error('[order-service] Failed to publish order.placed event:', error);
+          if (error)
+            console.error(
+              '[order-service] Failed to publish order.placed event:',
+              error,
+            );
         });
 
       return {
@@ -580,5 +635,9 @@ export class OrderServiceService {
     }
 
     return normalized || 'cash';
+  }
+
+  private buildOrderItemImage(productId: string) {
+    return `${this.fallbackProductImage}&sig=${encodeURIComponent(productId)}`;
   }
 }

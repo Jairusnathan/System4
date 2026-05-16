@@ -126,7 +126,7 @@ export default function ProductDetailsModal() {
           { signal: controller.signal },
         );
 
-        const nextProducts = normalizeProducts(payload.data ?? [])
+        const nextProducts = normalizeProducts(payload?.data ?? [])
           .filter((product) => product.id !== selectedProduct.id)
           .slice(0, 4);
 

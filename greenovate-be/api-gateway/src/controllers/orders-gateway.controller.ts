@@ -74,6 +74,37 @@ export class OrdersGatewayController {
     return result.data;
   }
 
+  @Get('my-return-requests')
+  async getMyReturnRequests(
+    @Headers('authorization') authorization: string | undefined,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await requestDownstream<unknown>({
+      baseUrl: SERVICE_URLS.orders,
+      path: '/orders/my-return-requests',
+      headers: { authorization },
+    });
+    response.status(result.status);
+    return result.data;
+  }
+
+  @Post('return-request')
+  async submitReturnRequest(
+    @Headers('authorization') authorization: string | undefined,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await requestDownstream<unknown>({
+      baseUrl: SERVICE_URLS.orders,
+      path: '/orders/return-request',
+      method: 'POST',
+      headers: { authorization },
+      body,
+    });
+    response.status(result.status);
+    return result.data;
+  }
+
   @Post('cancel')
   async cancelOrder(
     @Headers('authorization') authorization: string | undefined,

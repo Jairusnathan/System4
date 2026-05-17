@@ -2,7 +2,7 @@
 
 import React, { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { User, Package, MapPin, LogOut, ChevronRight, ChevronDown, Clock, CheckCircle2, X, Settings, Lock, Camera, ArrowLeft, Trash2 } from 'lucide-react';
+import { User, Package, MapPin, LogOut, ChevronRight, ChevronDown, Clock, CheckCircle2, X, Settings, Lock, Camera, ArrowLeft, Trash2, RotateCcw } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import {
   ensureAccessToken,
@@ -140,26 +140,23 @@ const getDisplayOrderNumber = (order: { receiptNumber?: string; orderNumber?: st
   order.receiptNumber || order.orderNumber || order.id;
 
 const getOrderStatusBadgeClassName = (status: string) => {
-  if (status === 'Delivered' || status === 'Processing') return 'bg-blue-100 text-blue-700';
+  if (status === 'Delivered') return 'bg-green-100 text-green-700';
+  if (status === 'Processing') return 'bg-blue-100 text-blue-700';
   if (status === 'Cancelled') return 'bg-red-100 text-red-700';
   return 'bg-amber-100 text-amber-700';
 };
 
 const getOrderStatusDotClassName = (status: string) => {
-  if (status === 'Delivered' || status === 'Processing') return 'bg-blue-500';
+  if (status === 'Delivered') return 'bg-green-500';
+  if (status === 'Processing') return 'bg-blue-500';
   if (status === 'Cancelled') return 'bg-red-500';
   return 'bg-amber-500';
 };
 
 const getAccountSubViewTitle = (accountSubView: string) => {
-  if (accountSubView === 'profile') {
-    return 'Profile Details';
-  }
-
-  if (accountSubView === 'orders') {
-    return 'Order History';
-  }
-
+  if (accountSubView === 'profile') return 'Profile Details';
+  if (accountSubView === 'orders') return 'Order History';
+  if (accountSubView === 'returns') return 'Refund Requests';
   return 'Account Settings';
 };
 
@@ -612,6 +609,11 @@ export default function Account() {
   const [makeAddressDefault, setMakeAddressDefault] = useState(false);
   const [addressValidationMessage, setAddressValidationMessage] = useState('');
   const [saveStatus, setSaveStatus] = useState<StatusMessage>({ type: null, message: '' });
+  const [returnRequests, setReturnRequests] = useState<{
+    id: string; receipt_number: string; reason: string; description?: string;
+    items: { name: string; quantity: number }[]; status: string; created_at: string;
+  }[]>([]);
+  const [isLoadingReturns, setIsLoadingReturns] = useState(false);
   const [addressEntries, setAddressEntries] = useState<SavedAddress[]>(parseAddresses(user?.address, user));
   const [addressFormData, setAddressFormData] = useState<SavedAddress>(createEmptyAddress(user));
   const profileImageInputRef = useRef<HTMLInputElement | null>(null);
@@ -632,6 +634,16 @@ export default function Account() {
     provincesStatus,
     citiesStatus,
   } = usePhilippineLocations(addressFormData.province, addressFormData.city);
+
+  React.useEffect(() => {
+    if (accountSubView !== 'returns') return;
+    setIsLoadingReturns(true);
+    fetchWithAuth('/api/orders/my-return-requests')
+      .then((res) => res.ok ? res.json() : { data: [] })
+      .then((payload) => setReturnRequests(payload?.data ?? []))
+      .catch(() => {})
+      .finally(() => setIsLoadingReturns(false));
+  }, [accountSubView]);
 
   React.useEffect(() => {
     if (user) {
@@ -1306,6 +1318,69 @@ export default function Account() {
     </div>
   );
 
+  const renderReturnRequests = () => {
+    const getStatusStyle = (status: string) => {
+      if (status === 'approved' || status === 'completed') return 'bg-green-100 text-green-700';
+      if (status === 'rejected') return 'bg-red-100 text-red-700';
+      if (status === 'reviewing') return 'bg-blue-100 text-blue-700';
+      return 'bg-amber-100 text-amber-700';
+    };
+
+    if (isLoadingReturns) return (
+      <div className="text-center py-12 text-slate-400 font-medium">Loading refund requests...</div>
+    );
+
+    if (returnRequests.length === 0) return (
+      <div className="text-center py-12">
+        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <RotateCcw className="w-7 h-7 text-slate-400" />
+        </div>
+        <p className="font-bold text-slate-700 mb-1">No refund requests yet</p>
+        <p className="text-sm text-slate-500">Requests for delivered orders appear here.</p>
+      </div>
+    );
+
+    return (
+      <div className="space-y-4">
+        {returnRequests.map((req) => (
+          <div key={req.id} className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div>
+                <p className="text-xs text-slate-500 font-medium mb-0.5">Receipt No.</p>
+                <p className="font-black text-slate-900 text-sm">{req.receipt_number}</p>
+              </div>
+              <span className={`px-3 py-1 rounded-full text-xs font-black shrink-0 ${getStatusStyle(req.status)}`}>
+                {req.status.charAt(0).toUpperCase() + req.status.slice(1)}
+              </span>
+            </div>
+            <div className="space-y-1.5 text-sm">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Reason</span>
+                <span className="font-medium text-slate-700 text-right max-w-[60%]">{req.reason}</span>
+              </div>
+              {req.description && (
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Details</span>
+                  <span className="font-medium text-slate-700 text-right max-w-[60%]">{req.description}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-slate-500">Items</span>
+                <span className="font-medium text-slate-700 text-right max-w-[60%]">
+                  {req.items.map((i: { name: string; quantity: number }) => `${i.name} (×${i.quantity})`).join(', ')}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Submitted</span>
+                <span className="font-medium text-slate-700">{new Date(req.created_at).toLocaleDateString('en-PH')}</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   const renderAccountSettings = () => (
     <div className="space-y-10">
       <div className="space-y-6">
@@ -1380,11 +1455,12 @@ export default function Account() {
                   { id: 'profile', name: 'Profile Details', icon: <User className="w-5 h-5" /> },
                   { id: 'addresses', name: 'Addresses', icon: <MapPin className="w-5 h-5" /> },
                   { id: 'orders', name: 'Order History', icon: <Package className="w-5 h-5" /> },
+                  { id: 'returns', name: 'Refund Requests', icon: <RotateCcw className="w-5 h-5" /> },
                   { id: 'settings', name: 'Account Settings', icon: <Settings className="w-5 h-5" /> }
                 ].map(item => (
-                  <button 
+                  <button
                     key={item.id}
-                    onClick={() => setAccountSubView(item.id as 'profile' | 'addresses' | 'orders' | 'settings')}
+                    onClick={() => setAccountSubView(item.id as 'profile' | 'addresses' | 'orders' | 'returns' | 'settings')}
                     className={`w-full flex items-center justify-between p-4 rounded-2xl font-bold text-sm transition-all group ${
                       accountSubView === item.id 
                         ? 'bg-blue-50 text-blue-600 border-l-4 border-blue-600 rounded-l-none' 
@@ -1429,6 +1505,7 @@ export default function Account() {
               {accountSubView === 'profile' && renderProfileDetails()}
               {accountSubView === 'addresses' && renderAddresses()}
               {accountSubView === 'orders' && renderOrderHistory()}
+              {accountSubView === 'returns' && renderReturnRequests()}
               {accountSubView === 'settings' && renderAccountSettings()}
             </motion.div>
           </div>

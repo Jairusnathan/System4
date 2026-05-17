@@ -19,7 +19,6 @@ import { buildApiUrl, fetchJsonWithRetry } from '@/lib/api';
 import { Product } from '../types';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
-const CATEGORIES = ['All', 'Medicines', 'First Aid', 'Personal Care', 'Vitamins'];
 const SORT_OPTIONS = [
   { label: '✨ For You', value: 'for-you' },
   { label: 'Price: Low to High', value: 'price-asc' },
@@ -102,6 +101,7 @@ export default function Shop() {
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [products, setProducts] = useState<Product[]>([]);
+  const [availableCategories, setAvailableCategories] = useState<string[]>(['All']);
   const rawProductsRef = useRef<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -154,6 +154,12 @@ export default function Shop() {
         const fetched = normalizeProducts(payload?.data ?? []);
         rawProductsRef.current = fetched;
 
+        // Build category list dynamically from all products (no filter applied yet)
+        if (!searchQuery.trim() && !hasCategoryFilter) {
+          const cats = ['All', ...Array.from(new Set(fetched.map((p) => p.category).filter(Boolean))).sort()];
+          setAvailableCategories(cats);
+        }
+
         // Apply Shopee-style scoring immediately if interests are already loaded
         if (sortBy === 'for-you' && (interestMap.size > 0 || categoryInterestMap.size > 0)) {
           const scored = [...fetched].sort((a, b) => {
@@ -173,10 +179,13 @@ export default function Shop() {
         if ((err as Error).name === 'AbortError') {
           return;
         }
-
-        console.error('Product fetch failed:', err);
+        // Silently ignore 503/502 — services still starting up
+        const status = (err as { status?: number }).status;
+        if (status !== 503 && status !== 502) {
+          console.error('Product fetch failed:', err);
+          setError('Unable to load products right now.');
+        }
         setProducts([]);
-        setError('Unable to load products right now.');
       } finally {
         if (!controller.signal.aborted) {
           setIsLoading(false);
@@ -563,7 +572,7 @@ export default function Shop() {
                 </div>
 
                 <div className="space-y-3">
-                  {CATEGORIES.map((category) => (
+                  {availableCategories.map((category) => (
                     <button
                       key={category}
                       onClick={() => togglePendingCategory(category)}

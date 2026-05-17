@@ -30,6 +30,68 @@ export class OrderService {
     return data ?? [];
   }
 
+  async submitReturnRequest(
+    userId: string,
+    customerEmail: string,
+    receiptNumber: string,
+    reason: string,
+    description: string | undefined,
+    items: Array<{ productId: string; name: string; quantity: number }>,
+  ): Promise<{ success: boolean; error?: string }> {
+    const db = this.supabaseService.supabaseAdmin;
+
+    // Verify order belongs to user and is Delivered
+    const { data: order, error: fetchError } = await db
+      .from('online_orders')
+      .select('id, customer_id, fulfillment_status, receipt_number')
+      .eq('receipt_number', receiptNumber)
+      .single();
+
+    if (fetchError || !order) return { success: false, error: 'Order not found' };
+    if (order.customer_id !== userId) return { success: false, error: 'Order not found' };
+    if (order.fulfillment_status !== 'Delivered') {
+      return { success: false, error: 'Only delivered orders can be returned' };
+    }
+
+    // Check no existing pending request for this order
+    const { data: existing } = await db
+      .from('return_requests')
+      .select('id')
+      .eq('receipt_number', receiptNumber)
+      .in('status', ['pending', 'reviewing'])
+      .single();
+
+    if (existing) return { success: false, error: 'A return request for this order is already pending' };
+
+    // Create return request
+    const { error: insertError } = await db.from('return_requests').insert({
+      online_order_id: order.id,
+      customer_id: userId,
+      receipt_number: receiptNumber,
+      reason,
+      description: description?.trim() || null,
+      items,
+      status: 'pending',
+    });
+
+    if (insertError) return { success: false, error: 'Failed to submit return request' };
+
+    // Send confirmation email — fire and forget
+    if (this.mailerService.isConfigured() && customerEmail) {
+      void (async () => {
+        try {
+          await this.mailerService.sendReturnRequestEmail(
+            customerEmail,
+            customerEmail.split('@')[0] || 'there',
+            { receiptNumber, reason, description, items },
+          );
+        } catch {}
+      })();
+    }
+
+    return { success: true };
+  }
+
   async cancelOrder(userId: string, receiptNumber: string, reason?: string, customerEmail?: string): Promise<{ success: boolean; error?: string }> {
     const db = this.supabaseService.supabaseAdmin;
 
@@ -186,7 +248,7 @@ export class OrderService {
       try { await this.clearCart(userId); } catch (error) { console.error('Cart clear warning:', error); }
 
       if (this.mailerService.isConfigured()) {
-        void (async () => { try { const recipientEmail = customer?.email?.trim(); if (recipientEmail) { await this.mailerService.sendOrderConfirmationEmail(recipientEmail, customer?.fullName?.trim() || 'Customer', { receiptNumber, items: normalizedItems.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price })), subtotal, deliveryFee: Number(deliveryFee.toFixed(2)), discountAmount: Number(discountAmount.toFixed(2)), total: totalAmount, paymentMethod, shippingAddress }); } } catch (error) { console.error('[order-service] Order confirmation email error:', error); } })();
+        void (async () => { try { const recipientEmail = customer?.email?.trim(); if (recipientEmail) { await this.mailerService.sendOrderConfirmationEmail(recipientEmail, customer?.fullName?.trim() || 'Customer', { receiptNumber, items: normalizedItems.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price })), subtotal, deliveryFee: Number(deliveryFee.toFixed(2)), discountAmount: Number(discountAmount.toFixed(2)), total: totalAmount, paymentMethod, shippingAddress, deliveryMethod: deliveryMethod ?? undefined }); } } catch (error) { console.error('[order-service] Order confirmation email error:', error); } })();
       }
 
       return { order: { id: receiptNumber || insertedTransaction.id, orderNumber, txNo, date: insertedTransaction.created_at, items: normalizedItems, subtotal, total: totalAmount, deliveryFee: Number(deliveryFee.toFixed(2)), discountAmount: Number(discountAmount.toFixed(2)), promoCode: promoResult?.valid ? promoResult.promo.code : null, status: 'Processing', shippingAddress, paymentMethod, receiptNumber } };

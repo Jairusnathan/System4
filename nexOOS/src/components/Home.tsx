@@ -94,9 +94,13 @@ export default function Home() {
         }
       } catch (error) {
         if ((error as Error).name === 'AbortError') return;
-        console.error('Featured products fetch failed:', error);
+        // Silently ignore 503 — services still starting up
+        const status = (error as { status?: number }).status;
+        if (status !== 503 && status !== 502) {
+          console.error('Featured products fetch failed:', error);
+          setFeaturedError('Unable to load featured products right now.');
+        }
         setFeaturedProducts([]);
-        setFeaturedError('Unable to load featured products right now.');
       } finally {
         if (!controller.signal.aborted) setIsLoadingFeatured(false);
       }

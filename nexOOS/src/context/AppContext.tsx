@@ -11,7 +11,7 @@ import {
 } from '@/lib/auth-client';
 import { buildApiUrl, fetchJsonWithRetry } from '@/lib/api';
 
-type AccountSubView = 'profile' | 'addresses' | 'orders' | 'settings';
+type AccountSubView = 'profile' | 'addresses' | 'orders' | 'settings' | 'returns';
 
 interface AppContextType {
   view: string;
@@ -294,6 +294,7 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     setCart([]);
     setOrders([]);
     localStorage.removeItem(CART_STORAGE_KEY);
+    localStorage.removeItem('remember_me');
     setView('home');
     setIsCartOpen(false);
     setIsCartSyncReady(false);
@@ -598,6 +599,12 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
   useEffect(() => {
     if (!isLoggedIn) {
       setIsSessionExpiryModalOpen(false);
+      clearInactivityTimers();
+      return;
+    }
+
+    // Skip inactivity timer when Remember Me is active
+    if (localStorage.getItem('remember_me') === 'true') {
       clearInactivityTimers();
       return;
     }

@@ -68,6 +68,55 @@ export class OrderController {
     }
   }
 
+  @Get('my-return-requests')
+  async getMyReturnRequests(@Headers('authorization') authorization?: string) {
+    try {
+      const userId = this.authService.requireUserId(authorization);
+      const { data, error } = await this.supabaseService.supabaseAdmin
+        .from('return_requests')
+        .select('id, receipt_number, reason, description, items, status, created_at')
+        .eq('customer_id', userId)
+        .order('created_at', { ascending: false });
+      if (error) return { data: [] };
+      return { data: data ?? [] };
+    } catch (error) {
+      if (error instanceof UnauthorizedException) throw error;
+      return { data: [] };
+    }
+  }
+
+  @Post('return-request')
+  async submitReturnRequest(
+    @Headers('authorization') authorization?: string,
+    @Body() body?: {
+      receiptNumber?: string;
+      reason?: string;
+      description?: string;
+      items?: Array<{ productId: string; name: string; quantity: number }>;
+    },
+  ) {
+    try {
+      const user = this.authService.requireUser(authorization);
+      const receiptNumber = body?.receiptNumber?.trim();
+      const reason = body?.reason?.trim();
+      if (!receiptNumber) throw new HttpException({ error: 'receiptNumber is required' }, 400);
+      if (!reason) throw new HttpException({ error: 'reason is required' }, 400);
+      if (!Array.isArray(body?.items) || body.items.length === 0) {
+        throw new HttpException({ error: 'At least one item must be selected' }, 400);
+      }
+      const result = await this.orderService.submitReturnRequest(
+        user.userId, user.email, receiptNumber, reason, body?.description, body.items,
+      );
+      if (!result.success) {
+        throw new HttpException({ error: result.error ?? 'Failed to submit return request' }, 400);
+      }
+      return { success: true };
+    } catch (error) {
+      if (error instanceof UnauthorizedException || error instanceof HttpException) throw error;
+      throw new InternalServerErrorException();
+    }
+  }
+
   @Post('cancel')
   async cancelOrder(
     @Headers('authorization') authorization?: string,

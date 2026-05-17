@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Pill, Mail, ArrowRight, AlertCircle, Loader2, Eye, EyeOff, X, CheckCircle2 } from 'lucide-react';
+import { Pill, Mail, Lock, ArrowRight, AlertCircle, Loader2, Eye, EyeOff, X, CheckCircle2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { User } from '../types';
 import { storeAccessToken } from '@/lib/auth-client';
@@ -333,6 +333,8 @@ function ForgotPasswordModal({
 
 function LoginCard({
   formData,
+  rememberMe,
+  onRememberMeChange,
   isLoading,
   error,
   showPassword,
@@ -345,6 +347,8 @@ function LoginCard({
   onGoToRegister,
 }: Readonly<{
   formData: LoginFormData;
+  rememberMe: boolean;
+  onRememberMeChange: (value: boolean) => void;
   isLoading: boolean;
   error: string;
   showPassword: boolean;
@@ -407,6 +411,7 @@ function LoginCard({
         <div>
           <label htmlFor={loginFieldIds.primarySecret} className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Password</label>
           <div className="relative">
+            <Lock className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
             <input
               id={loginFieldIds.primarySecret}
               type={getPasswordFieldType(showPassword)}
@@ -429,7 +434,13 @@ function LoginCard({
 
         <div className="flex items-center justify-between px-2">
           <label htmlFor={loginFieldIds.rememberMe} className="flex items-center gap-2 cursor-pointer group">
-            <input id={loginFieldIds.rememberMe} type="checkbox" className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+            <input
+              id={loginFieldIds.rememberMe}
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => onRememberMeChange(e.target.checked)}
+              className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+            />
             <span className="text-sm font-bold text-slate-500 group-hover:text-slate-700 transition-colors">Remember me</span>
           </label>
           <button
@@ -476,6 +487,7 @@ function useLoginForm({
   setUser: (user: User | null) => void;
 }>) {
   const [formData, setFormData] = useState<LoginFormData>({ email: '', password: '' });
+  const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -494,10 +506,15 @@ function useLoginForm({
     setError('');
 
     try {
-      const { res, data } = await postJson('/api/auth/login', formData);
+      const { res, data } = await postJson('/api/auth/login', { ...formData, rememberMe });
 
       if (res.ok) {
         storeAccessToken(data.token);
+        if (rememberMe) {
+          localStorage.setItem('remember_me', 'true');
+        } else {
+          localStorage.removeItem('remember_me');
+        }
         setLoggedIn();
         setUser(data.user);
         setView('home');
@@ -517,6 +534,8 @@ function useLoginForm({
 
   return {
     formData,
+    rememberMe,
+    setRememberMe,
     isLoading,
     error,
     showPassword,
@@ -692,6 +711,8 @@ export default function Login() {
     <main className="flex-1 flex flex-col items-center justify-center p-8 bg-slate-50 py-24">
       <LoginCard
         formData={loginForm.formData}
+        rememberMe={loginForm.rememberMe}
+        onRememberMeChange={loginForm.setRememberMe}
         isLoading={loginForm.isLoading}
         error={loginForm.error}
         showPassword={loginForm.showPassword}

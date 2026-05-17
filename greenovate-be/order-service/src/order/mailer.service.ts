@@ -31,7 +31,7 @@ export class MailerService {
     });
   }
 
-  async sendOrderConfirmationEmail(email: string, fullName: string, order: { receiptNumber: string; items: Array<{ name: string; quantity: number; price: number }>; subtotal: number; deliveryFee: number; discountAmount: number; total: number; paymentMethod: string; shippingAddress: string }) {
+  async sendOrderConfirmationEmail(email: string, fullName: string, order: { receiptNumber: string; items: Array<{ name: string; quantity: number; price: number }>; subtotal: number; deliveryFee: number; discountAmount: number; total: number; paymentMethod: string; shippingAddress: string; deliveryMethod?: string }) {
     const transporter = this.getTransporter();
     const firstName = fullName.trim().split(/\s+/)[0] || 'there';
     const itemsHtml = order.items.map((item) => `<tr><td style="padding:8px 0;border-bottom:1px solid #f1f5f9;">${item.name}</td><td style="padding:8px 0;border-bottom:1px solid #f1f5f9;text-align:center;">${item.quantity}</td><td style="padding:8px 0;border-bottom:1px solid #f1f5f9;text-align:right;">₱${(item.price * item.quantity).toFixed(2)}</td></tr>`).join('');
@@ -39,7 +39,43 @@ export class MailerService {
       from: this.smtpFrom, to: email,
       subject: `Order Confirmed — ${order.receiptNumber}`,
       text: `Hi ${firstName}, your order ${order.receiptNumber} has been placed. Total: ₱${order.total.toFixed(2)}.`,
-      html: `<div style="font-family:Arial,sans-serif;color:#0f172a;max-width:600px;margin:0 auto;"><h2 style="color:#2563eb;">Order Confirmed!</h2><p>Hi ${firstName}, your PharmaQuick order has been placed.</p><p><strong>Receipt No.:</strong> ${order.receiptNumber}</p><table style="width:100%;border-collapse:collapse;"><thead><tr><th style="padding:8px;text-align:left;">Item</th><th style="padding:8px;text-align:center;">Qty</th><th style="padding:8px;text-align:right;">Amount</th></tr></thead><tbody>${itemsHtml}</tbody></table><p><strong>Total: ₱${order.total.toFixed(2)}</strong></p><p><strong>Payment:</strong> ${order.paymentMethod}</p><p><strong>Deliver to:</strong> ${order.shippingAddress}</p></div>`,
+      html: `<div style="font-family:Arial,sans-serif;color:#0f172a;max-width:600px;margin:0 auto;"><h2 style="color:#2563eb;">Order Confirmed!</h2><p>Hi ${firstName}, your PharmaQuick order has been placed.</p><p><strong>Receipt No.:</strong> ${order.receiptNumber}</p><table style="width:100%;border-collapse:collapse;"><thead><tr><th style="padding:8px;text-align:left;">Item</th><th style="padding:8px;text-align:center;">Qty</th><th style="padding:8px;text-align:right;">Amount</th></tr></thead><tbody>${itemsHtml}</tbody></table><p><strong>Total: ₱${order.total.toFixed(2)}</strong></p><p><strong>Payment:</strong> ${order.paymentMethod}</p><p><strong>${order.deliveryMethod === 'claim_at_branch' ? 'Pickup at' : 'Deliver to'}:</strong> ${order.shippingAddress}</p></div>`,
+    });
+  }
+
+  async sendReturnRequestEmail(email: string, fullName: string, request: {
+    receiptNumber: string;
+    reason: string;
+    description?: string;
+    items: Array<{ name: string; quantity: number }>;
+  }) {
+    const transporter = this.getTransporter();
+    const firstName = fullName.trim().split(/\s+/)[0] || 'there';
+    const itemsHtml = request.items.map((item) =>
+      `<tr><td style="padding:8px 0;border-bottom:1px solid #f1f5f9;">${item.name}</td><td style="padding:8px 0;border-bottom:1px solid #f1f5f9;text-align:center;">${item.quantity}</td></tr>`
+    ).join('');
+    await transporter.sendMail({
+      from: this.smtpFrom,
+      to: email,
+      subject: `Return Request Received — ${request.receiptNumber}`,
+      text: `Hi ${firstName}, your return/refund request for order ${request.receiptNumber} has been received. We will review it and get back to you shortly.`,
+      html: `<div style="font-family:Arial,sans-serif;color:#0f172a;max-width:600px;margin:0 auto;">
+        <h2 style="color:#f59e0b;">Return Request Received</h2>
+        <p>Hi ${firstName}, we have received your return/refund request.</p>
+        <p><strong>Receipt No.:</strong> ${request.receiptNumber}</p>
+        <p><strong>Reason:</strong> ${request.reason}</p>
+        ${request.description ? `<p><strong>Details:</strong> ${request.description}</p>` : ''}
+        <p><strong>Items to return:</strong></p>
+        <table style="width:100%;border-collapse:collapse;">
+          <thead><tr>
+            <th style="padding:8px;text-align:left;">Item</th>
+            <th style="padding:8px;text-align:center;">Qty</th>
+          </tr></thead>
+          <tbody>${itemsHtml}</tbody>
+        </table>
+        <p style="margin-top:16px;">Our team will review your request and contact you within <strong>1-3 business days</strong>.</p>
+        <p>If you have questions, please contact our support team.</p>
+      </div>`,
     });
   }
 

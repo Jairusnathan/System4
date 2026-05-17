@@ -29,6 +29,7 @@ export class AuthController {
     try {
       const email = body?.email?.toLowerCase()?.trim();
       const password = body?.password;
+      const rememberMe = body?.rememberMe === true;
       const { data: user, error } = await this.supabaseService.supabase.from('customers').select('*').eq('email', email).single();
       if (error || !user) throw new UnauthorizedException('Invalid credentials');
       const lockedUntil = user.account_locked_until ? new Date(user.account_locked_until) : null;
@@ -63,8 +64,8 @@ export class AuthController {
       }
       const userWithoutPassword = { ...user };
       delete userWithoutPassword.password;
-      this.authService.setRefreshTokenCookie(response, refreshToken);
-      return { token, user: userWithoutPassword };
+      this.authService.setRefreshTokenCookie(response, refreshToken, rememberMe);
+      return { token, rememberMe, user: userWithoutPassword };
     } catch (error) {
       if (error instanceof UnauthorizedException) throw error;
       console.error('Login error:', error);

@@ -2,7 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronDown, ChevronLeft, MapPin, CreditCard, CheckCircle2, ShoppingBag, Truck, ShieldCheck, ArrowRight, X, Wallet, Banknote } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, MapPin, CreditCard, CheckCircle2, ShoppingBag, Truck, ShieldCheck, ArrowRight, X, Wallet, Banknote } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Order } from '../types';
 import { fetchWithAuth } from '@/lib/auth-client';
@@ -105,9 +105,9 @@ const getPromoInputClassName = (status: 'idle' | 'checking' | 'valid' | 'invalid
     return `w-full rounded-2xl border px-4 py-3 text-sm font-bold uppercase tracking-[0.16em] transition-all focus:outline-none ${stateClasses}`;
   };
 
-const getPaymentMethodLabel = (paymentMethod: string) => {
+const getPaymentMethodLabel = (paymentMethod: string, deliveryMethod?: string) => {
   if (paymentMethod === 'cod') {
-    return 'Cash on Delivery';
+    return deliveryMethod === 'claim_at_branch' ? 'Cash' : 'Cash on Delivery';
   }
 
   if (paymentMethod === 'gcash') {
@@ -171,7 +171,7 @@ const getDeliveryMethodCopy = (method: DeliveryMethod) => {
 };
 
 export default function Checkout() {
-  const { 
+  const {
     cart, setCart,
     cartTotal,
     setView,
@@ -180,10 +180,15 @@ export default function Checkout() {
     setAccountSubView,
     selectedBranch,
     user,
-    setUser
+    setUser,
+    addToCart,
+    updateQuantity,
   } = useAppContext();
 
   const [checkoutStep, setCheckoutStep] = useState(1);
+  const [suggestions, setSuggestions] = useState<import('../types').Product[]>([]);
+  const [addedSuggestion, setAddedSuggestion] = useState('');
+  const carouselRef = React.useRef<HTMLDivElement>(null);
   const [shippingInfo, setShippingInfo] = useState({
     fullName: '',
     phone: '',
@@ -253,7 +258,7 @@ export default function Checkout() {
   const addressPickerCopy = getAddressPickerCopy(addressPickerView);
   const savedAddressCountMessage = getSavedAddressCountMessage(savedAddresses.length);
   const promoInputClassName = getPromoInputClassName(promoStatus);
-  const paymentMethodLabel = getPaymentMethodLabel(paymentMethod);
+  const paymentMethodLabel = getPaymentMethodLabel(paymentMethod, deliveryMethod);
   const paymentStepIncomplete = isPaymentStepIncomplete({
     paymentMethod,
     cardInfo,
@@ -337,6 +342,50 @@ export default function Checkout() {
       longitude: undefined,
     });
     setShippingError('');
+  };
+
+  // Fetch suggestions based on first cart item's co-purchases
+  React.useEffect(() => {
+    if (cart.length === 0) return;
+    const cartIds = new Set(cart.map((i) => i.id));
+    const firstId = cart[0].id;
+    fetch(`/api/products/${encodeURIComponent(firstId)}/recommendations?limit=15`)
+      .then((res) => res.ok ? res.json() : { data: [] })
+      .then((payload) => {
+        const recs = (payload?.data ?? []) as import('../types').Product[];
+        setSuggestions(recs.filter((p) => !cartIds.has(p.id)));
+      })
+      .catch(() => {});
+  }, [cart.length]);
+
+  const CARD_W = 176; // card width 160 + gap 16
+
+  // Set initial scroll to middle copy when suggestions load
+  React.useEffect(() => {
+    const el = carouselRef.current;
+    if (!el || suggestions.length === 0) return;
+    el.scrollLeft = suggestions.length * CARD_W;
+  }, [suggestions]);
+
+  const scrollCarousel = (direction: 'left' | 'right') => {
+    const el = carouselRef.current;
+    if (!el || suggestions.length === 0) return;
+    const singleSetWidth = suggestions.length * CARD_W;
+    const step = CARD_W * 3;
+
+    if (direction === 'right') {
+      // If scrolling right would enter the third copy, jump back to middle first
+      if (el.scrollLeft + step >= singleSetWidth * 2) {
+        el.scrollLeft -= singleSetWidth;
+      }
+      el.scrollBy({ left: step, behavior: 'smooth' });
+    } else {
+      // If scrolling left would enter the first copy, jump forward to middle first
+      if (el.scrollLeft - step <= singleSetWidth * 0.5) {
+        el.scrollLeft += singleSetWidth;
+      }
+      el.scrollBy({ left: -step, behavior: 'smooth' });
+    }
   };
 
   React.useEffect(() => {
@@ -510,7 +559,7 @@ export default function Checkout() {
     if (isPlacingOrder) return;
     setIsPlacingOrder(true);
     try {
-      const paymentMethodLabel = getPaymentMethodLabel(paymentMethod);
+      const paymentMethodLabel = getPaymentMethodLabel(paymentMethod, deliveryMethod);
       const shippingAddress = deliveryMethod === 'claim_at_branch' && selectedBranch
         ? `Pickup at ${selectedBranch.name}, ${selectedBranch.address}`
         : formatDeliveryAddress(shippingInfo);
@@ -610,15 +659,23 @@ export default function Checkout() {
             <ChevronLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
             Back to Shop
           </button>
-          <div className="flex items-center gap-4">
-            {[1, 2, 3].map(step => (
+          <div className="flex items-center gap-3">
+            {[
+              { step: 1, label: 'Cart' },
+              { step: 2, label: 'Shipping' },
+              { step: 3, label: 'Payment' },
+              { step: 4, label: 'Review' },
+            ].map(({ step, label }) => (
               <div key={step} className="flex items-center gap-2">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black transition-all ${
-                  checkoutStep >= step ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'bg-slate-200 text-slate-400'
-                }`}>
-                  {step}
+                <div className="flex flex-col items-center gap-1">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black transition-all ${
+                    checkoutStep >= step ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'bg-slate-200 text-slate-400'
+                  }`}>
+                    {step}
+                  </div>
+                  <span className={`text-[10px] font-bold hidden sm:block ${checkoutStep >= step ? 'text-blue-600' : 'text-slate-400'}`}>{label}</span>
                 </div>
-                {step < 3 && <div className={`w-8 h-0.5 rounded-full ${checkoutStep > step ? 'bg-blue-600' : 'bg-slate-200'}`} />}
+                {step < 4 && <div className={`w-6 h-0.5 rounded-full mb-4 ${checkoutStep > step ? 'bg-blue-600' : 'bg-slate-200'}`} />}
               </div>
             ))}
           </div>
@@ -628,8 +685,113 @@ export default function Checkout() {
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-8">
             <AnimatePresence mode="wait">
+
+              {/* ── NEW STEP 1: Order Summary ── */}
               {checkoutStep === 1 && (
-                <motion.div 
+                <motion.div
+                  key="step-summary"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  className="space-y-6"
+                >
+                  {/* Cart items */}
+                  <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
+                    <h2 className="text-2xl font-black text-slate-900 tracking-tight mb-6">Your Cart</h2>
+                    <div className="space-y-4">
+                      {cart.map((item) => (
+                        <div key={item.id} className="flex items-center gap-4 p-4 rounded-2xl border border-slate-100 bg-slate-50">
+                          <img src={item.image} alt={item.name} className="w-16 h-16 rounded-xl object-cover shrink-0" referrerPolicy="no-referrer" />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-black text-slate-900 text-sm line-clamp-2">{item.name}</p>
+                            <p className="text-xs text-slate-500 mt-0.5">{item.category}</p>
+                            <p className="font-black text-slate-900 mt-1">₱{(item.price * item.quantity).toFixed(2)}</p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                              className="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-100 font-bold transition-colors"
+                            >−</button>
+                            <span className="w-8 text-center font-black text-slate-900">{item.quantity}</span>
+                            <button
+                              onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                              className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white hover:bg-blue-700 font-bold transition-colors"
+                            >+</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-6 pt-4 border-t border-slate-100 flex justify-between items-center">
+                      <span className="text-slate-500 font-medium">Subtotal</span>
+                      <span className="text-xl font-black text-slate-900">₱{cartTotal.toFixed(2)}</span>
+                    </div>
+                  </div>
+
+                  {/* Suggestions carousel */}
+                  {suggestions.length > 0 && (
+                    <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="text-lg font-black text-slate-900 tracking-tight">You Might Also Need</h3>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs text-slate-400 font-medium">{suggestions.length} items</span>
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => scrollCarousel('left')}
+                              className="w-8 h-8 rounded-full border border-slate-200 bg-white flex items-center justify-center text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors shadow-sm"
+                            >
+                              <ChevronLeft className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => scrollCarousel('right')}
+                              className="w-8 h-8 rounded-full border border-slate-200 bg-white flex items-center justify-center text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors shadow-sm"
+                            >
+                              <ChevronRight className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-sm text-slate-500 mb-5">Customers who bought your items also bought these.</p>
+                      <div ref={carouselRef} className="flex gap-3 overflow-x-auto pb-3 hide-scrollbar">
+                        {[...suggestions, ...suggestions, ...suggestions].map((product, idx) => (
+                          <div key={`${product.id}-${idx}`} className="shrink-0 w-40 border border-slate-100 rounded-2xl overflow-hidden bg-slate-50 flex flex-col">
+                            <img src={product.image} alt={product.name} className="w-full h-36 object-cover" referrerPolicy="no-referrer" />
+                            <div className="p-3 flex flex-col flex-1">
+                              <p className="text-xs font-bold text-slate-900 line-clamp-2 flex-1">{product.name}</p>
+                              <p className="text-xs font-black text-slate-700 mt-1">₱{product.price.toFixed(2)}</p>
+                              <button
+                                onClick={() => {
+                                  addToCart(product, { openCart: false });
+                                  setAddedSuggestion(product.id);
+                                  setTimeout(() => setAddedSuggestion(''), 1500);
+                                }}
+                                className={`mt-2 w-full py-1.5 rounded-xl text-xs font-black transition-colors ${
+                                  addedSuggestion === product.id
+                                    ? 'bg-green-500 text-white'
+                                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                                }`}
+                              >
+                                {addedSuggestion === product.id ? '✓ Added' : '+ Add'}
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Continue button */}
+                  <button
+                    onClick={() => setCheckoutStep(2)}
+                    className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-lg hover:bg-blue-700 transition-colors shadow-lg shadow-blue-100"
+                  >
+                    Continue to Shipping →
+                  </button>
+                </motion.div>
+              )}
+
+              {/* ── STEP 2: Shipping (was step 1) ── */}
+              {checkoutStep === 2 && (
+                <motion.div
                   key="step1"
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -774,6 +936,7 @@ export default function Checkout() {
                     </div>
                   )}
 
+                  <div className="flex gap-4">
                   <button
                     onClick={() => {
                       const normalizedPhone = normalizePhilippinePhone(shippingInfo.phone);
@@ -790,14 +953,22 @@ export default function Checkout() {
 
                       setShippingInfo((prev) => ({ ...prev, phone: normalizedPhone }));
                       setShippingError('');
-                      setCheckoutStep(2);
+                      setCheckoutStep(3);
                     }}
                     disabled={selectedSavedAddressIndex === null || !deliveryEstimate || isBelowMinOrder || !selectedBranch}
-                    className="w-full mt-10 py-4 bg-blue-600 text-white rounded-2xl font-black text-lg hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group"
+                    className="flex-1 mt-10 py-4 bg-blue-600 text-white rounded-2xl font-black text-lg hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group"
                   >
                     Continue to Payment
                     <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setCheckoutStep(1)}
+                    className="flex-1 mt-10 py-4 bg-slate-100 text-slate-700 rounded-2xl font-black text-lg hover:bg-slate-200 transition-all"
+                  >
+                    ← Back to Cart
+                  </button>
+                  </div>
 
                   <AnimatePresence>
                     {isAddressPickerOpen && (
@@ -1216,9 +1387,9 @@ export default function Checkout() {
                 </motion.div>
               )}
 
-              {checkoutStep === 2 && (
-                <motion.div 
-                  key="step2"
+              {checkoutStep === 3 && (
+                <motion.div
+                  key="step3"
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 20 }}
@@ -1232,7 +1403,7 @@ export default function Checkout() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                     {[
                       { id: 'card', name: 'Credit / Debit Card', desc: 'Pay securely with card', icon: <CreditCard className="w-5 h-5 text-slate-500" /> },
-                      { id: 'cod', name: 'Cash on Delivery', desc: 'Pay when you receive', icon: <Banknote className="w-5 h-5 text-slate-500" /> },
+                      { id: 'cod', name: deliveryMethod === 'claim_at_branch' ? 'Cash' : 'Cash on Delivery', desc: deliveryMethod === 'claim_at_branch' ? 'Pay at the branch' : 'Pay when you receive', icon: <Banknote className="w-5 h-5 text-slate-500" /> },
                       { id: 'gcash', name: 'GCash', desc: 'Pay via GCash', icon: <Wallet className="w-5 h-5 text-blue-600" /> },
                       { id: 'maya', name: 'Maya', desc: 'Pay via Maya', icon: <Wallet className="w-5 h-5 text-blue-600" /> }
                     ].map(method => (
@@ -1335,13 +1506,13 @@ export default function Checkout() {
                   
                   <div className="flex gap-4 mt-8">
                     <button 
-                      onClick={() => setCheckoutStep(1)}
+                      onClick={() => setCheckoutStep(2)}
                       className="flex-1 py-3.5 bg-slate-100 text-slate-700 rounded-xl font-bold text-base hover:bg-slate-200 transition-all"
                     >
                       Back
                     </button>
-                    <button 
-                      onClick={() => setCheckoutStep(3)}
+                    <button
+                      onClick={() => setCheckoutStep(4)}
                       disabled={paymentStepIncomplete}
                       className="flex-[2] py-3.5 bg-blue-600 text-white rounded-xl font-bold text-base hover:bg-blue-700 transition-all shadow-md shadow-blue-200 flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed"
                     >
@@ -1352,9 +1523,9 @@ export default function Checkout() {
                 </motion.div>
               )}
 
-              {checkoutStep === 3 && (
-                <motion.div 
-                  key="step3"
+              {checkoutStep === 4 && (
+                <motion.div
+                  key="step4"
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 20 }}
@@ -1451,7 +1622,7 @@ export default function Checkout() {
                   
                   <div className="flex gap-4 mt-10">
                     <button 
-                      onClick={() => setCheckoutStep(2)}
+                      onClick={() => setCheckoutStep(3)}
                       className="flex-1 py-4 bg-slate-100 text-slate-700 rounded-2xl font-black text-lg hover:bg-slate-200 transition-all"
                     >
                       Back

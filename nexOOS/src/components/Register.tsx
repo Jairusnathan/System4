@@ -137,18 +137,26 @@ function RegisterFormSection({
       </div>
       <div>
         <label htmlFor={fieldIds.phone} className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Phone Number</label>
-        <div className="relative">
-          <User className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+        <div className="flex items-center bg-slate-50 border border-slate-100 rounded-2xl focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all overflow-hidden">
+          <span className="flex items-center gap-2 pl-4 pr-3 py-4 text-slate-700 font-black text-sm shrink-0 border-r border-slate-200">
+            <span className="text-base">🇵🇭</span>
+            +63
+          </span>
           <input
             id={fieldIds.phone}
             type="tel"
             required
-            value={formData.phone}
-            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-            placeholder="09123456789 or +639123456789"
-            className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
+            maxLength={10}
+            value={formData.phone.replace(/^\+63/, '').replace(/^0/, '')}
+            onChange={(e) => {
+              const digits = e.target.value.replace(/\D/g, '');
+              setFormData({ ...formData, phone: `+63${digits}` });
+            }}
+            placeholder="9XXXXXXXXX"
+            className="flex-1 px-3 py-4 bg-transparent focus:outline-none font-medium"
           />
         </div>
+        <p className="text-[10px] text-slate-400 font-medium mt-1.5 ml-4">Start with 9 followed by 9 digits (e.g. 9123456789)</p>
       </div>
       <div>
         <label htmlFor={fieldIds.email} className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Email Address</label>

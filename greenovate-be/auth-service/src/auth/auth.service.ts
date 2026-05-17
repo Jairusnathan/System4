@@ -54,13 +54,15 @@ export class AppAuthService {
     return { userId: decoded.userId as string, email: decoded.email as string };
   }
 
-  setRefreshTokenCookie(response: Response, refreshToken: string) {
+  setRefreshTokenCookie(response: Response, refreshToken: string, rememberMe = false) {
     response.cookie(REFRESH_TOKEN_COOKIE_NAME, refreshToken, {
       httpOnly: true,
       sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
       path: '/',
-      maxAge: 60 * 60 * 24 * 7 * 1000,
+      // Remember Me ON → 7-day persistent cookie
+      // Remember Me OFF → session cookie (expires when browser closes)
+      ...(rememberMe ? { maxAge: 60 * 60 * 24 * 7 * 1000 } : {}),
     });
   }
 

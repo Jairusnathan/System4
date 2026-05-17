@@ -11,18 +11,16 @@ const getDisplayOrderNumber = (order: { receiptNumber?: string; orderNumber?: st
   order.receiptNumber || order.orderNumber || order.id;
 
 const getOrderStatusBadgeClassName = (status: string) => {
-  if (status === 'Delivered' || status === 'Processing') {
-    return 'bg-blue-100 text-blue-700';
-  }
-
+  if (status === 'Delivered') return 'bg-green-100 text-green-700';
+  if (status === 'Processing') return 'bg-blue-100 text-blue-700';
+  if (status === 'Cancelled') return 'bg-red-100 text-red-700';
   return 'bg-amber-100 text-amber-700';
 };
 
 const getOrderStatusDotClassName = (status: string) => {
-  if (status === 'Delivered' || status === 'Processing') {
-    return 'bg-blue-500';
-  }
-
+  if (status === 'Delivered') return 'bg-green-500';
+  if (status === 'Processing') return 'bg-blue-500';
+  if (status === 'Cancelled') return 'bg-red-500';
   return 'bg-amber-500';
 };
 
@@ -55,6 +53,58 @@ export default function OrderStatus() {
     'Ordered by mistake',
     'Other',
   ];
+
+  const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
+  const [isSubmittingReturn, setIsSubmittingReturn] = useState(false);
+  const [returnReason, setReturnReason] = useState('');
+  const [returnDescription, setReturnDescription] = useState('');
+  const [returnError, setReturnError] = useState('');
+  const [returnSuccess, setReturnSuccess] = useState(false);
+  const [selectedReturnItems, setSelectedReturnItems] = useState<Record<string, boolean>>({});
+  const [existingReturnRequest, setExistingReturnRequest] = useState<{
+    status: string; reason: string; created_at: string;
+  } | null>(null);
+
+  const RETURN_REASONS = [
+    'Damaged / Defective product',
+    'Wrong item received',
+    'Expired product',
+    'Item not as described',
+    'Other',
+  ];
+
+  const handleSubmitReturn = async () => {
+    if (!selectedOrder?.receiptNumber || isSubmittingReturn) return;
+    if (!returnReason) { setReturnError('Please select a reason.'); return; }
+    const itemsToReturn = (selectedOrder.items ?? []).filter((item) => selectedReturnItems[item.id]);
+    if (itemsToReturn.length === 0) { setReturnError('Please select at least one item to return.'); return; }
+
+    setIsSubmittingReturn(true);
+    setReturnError('');
+    try {
+      const res = await fetchWithAuth('/api/orders/return-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          receiptNumber: selectedOrder.receiptNumber,
+          reason: returnReason,
+          description: returnDescription.trim() || undefined,
+          items: itemsToReturn.map((item) => ({
+            productId: item.id,
+            name: item.name,
+            quantity: item.quantity,
+          })),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to submit return request');
+      setReturnSuccess(true);
+    } catch (err) {
+      setReturnError(err instanceof Error ? err.message : 'Failed to submit return request');
+    } finally {
+      setIsSubmittingReturn(false);
+    }
+  };
 
   useEffect(() => {
     const TERMINAL = new Set(['Delivered', 'Cancelled']);
@@ -89,6 +139,19 @@ export default function OrderStatus() {
     timeoutId = setTimeout(poll, delayRef.current);
     return () => clearTimeout(timeoutId);
   }, [selectedOrder?.id, selectedOrder?.status]);
+
+  // Fetch existing return request for this order if it's Delivered
+  useEffect(() => {
+    if (selectedOrder?.status !== 'Delivered' || !selectedOrder?.receiptNumber) return;
+    fetchWithAuth('/api/orders/my-return-requests')
+      .then((res) => res.ok ? res.json() : { data: [] })
+      .then((payload) => {
+        const requests: { receipt_number: string; status: string; reason: string; created_at: string }[] = payload?.data ?? [];
+        const match = requests.find((r) => r.receipt_number === selectedOrder.receiptNumber);
+        setExistingReturnRequest(match ?? null);
+      })
+      .catch(() => {});
+  }, [selectedOrder?.receiptNumber, selectedOrder?.status, returnSuccess]);
 
   const canCancel =
     selectedOrder?.status === 'Processing' &&
@@ -298,6 +361,51 @@ export default function OrderStatus() {
                 </button>
               </div>
             )}
+
+            {selectedOrder.status === 'Delivered' &&
+             Date.now() - new Date(selectedOrder.date).getTime() < 30 * 24 * 60 * 60 * 1000 && (
+              <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-amber-100">
+                <h3 className="text-lg font-black text-slate-900 mb-2 tracking-tight">Return / Refund</h3>
+
+                {existingReturnRequest ? (
+                  <>
+                    <p className="text-sm text-slate-500 mb-4">You have submitted a return request for this order.</p>
+                    <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Status</span>
+                        <span className={`px-3 py-1 rounded-full text-xs font-black ${
+                          existingReturnRequest.status === 'approved' || existingReturnRequest.status === 'completed'
+                            ? 'bg-green-100 text-green-700'
+                            : existingReturnRequest.status === 'rejected'
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-amber-100 text-amber-700'
+                        }`}>
+                          {existingReturnRequest.status.charAt(0).toUpperCase() + existingReturnRequest.status.slice(1)}
+                        </span>
+                      </div>
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Reason</span>
+                        <span className="text-xs text-slate-700 text-right">{existingReturnRequest.reason}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Submitted</span>
+                        <span className="text-xs text-slate-700">{new Date(existingReturnRequest.created_at).toLocaleDateString('en-PH')}</span>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm text-slate-500 leading-relaxed mb-5">Not satisfied with your order? Submit a return or refund request.</p>
+                    <button
+                      onClick={() => { setReturnError(''); setReturnReason(''); setReturnDescription(''); setReturnSuccess(false); setSelectedReturnItems({}); setIsReturnModalOpen(true); }}
+                      className="w-full py-3 border-2 border-amber-200 text-amber-700 rounded-xl font-black text-sm hover:bg-amber-50 transition-all"
+                    >
+                      Request Return / Refund
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -372,6 +480,106 @@ export default function OrderStatus() {
                     {isCancelling ? 'Cancelling...' : 'Yes, Cancel'}
                   </button>
                 </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Return / Refund modal */}
+      <AnimatePresence>
+        {isReturnModalOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50"
+              onClick={() => { if (!isSubmittingReturn) setIsReturnModalOpen(false); }}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-white rounded-3xl shadow-2xl z-50 overflow-hidden max-h-[90vh] overflow-y-auto"
+            >
+              <div className="p-7">
+                {returnSuccess ? (
+                  <div className="text-center py-4">
+                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <CheckCircle2 className="w-8 h-8 text-green-600" />
+                    </div>
+                    <h3 className="text-xl font-black text-slate-900 mb-2">Request Submitted</h3>
+                    <p className="text-slate-500 text-sm mb-6">Your return/refund request has been received. We'll review it and get back to you within 1-3 business days.</p>
+                    <button onClick={() => setIsReturnModalOpen(false)} className="w-full py-3 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-colors">
+                      Done
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between mb-5">
+                      <h3 className="text-xl font-black text-slate-900 tracking-tight">Request Return / Refund</h3>
+                      <button onClick={() => setIsReturnModalOpen(false)} disabled={isSubmittingReturn} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors">
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    <p className="text-xs text-slate-500 mb-4">Order <span className="font-bold text-slate-700">{selectedOrder.receiptNumber}</span></p>
+
+                    {/* Item selection */}
+                    <div className="mb-4">
+                      <label className="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wide">Select items to return <span className="text-red-500">*</span></label>
+                      <div className="space-y-2">
+                        {(selectedOrder.items ?? []).map((item) => (
+                          <label key={item.id} className="flex items-center gap-3 p-3 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={!!selectedReturnItems[item.id]}
+                              onChange={(e) => setSelectedReturnItems((prev) => ({ ...prev, [item.id]: e.target.checked }))}
+                              className="h-4 w-4 rounded border-slate-300 text-blue-600"
+                            />
+                            <span className="text-sm text-slate-700 flex-1">{item.name}</span>
+                            <span className="text-xs text-slate-500">Qty: {item.quantity}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Reason */}
+                    <div className="mb-4">
+                      <label className="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wide">Reason <span className="text-red-500">*</span></label>
+                      <select
+                        value={returnReason}
+                        onChange={(e) => { setReturnReason(e.target.value); setReturnError(''); }}
+                        className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 bg-slate-50 outline-none focus:border-blue-400 focus:bg-white transition"
+                      >
+                        <option value="">Select a reason...</option>
+                        {RETURN_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                    </div>
+
+                    {/* Description */}
+                    <div className="mb-4">
+                      <label className="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wide">Additional details <span className="text-slate-400">(optional)</span></label>
+                      <textarea
+                        value={returnDescription}
+                        onChange={(e) => setReturnDescription(e.target.value)}
+                        placeholder="Describe the issue in more detail..."
+                        rows={3}
+                        className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 bg-slate-50 outline-none focus:border-blue-400 focus:bg-white transition resize-none"
+                      />
+                    </div>
+
+                    {returnError && <p className="text-sm font-bold text-red-600 mb-3">{returnError}</p>}
+
+                    <div className="flex gap-3">
+                      <button onClick={() => setIsReturnModalOpen(false)} disabled={isSubmittingReturn} className="flex-1 py-3 bg-slate-100 text-slate-700 rounded-2xl font-bold hover:bg-slate-200 transition-colors disabled:opacity-50">
+                        Cancel
+                      </button>
+                      <button onClick={handleSubmitReturn} disabled={isSubmittingReturn} className="flex-1 py-3 bg-amber-500 text-white rounded-2xl font-bold hover:bg-amber-600 transition-colors shadow-lg disabled:opacity-60">
+                        {isSubmittingReturn ? 'Submitting...' : 'Submit Request'}
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </motion.div>
           </>

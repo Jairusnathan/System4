@@ -6,8 +6,8 @@ import { X, CheckCircle2, Plus } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Product } from '../types';
 import { fetchJsonWithRetry } from '@/lib/api';
+import { getAccessToken } from '@/lib/auth-client';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
-import { recordProductView } from '@/hooks/useBrowsingHistory';
 
 const getAvailableStock = (
   selectedStock: number | undefined,
@@ -71,12 +71,13 @@ const normalizeProducts = (products: Product[]) => {
 };
 
 export default function ProductDetailsModal() {
-  const { 
+  const {
     selectedProduct, setSelectedProduct,
     isLoggedIn, setView,
     addToCart,
     selectedBranch,
-    branchInventory
+    branchInventory,
+    categoryInterestMap,
   } = useAppContext();
   const [addedProductName, setAddedProductName] = useState('');
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
@@ -106,8 +107,15 @@ export default function ProductDetailsModal() {
       return;
     }
 
-    // Record this view for personalization
-    recordProductView(selectedProduct.id, selectedProduct.category);
+    // Record this view in DB for cross-device personalization
+    const token = getAccessToken();
+    if (token) {
+      fetch('/api/product-view', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ productId: selectedProduct.id, category: selectedProduct.category }),
+      }).catch(() => {});
+    }
 
     const ctrl = new AbortController();
     setIsLoadingRecs(true);
@@ -116,7 +124,14 @@ export default function ProductDetailsModal() {
       `/api/products/${selectedProduct.id}/recommendations?limit=4`,
       { signal: ctrl.signal },
     )
-      .then((payload) => setRecommendations(normalizeProducts(payload?.data ?? [])))
+      .then((payload) => {
+        const recs = normalizeProducts(payload?.data ?? []);
+        // Re-rank by user's category interest — Shopee-style
+        if (categoryInterestMap.size > 0) {
+          recs.sort((a, b) => (categoryInterestMap.get(b.category) ?? 0) - (categoryInterestMap.get(a.category) ?? 0));
+        }
+        setRecommendations(recs);
+      })
       .catch(() => setRecommendations([]))
       .finally(() => { if (!ctrl.signal.aborted) setIsLoadingRecs(false); });
 

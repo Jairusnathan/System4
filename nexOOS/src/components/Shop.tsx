@@ -18,7 +18,6 @@ import { useAppContext } from '../context/AppContext';
 import { buildApiUrl, fetchJsonWithRetry } from '@/lib/api';
 import { Product } from '../types';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
-import { applyPersonalization, getBrowseHistoryCount } from '@/hooks/useBrowsingHistory';
 
 const CATEGORIES = ['All', 'Medicines', 'First Aid', 'Personal Care', 'Vitamins'];
 const SORT_OPTIONS = [
@@ -87,8 +86,12 @@ export default function Shop() {
     setView,
     addToCart,
     setSelectedProduct,
+    selectedProduct,
     searchQuery,
     setSearchQuery,
+    interestMap,
+    categoryInterestMap,
+    trendingSearches,
   } = useAppContext();
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>(['All']);
@@ -99,6 +102,7 @@ export default function Shop() {
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [products, setProducts] = useState<Product[]>([]);
+  const rawProductsRef = useRef<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [addedProductName, setAddedProductName] = useState('');
@@ -148,10 +152,20 @@ export default function Shop() {
         );
 
         const fetched = normalizeProducts(payload?.data ?? []);
+        rawProductsRef.current = fetched;
 
-        if (sortBy === 'for-you' && getBrowseHistoryCount() >= 3) {
-          const { products: personalized } = applyPersonalization(fetched);
-          setProducts(personalized);
+        // Apply Shopee-style scoring immediately if interests are already loaded
+        if (sortBy === 'for-you' && (interestMap.size > 0 || categoryInterestMap.size > 0)) {
+          const scored = [...fetched].sort((a, b) => {
+            const catA = (categoryInterestMap.get(a.category) ?? 0) * 100;
+            const catB = (categoryInterestMap.get(b.category) ?? 0) * 100;
+            const prodA = (interestMap.get(a.id) ?? 0) * 10;
+            const prodB = (interestMap.get(b.id) ?? 0) * 10;
+            const soldA = a.sold ?? 0;
+            const soldB = b.sold ?? 0;
+            return (catB + prodB + soldB) - (catA + prodA + soldA);
+          });
+          setProducts(scored);
         } else {
           setProducts(fetched);
         }
@@ -198,6 +212,30 @@ export default function Shop() {
     return () => globalThis.clearTimeout(timeout);
   }, [searchQuery]);
 
+  // Re-sort products whenever interests change — Shopee-style scoring
+  useEffect(() => {
+    const raw = rawProductsRef.current;
+    if (raw.length === 0) return;
+    if (sortBy !== 'for-you' || (interestMap.size === 0 && categoryInterestMap.size === 0)) {
+      setProducts(raw);
+      return;
+    }
+    const scored = [...raw].sort((a, b) => {
+      // Category score × 100 — the dominant signal (like Shopee feed)
+      const catA = (categoryInterestMap.get(a.category) ?? 0) * 100;
+      const catB = (categoryInterestMap.get(b.category) ?? 0) * 100;
+      // Individual product clicks × 10 — boost within category
+      const prodA = (interestMap.get(a.id) ?? 0) * 10;
+      const prodB = (interestMap.get(b.id) ?? 0) * 10;
+      // Sold count — popularity tiebreaker
+      const soldA = a.sold ?? 0;
+      const soldB = b.sold ?? 0;
+      return (catB + prodB + soldB) - (catA + prodA + soldA);
+    });
+    setProducts(scored);
+  }, [interestMap, categoryInterestMap, sortBy]);
+
+
   const totalPages = Math.ceil(products.length / productsPerPage);
   const currentProducts = useMemo(
     () =>
@@ -224,6 +262,8 @@ export default function Shop() {
     setSortBy('for-you');
     setSearchQuery('');
   }
+
+  const showTrending = trendingSearches.length > 0 && !searchQuery.trim();
 
   let content: React.ReactNode;
 
@@ -679,7 +719,7 @@ export default function Shop() {
           </div>
         </div>
 
-        {sortBy === 'for-you' && getBrowseHistoryCount() >= 3 && (
+        {sortBy === 'for-you' && (interestMap.size > 0 || categoryInterestMap.size > 0) && (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -689,6 +729,30 @@ export default function Shop() {
             <p className="text-sm font-semibold text-blue-700">
               Personalized for you — based on your browsing history
             </p>
+          </motion.div>
+        )}
+
+        {showTrending && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-5 rounded-2xl border border-slate-100 bg-white px-5 py-4 shadow-sm"
+          >
+            <div className="mb-3 flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-blue-500" />
+              <span className="text-sm font-black tracking-tight text-slate-900">Trending Now</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {trendingSearches.map((term) => (
+                <button
+                  key={term}
+                  onClick={() => setSearchQuery(term)}
+                  className="rounded-full border border-slate-200 bg-slate-50 px-3.5 py-1.5 text-sm font-semibold text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                >
+                  {term}
+                </button>
+              ))}
+            </div>
           </motion.div>
         )}
 

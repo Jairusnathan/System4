@@ -27,11 +27,11 @@ export class BranchesService {
 
   private async loadBranches() {
     try {
-      const { data, error } = await this.supabaseService.secondSupabaseAdmin.from('branches').select('*').eq('is_active', true);
+      const { data, error } = await this.supabaseService.secondSupabaseAdmin.from('storebranches').select('*').eq('is_active', true);
       if (!error) return this.normalizeBranchRows(data ?? []);
     } catch { /* fallback */ }
     try {
-      const { data } = await this.supabaseService.supabase.from('branches').select('*').eq('is_active', true);
+      const { data } = await this.supabaseService.secondSupabase.from('storebranches').select('*').eq('is_active', true);
       return this.normalizeBranchRows(data ?? []);
     } catch { return []; }
   }

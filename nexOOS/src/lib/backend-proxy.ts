@@ -12,17 +12,9 @@ const copyRequestHeaders = (request: Request) => {
   const authorization = request.headers.get('authorization');
   const cookie = request.headers.get('cookie');
 
-  if (contentType) {
-    headers.set('content-type', contentType);
-  }
-
-  if (authorization) {
-    headers.set('authorization', authorization);
-  }
-
-  if (cookie) {
-    headers.set('cookie', cookie);
-  }
+  if (contentType) headers.set('content-type', contentType);
+  if (authorization) headers.set('authorization', authorization);
+  if (cookie) headers.set('cookie', cookie);
 
   return headers;
 };
@@ -32,10 +24,7 @@ const copyResponseHeaders = (source: Headers) => {
   const getSetCookie = (source as Headers & { getSetCookie?: () => string[] }).getSetCookie;
 
   source.forEach((value, key) => {
-    if (key.toLowerCase() === 'content-length') {
-      return;
-    }
-
+    if (key.toLowerCase() === 'content-length') return;
     headers.set(key, value);
   });
 
@@ -48,37 +37,69 @@ const copyResponseHeaders = (source: Headers) => {
   return headers;
 };
 
+const isConnectionError = (error: unknown): boolean => {
+  if (!(error instanceof TypeError)) return false;
+  const cause = (error as TypeError & { cause?: { code?: string } }).cause;
+  return cause?.code === 'ECONNREFUSED' || cause?.code === 'ECONNRESET' || cause?.code === 'ENOTFOUND';
+};
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 export async function proxyToBackend(request: Request, options: ProxyOptions) {
   const incomingUrl = new URL(request.url);
   const targetPath = options.preserveQuery === false
     ? options.path
     : `${options.path}${incomingUrl.search}`;
-  const backendBaseUrl =
-    process.env.BACKEND_PROXY_BASE_URL?.trim() || undefined;
+  const backendBaseUrl = process.env.BACKEND_PROXY_BASE_URL?.trim() || undefined;
   const targetUrl = backendBaseUrl
     ? `${backendBaseUrl.replace(/\/$/, '')}${targetPath}`
     : buildApiUrl(targetPath);
 
-  try {
-    const response = await fetch(targetUrl, {
-      method: options.method ?? request.method,
-      headers: copyRequestHeaders(request),
-      body: request.method === 'GET' || request.method === 'HEAD' ? undefined : await request.text(),
-    });
+  // Read body once before retries so the stream isn't consumed
+  const body = request.method === 'GET' || request.method === 'HEAD'
+    ? undefined
+    : await request.text();
 
-    return new Response(response.body, {
-      status: response.status,
-      statusText: response.statusText,
-      headers: copyResponseHeaders(response.headers),
-    });
-  } catch (error) {
-    console.error(`Backend proxy request failed for ${targetPath}:`, error);
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY_MS = 1000;
 
-    return Response.json(
-      {
-        error: 'Backend service is temporarily unavailable.',
-      },
-      { status: 503 },
-    );
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const response = await fetch(targetUrl, {
+        method: options.method ?? request.method,
+        headers: copyRequestHeaders(request),
+        body,
+      });
+
+      return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: copyResponseHeaders(response.headers),
+      });
+    } catch (error) {
+      const isConnErr = isConnectionError(error);
+
+      // Retry on connection errors (services still starting up)
+      if (isConnErr && attempt < MAX_RETRIES) {
+        await delay(RETRY_DELAY_MS * attempt);
+        continue;
+      }
+
+      // Only log if it's NOT a simple connection refused (avoids noise during startup)
+      if (!isConnErr) {
+        console.error(`Backend proxy request failed for ${targetPath}:`, error);
+      }
+
+      return Response.json(
+        { error: 'Backend service is temporarily unavailable.' },
+        { status: 503 },
+      );
+    }
   }
+
+  // Fallback (should never reach here)
+  return Response.json(
+    { error: 'Backend service is temporarily unavailable.' },
+    { status: 503 },
+  );
 }

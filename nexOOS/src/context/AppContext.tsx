@@ -22,6 +22,9 @@ interface AppContextType {
   setLoggedIn: () => void;
   logout: () => void;
   user: User | null;
+  interestMap: Map<string, number>;
+  categoryInterestMap: Map<string, number>;
+  trendingSearches: string[];
   setUser: (user: User | null) => void;
   fetchUserProfile: () => Promise<void>;
   cart: CartItem[];
@@ -231,6 +234,9 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [interestMap, setInterestMap] = useState<Map<string, number>>(new Map());
+  const [categoryInterestMap, setCategoryInterestMap] = useState<Map<string, number>>(new Map());
+  const [trendingSearches, setTrendingSearches] = useState<string[]>([]);
   const [isSessionExpiryModalOpen, setIsSessionExpiryModalOpen] = useState(false);
   const [isInactivityLoggedOutModalOpen, setIsInactivityLoggedOutModalOpen] = useState(false);
   const inactivityWarningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -301,19 +307,17 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
 
   const fetchUserProfile = useCallback(async () => {
     try {
-      const res = await fetchWithAuth('/api/auth/me');
-      const data = await res.json();
+      const res = await fetchWithAuthRetry('/api/auth/me', {}, { attempts: 5, initialDelayMs: 2000 });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
         setUser(data);
         setIsLoggedIn(true);
-      } else {
-        console.error('Error fetching user profile:', data.error);
-        if (res.status === 401) {
-          resetClientSession();
-        }
+      } else if (res.status === 401) {
+        resetClientSession();
       }
-    } catch (error) {
-      console.error('Error fetching user profile:', error);
+      // Silently ignore 503 — backend still starting up
+    } catch {
+      // Network error during startup — silently ignore, user stays logged in
     }
   }, [resetClientSession]);
 
@@ -335,6 +339,51 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     }
   }, [resetClientSession]);
 
+  // Fetch trending searches once on mount — no auth needed
+  useEffect(() => {
+    fetch('/api/analytics/trending?limit=8')
+      .then((res) => res.ok ? res.json() : { data: [] })
+      .then((payload) => {
+        const items = (payload?.data ?? []) as { query: string }[];
+        setTrendingSearches(items.map((item) => item.query));
+      })
+      .catch(() => {});
+  }, []);
+
+  // Fetch product + category interests on login, refresh every 15 minutes
+  useEffect(() => {
+    const fetchInterests = () => {
+      const token = getAccessToken();
+      if (!token || !isLoggedIn) return;
+
+      // Product-level interests
+      fetch('/api/product-interests', { headers: { Authorization: `Bearer ${token}` } })
+        .then((res) => res.ok ? res.json() : { data: [] })
+        .then((payload) => {
+          const rows: { product_id: string; view_count: number }[] = payload?.data ?? [];
+          const map = new Map<string, number>();
+          rows.forEach((r) => map.set(r.product_id, r.view_count));
+          setInterestMap(map);
+        })
+        .catch(() => {});
+
+      // Category-level interests
+      fetch('/api/category-interests', { headers: { Authorization: `Bearer ${token}` } })
+        .then((res) => res.ok ? res.json() : { data: [] })
+        .then((payload) => {
+          const rows: { category: string; score: number }[] = payload?.data ?? [];
+          const map = new Map<string, number>();
+          rows.forEach((r) => map.set(r.category, r.score));
+          setCategoryInterestMap(map);
+        })
+        .catch(() => {});
+    };
+
+    fetchInterests();
+    const interval = globalThis.setInterval(fetchInterests, 15 * 60 * 1000);
+    return () => globalThis.clearInterval(interval);
+  }, [isLoggedIn]);
+
   const persistCartToBackend = useCallback(async (items: CartItem[]) => {
     const res = await fetchWithAuthRetry('/api/cart', {
       method: 'PUT',
@@ -350,6 +399,8 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     });
 
     if (!res.ok) {
+      // 401 means token expired (e.g. inactivity logout) — silently skip, cart is in localStorage
+      if (res.status === 401) return;
       const payload = await res.json().catch(() => null);
       throw new Error(payload?.error || 'Failed to sync cart.');
     }
@@ -654,7 +705,10 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     cartTotal,
     isBranchOpen,
     searchQuery,
-    setSearchQuery
+    setSearchQuery,
+    interestMap,
+    categoryInterestMap,
+    trendingSearches,
   }), [
     view,
     accountSubView,
@@ -677,6 +731,9 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     cartTotal,
     isBranchOpen,
     searchQuery,
+    interestMap,
+    categoryInterestMap,
+    trendingSearches,
   ]);
 
   return (

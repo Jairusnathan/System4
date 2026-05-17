@@ -240,4 +240,143 @@ export class AuthController {
       throw new InternalServerErrorException();
     }
   }
+
+  @Get('browsing-history')
+  async getBrowsingHistory(@Headers('authorization') authorization?: string) {
+    try {
+      const userId = this.authService.requireUserId(authorization);
+      const admin = this.tryGetAdmin();
+      if (!admin) return { data: [] };
+
+      const { data, error } = await admin
+        .from('browsing_history')
+        .select('product_id, category, viewed_at')
+        .eq('customer_id', userId)
+        .order('viewed_at', { ascending: false })
+        .limit(60);
+
+      if (error) return { data: [] };
+      return { data: data ?? [] };
+    } catch (error) {
+      if (error instanceof UnauthorizedException) throw error;
+      return { data: [] };
+    }
+  }
+
+  @Post('browsing-history')
+  async saveBrowsingHistory(
+    @Headers('authorization') authorization?: string,
+    @Body() body?: any,
+  ) {
+    try {
+      const userId = this.authService.requireUserId(authorization);
+      const admin = this.tryGetAdmin();
+      if (!admin) return { success: false };
+
+      const items: { productId: string; category: string; viewedAt: number }[] =
+        Array.isArray(body?.items) ? body.items : [];
+      if (items.length === 0) return { success: true };
+
+      const rows = items
+        .filter((item) => item.productId && item.category)
+        .slice(0, 60)
+        .map((item) => ({
+          customer_id: userId,
+          product_id: String(item.productId),
+          category: String(item.category),
+          viewed_at: new Date(item.viewedAt).toISOString(),
+        }));
+
+      await admin
+        .from('browsing_history')
+        .upsert(rows, { onConflict: 'customer_id,product_id' });
+
+      return { success: true };
+    } catch (error) {
+      if (error instanceof UnauthorizedException) throw error;
+      return { success: false };
+    }
+  }
+
+  @Post('product-view')
+  async recordProductView(
+    @Headers('authorization') authorization?: string,
+    @Body() body?: any,
+  ) {
+    try {
+      const userId = this.authService.requireUserId(authorization);
+      const admin = this.tryGetAdmin();
+      if (!admin) return { success: false };
+
+      const productId = String(body?.productId ?? '').trim();
+      const category = String(body?.category ?? '').trim();
+      if (!productId || !category) return { success: false };
+
+      await admin.rpc('increment_product_view', {
+        p_customer_id: userId,
+        p_product_id: productId,
+        p_category: category,
+      });
+
+      return { success: true };
+    } catch (error) {
+      if (error instanceof UnauthorizedException) throw error;
+      return { success: false };
+    }
+  }
+
+  @Get('product-interests')
+  async getProductInterests(@Headers('authorization') authorization?: string) {
+    try {
+      const userId = this.authService.requireUserId(authorization);
+      const admin = this.tryGetAdmin();
+      if (!admin) return { data: [] };
+
+      const { data, error } = await admin
+        .from('browsing_history')
+        .select('product_id, view_count')
+        .eq('customer_id', userId)
+        .order('view_count', { ascending: false })
+        .limit(60);
+
+      if (error) return { data: [] };
+      return { data: data ?? [] };
+    } catch (error) {
+      if (error instanceof UnauthorizedException) throw error;
+      return { data: [] };
+    }
+  }
+
+  @Get('category-interests')
+  async getCategoryInterests(@Headers('authorization') authorization?: string) {
+    try {
+      const userId = this.authService.requireUserId(authorization);
+      const admin = this.tryGetAdmin();
+      if (!admin) return { data: [] };
+
+      const { data, error } = await admin
+        .from('browsing_history')
+        .select('category, view_count')
+        .eq('customer_id', userId);
+
+      if (error || !data) return { data: [] };
+
+      // Aggregate view counts per category
+      const scores = new Map<string, number>();
+      for (const row of data as { category: string; view_count: number }[]) {
+        const cat = row.category?.trim();
+        if (!cat) continue;
+        scores.set(cat, (scores.get(cat) ?? 0) + (Number(row.view_count) || 1));
+      }
+
+      const result = [...scores.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .map(([category, score]) => ({ category, score }));
+
+      return { data: result };
+    } catch (error) {
+      if (error instanceof UnauthorizedException) throw error;
+      return { data: [] };
+    }
+  }
 }

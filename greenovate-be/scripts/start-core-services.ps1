@@ -9,12 +9,11 @@ $services = @(
   'catalog-service',
   'order-service',
   'delivery-service',
-  'promo-service',
-  'analytics-service'
+  'promo-service'
 )
 
 # Kill any leftover node processes on service ports
-@(4000,4101,4102,4103,4104,4105,4106,4107) | ForEach-Object {
+@(4000,4101,4102,4103,4104,4105,4106) | ForEach-Object {
   $conn = Get-NetTCPConnection -LocalPort $_ -State Listen -ErrorAction SilentlyContinue
   if ($conn) { Stop-Process -Id $conn.OwningProcess -Force -ErrorAction SilentlyContinue }
 }

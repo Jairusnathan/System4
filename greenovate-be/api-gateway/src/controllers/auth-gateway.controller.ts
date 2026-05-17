@@ -154,4 +154,82 @@ export class AuthGatewayController {
     response.status(result.status);
     return result.data;
   }
+
+  @Post('product-view')
+  async recordProductView(
+    @Headers('authorization') authorization: string | undefined,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await requestDownstream<unknown>({
+      baseUrl: SERVICE_URLS.auth,
+      path: '/auth/product-view',
+      method: 'POST',
+      headers: { authorization },
+      body,
+    });
+    response.status(result.status);
+    return result.data;
+  }
+
+  @Get('category-interests')
+  async getCategoryInterests(
+    @Headers('authorization') authorization: string | undefined,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await requestDownstream<unknown>({
+      baseUrl: SERVICE_URLS.auth,
+      path: '/auth/category-interests',
+      headers: { authorization },
+    });
+    response.status(result.status);
+    return result.data;
+  }
+
+  @Get('product-interests')
+  async getProductInterests(
+    @Headers('authorization') authorization: string | undefined,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await requestDownstream<unknown>({
+      baseUrl: SERVICE_URLS.auth,
+      path: '/auth/product-interests',
+      headers: { authorization },
+    });
+    response.status(result.status);
+    return result.data;
+  }
+
+  @Get('browsing-history')
+  async getBrowsingHistory(
+    @Headers('authorization') authorization: string | undefined,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await requestDownstream<unknown>({
+      baseUrl: SERVICE_URLS.auth,
+      path: '/auth/browsing-history',
+      headers: { authorization },
+    });
+
+    response.status(result.status);
+    return result.data;
+  }
+
+  @Post('browsing-history')
+  async saveBrowsingHistory(
+    @Headers('authorization') authorization: string | undefined,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await requestDownstream<unknown>({
+      baseUrl: SERVICE_URLS.auth,
+      path: '/auth/browsing-history',
+      method: 'POST',
+      headers: { authorization },
+      body,
+    });
+
+    response.status(result.status);
+    return result.data;
+  }
 }

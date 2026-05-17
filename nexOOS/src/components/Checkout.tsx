@@ -175,6 +175,7 @@ export default function Checkout() {
     cart, setCart,
     cartTotal,
     setView,
+    logout,
     setOrders,
     setAccountSubView,
     selectedBranch,
@@ -566,7 +567,14 @@ export default function Checkout() {
       setView('success');
     } catch (error) {
       console.error('Place order failed:', error);
-      alert(error instanceof Error ? error.message : 'Failed to place order.');
+      const message = error instanceof Error ? error.message : 'Failed to place order.';
+      if (message === 'Unauthorized' || message === 'Invalid or expired token') {
+        alert('Your session has expired. Please log in again.');
+        logout();
+        setView('login');
+      } else {
+        alert(message);
+      }
     } finally {
       setIsPlacingOrder(false);
     }

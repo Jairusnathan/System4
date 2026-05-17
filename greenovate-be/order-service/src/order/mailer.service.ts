@@ -43,6 +43,37 @@ export class MailerService {
     });
   }
 
+  async sendOrderCancellationEmail(email: string, fullName: string, order: { receiptNumber: string; reason: string; items: Array<{ name: string; quantity: number; price: number }>; total: number; paymentMethod: string; shippingAddress: string }) {
+    const transporter = this.getTransporter();
+    const firstName = fullName.trim().split(/\s+/)[0] || 'there';
+    const itemsHtml = order.items.map((item) =>
+      `<tr><td style="padding:8px 0;border-bottom:1px solid #f1f5f9;">${item.name}</td><td style="padding:8px 0;border-bottom:1px solid #f1f5f9;text-align:center;">${item.quantity}</td><td style="padding:8px 0;border-bottom:1px solid #f1f5f9;text-align:right;">₱${(item.price * item.quantity).toFixed(2)}</td></tr>`
+    ).join('');
+    await transporter.sendMail({
+      from: this.smtpFrom,
+      to: email,
+      subject: `Order Cancelled — ${order.receiptNumber}`,
+      text: `Hi ${firstName}, your order ${order.receiptNumber} has been successfully cancelled.`,
+      html: `<div style="font-family:Arial,sans-serif;color:#0f172a;max-width:600px;margin:0 auto;">
+        <h2 style="color:#dc2626;">Order Cancelled</h2>
+        <p>Hi ${firstName}, your PharmaQuick order has been <strong>successfully cancelled</strong>.</p>
+        <p><strong>Receipt No.:</strong> ${order.receiptNumber}</p>
+        <table style="width:100%;border-collapse:collapse;">
+          <thead><tr>
+            <th style="padding:8px;text-align:left;">Item</th>
+            <th style="padding:8px;text-align:center;">Qty</th>
+            <th style="padding:8px;text-align:right;">Amount</th>
+          </tr></thead>
+          <tbody>${itemsHtml}</tbody>
+        </table>
+        <p><strong>Total: ₱${order.total.toFixed(2)}</strong></p>
+        <p><strong>Payment:</strong> ${order.paymentMethod}</p>
+        <p><strong>Reason:</strong> ${order.reason}</p>
+        <p>If you have any questions, please contact our support team.</p>
+      </div>`,
+    });
+  }
+
   async sendAccountLockedEmail(email: string, fullName: string) {
     const transporter = this.getTransporter();
     const firstName = fullName.trim().split(/\s+/)[0] || 'there';

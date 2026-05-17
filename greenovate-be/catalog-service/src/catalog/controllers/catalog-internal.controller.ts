@@ -1,20 +1,65 @@
-﻿import { Body, Controller, InternalServerErrorException, Post } from '@nestjs/common';
+﻿import { Body, Controller, Get, InternalServerErrorException, NotFoundException, Param, Post } from '@nestjs/common';
 import { ProductsService } from '../products.service';
+import { SupabaseService } from '../supabase.service';
 
 interface RequestedOrderItem { id?: string; productId?: string; quantity?: number; }
 const normalizeItems = (items: RequestedOrderItem[]) => items.map((item) => ({ id: typeof item.id === 'string' ? item.id : item.productId, quantity: Math.max(1, Math.trunc(Number(item.quantity ?? 1))) })).filter((item) => Boolean(item.id));
 
-@Controller('internal/products')
-export class CatalogInternalController {
-  constructor(private readonly productsService: ProductsService) {}
+const POS_STATUS_MAP: Record<string, string> = {
+  paid: 'Processing',
+  preparing: 'Processing',
+  ready: 'In Transit',
+  picked_up: 'In Transit',
+  delivered: 'Delivered',
+  cancelled: 'Cancelled',
+};
 
-  @Post('by-ids')
+@Controller('internal')
+export class CatalogInternalController {
+  constructor(
+    private readonly productsService: ProductsService,
+    private readonly supabaseService: SupabaseService,
+  ) {}
+
+  @Get('receipts/status/:receiptNumber')
+  async getReceiptStatus(@Param('receiptNumber') receiptNumber: string) {
+    try {
+      const db = this.supabaseService.secondSupabaseAdmin;
+
+      const { data: receipt } = await db
+        .from('receipts')
+        .select('receipt_id')
+        .eq('receipt_number', receiptNumber)
+        .single();
+
+      if (!receipt?.receipt_id) throw new NotFoundException('Order not found');
+
+      const { data: transaction } = await db
+        .from('transactions')
+        .select('status, updated_at')
+        .eq('receipt_id', receipt.receipt_id)
+        .single();
+
+      if (!transaction) throw new NotFoundException('Order not found');
+
+      return {
+        status: POS_STATUS_MAP[transaction.status] ?? 'Processing',
+        rawStatus: transaction.status,
+        updatedAt: transaction.updated_at,
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      throw new InternalServerErrorException();
+    }
+  }
+
+  @Post('products/by-ids')
   async getProductsByIds(@Body() body?: { ids?: string[] }) {
     try { const ids = Array.isArray(body?.ids) ? body.ids.filter((v): v is string => typeof v === 'string' && v.length > 0) : []; return { data: await this.productsService.getProductsByIds(ids) }; }
     catch (error) { throw new InternalServerErrorException(); }
   }
 
-  @Post('prepare-order')
+  @Post('products/prepare-order')
   async prepareOrder(@Body() body?: { items?: RequestedOrderItem[] }) {
     try {
       const normalizedItems = normalizeItems(Array.isArray(body?.items) ? body.items : []);
@@ -25,7 +70,7 @@ export class CatalogInternalController {
     } catch (error) { throw new InternalServerErrorException(); }
   }
 
-  @Post('commit-stock')
+  @Post('products/commit-stock')
   async commitStock(@Body() body?: { items?: RequestedOrderItem[] }) {
     try {
       const normalizedItems = normalizeItems(Array.isArray(body?.items) ? body.items : []);
@@ -43,7 +88,7 @@ export class CatalogInternalController {
     } catch (error) { throw new InternalServerErrorException(error instanceof Error ? error.message : 'Failed to update stock.'); }
   }
 
-  @Post('release-stock')
+  @Post('products/release-stock')
   async releaseStock(@Body() body?: { items?: RequestedOrderItem[] }) {
     try {
       const normalizedItems = normalizeItems(Array.isArray(body?.items) ? body.items : []);

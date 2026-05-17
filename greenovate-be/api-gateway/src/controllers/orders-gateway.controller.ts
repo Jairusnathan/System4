@@ -74,6 +74,23 @@ export class OrdersGatewayController {
     return result.data;
   }
 
+  @Post('cancel')
+  async cancelOrder(
+    @Headers('authorization') authorization: string | undefined,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await requestDownstream<unknown>({
+      baseUrl: SERVICE_URLS.orders,
+      path: '/orders/cancel',
+      method: 'POST',
+      headers: { authorization },
+      body,
+    });
+    response.status(result.status);
+    return result.data;
+  }
+
   @Post('place')
   async placeOrder(
     @Headers('authorization') authorization: string | undefined,

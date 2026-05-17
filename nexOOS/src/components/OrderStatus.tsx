@@ -46,6 +46,15 @@ export default function OrderStatus() {
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelError, setCancelError] = useState('');
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelReasonOther, setCancelReasonOther] = useState('');
+
+  const CANCEL_REASONS = [
+    'Changed my mind',
+    'Found a better price elsewhere',
+    'Ordered by mistake',
+    'Other',
+  ];
 
   useEffect(() => {
     const TERMINAL = new Set(['Delivered', 'Cancelled']);
@@ -87,13 +96,15 @@ export default function OrderStatus() {
 
   const handleCancelOrder = async () => {
     if (!selectedOrder?.receiptNumber || isCancelling) return;
+    const finalReason = cancelReason === 'Other' ? cancelReasonOther.trim() : cancelReason;
+    if (!finalReason) { setCancelError('Please select a reason for cancellation.'); return; }
     setIsCancelling(true);
     setCancelError('');
     try {
       const res = await fetchWithAuth('/api/orders/cancel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ receiptNumber: selectedOrder.receiptNumber }),
+        body: JSON.stringify({ receiptNumber: selectedOrder.receiptNumber, reason: finalReason }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to cancel order');
@@ -101,6 +112,8 @@ export default function OrderStatus() {
       setOrders((prev) => prev.map((o) => o.id === selectedOrder.id ? cancelled : o));
       setSelectedOrder(cancelled);
       setIsCancelModalOpen(false);
+      setCancelReason('');
+      setCancelReasonOther('');
     } catch (err) {
       setCancelError(err instanceof Error ? err.message : 'Failed to cancel order');
     } finally {
@@ -278,7 +291,7 @@ export default function OrderStatus() {
                 <h3 className="text-lg font-black text-slate-900 mb-2 tracking-tight">Cancel Order</h3>
                 <p className="text-sm text-slate-500 leading-relaxed mb-5">Orders can only be cancelled within 5 minutes of placement.</p>
                 <button
-                  onClick={() => { setCancelError(''); setIsCancelModalOpen(true); }}
+                  onClick={() => { setCancelError(''); setCancelReason(''); setCancelReasonOther(''); setIsCancelModalOpen(true); }}
                   className="w-full py-3 border-2 border-red-200 text-red-600 rounded-xl font-black text-sm hover:bg-red-50 transition-all"
                 >
                   Cancel This Order
@@ -311,13 +324,39 @@ export default function OrderStatus() {
                   <X className="w-8 h-8 text-red-600" />
                 </div>
                 <h3 className="text-xl font-black text-slate-900 mb-2 tracking-tight">Cancel Order?</h3>
-                <p className="text-slate-500 text-sm leading-relaxed mb-2">
+                <p className="text-slate-500 text-sm leading-relaxed mb-4">
                   Are you sure you want to cancel order <span className="font-bold text-slate-700">{selectedOrder.receiptNumber}</span>? This cannot be undone.
                 </p>
-                {cancelError && (
-                  <p className="mt-3 text-sm font-bold text-red-600">{cancelError}</p>
+                <div className="text-left mb-3">
+                  <label className="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wide">
+                    Reason for cancellation <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={cancelReason}
+                    onChange={(e) => { setCancelReason(e.target.value); setCancelError(''); }}
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 bg-slate-50 outline-none focus:border-blue-400 focus:bg-white transition"
+                  >
+                    <option value="">Select a reason...</option>
+                    {CANCEL_REASONS.map((r) => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
+                </div>
+                {cancelReason === 'Other' && (
+                  <div className="text-left mb-3">
+                    <textarea
+                      value={cancelReasonOther}
+                      onChange={(e) => setCancelReasonOther(e.target.value)}
+                      placeholder="Please describe your reason..."
+                      rows={2}
+                      className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 bg-slate-50 outline-none focus:border-blue-400 focus:bg-white transition resize-none"
+                    />
+                  </div>
                 )}
-                <div className="flex gap-3 mt-6">
+                {cancelError && (
+                  <p className="mt-1 text-sm font-bold text-red-600">{cancelError}</p>
+                )}
+                <div className="flex gap-3 mt-4">
                   <button
                     onClick={() => setIsCancelModalOpen(false)}
                     disabled={isCancelling}

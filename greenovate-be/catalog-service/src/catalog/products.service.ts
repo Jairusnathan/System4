@@ -10,7 +10,6 @@ export interface ProductQueryOptions {
 }
 
 type ProductRow = { id: number | string; name: string | null; price: number | string | null; stock: number | string | null; category: string | null; low_stock_threshold?: number | string | null; };
-type ProductSalesRow = { product_id: number | string | null; quantity: number | string | null; };
 
 const PRODUCT_CACHE_TTL_MS = Number(process.env.PRODUCT_CACHE_TTL_MS || 30_000);
 
@@ -86,23 +85,22 @@ export class ProductsService {
     if (uniqueIds.length === 0) return new Map();
 
     try {
-      const orderClient = this.supabaseService.getClientForService('order') ?? this.supabaseService.supabaseAdmin;
-      const { data, error } = await orderClient
-        .from('online_order_items')
-        .select('product_id, quantity')
-        .in('product_id', uniqueIds);
+      const orderServiceUrl = process.env.ORDER_SERVICE_URL?.trim() || 'http://127.0.0.1:4105';
+      const res = await fetch(`${orderServiceUrl}/orders/internal/sold-counts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productIds: uniqueIds }),
+      });
 
-      if (error) { console.error('Sold-count fetch failed:', error); return new Map(); }
+      if (!res.ok) return new Map();
 
+      const payload = await res.json() as { data?: { product_id: string; sold: number }[] };
       const soldByProductId = new Map<string, number>();
-      for (const row of (data ?? []) as ProductSalesRow[]) {
-        const productId = String(row.product_id ?? '').trim();
-        if (!productId) continue;
-        soldByProductId.set(productId, (soldByProductId.get(productId) ?? 0) + Number(row.quantity ?? 0));
+      for (const row of payload?.data ?? []) {
+        soldByProductId.set(String(row.product_id).trim(), row.sold);
       }
       return soldByProductId;
-    } catch (err) {
-      console.error('Sold-count fetch skipped:', err);
+    } catch {
       return new Map();
     }
   }

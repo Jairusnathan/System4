@@ -34,9 +34,6 @@ export const SERVICE_PORTS = {
   get delivery() {
     return resolveServicePort('DELIVERY_SERVICE_PORT', 4106);
   },
-  get analytics() {
-    return resolveServicePort('ANALYTICS_SERVICE_PORT', 4107);
-  },
 };
 
 export const SERVICE_URLS = {
@@ -57,8 +54,5 @@ export const SERVICE_URLS = {
   },
   get delivery() {
     return resolveServiceUrl('DELIVERY_SERVICE_URL', SERVICE_PORTS.delivery);
-  },
-  get analytics() {
-    return resolveServiceUrl('ANALYTICS_SERVICE_URL', SERVICE_PORTS.analytics);
   },
 };

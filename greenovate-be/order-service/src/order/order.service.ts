@@ -30,13 +30,96 @@ export class OrderService {
     return data ?? [];
   }
 
+  async cancelOrder(userId: string, receiptNumber: string, reason?: string, customerEmail?: string): Promise<{ success: boolean; error?: string }> {
+    const db = this.supabaseService.supabaseAdmin;
+
+    // Find the order belonging to this user
+    const { data: order, error: fetchError } = await db
+      .from('online_orders')
+      .select('id, customer_id, fulfillment_status, receipt_number, transaction_id, created_at, total, shipping_address, payment_method, online_order_items(product_id, product_name, quantity, unit_price)')
+      .eq('receipt_number', receiptNumber)
+      .single();
+
+    if (fetchError || !order) return { success: false, error: 'Order not found' };
+    if (order.customer_id !== userId) return { success: false, error: 'Order not found' };
+    if (order.fulfillment_status !== 'Processing') return { success: false, error: `Order cannot be cancelled — current status is ${order.fulfillment_status}` };
+
+    const cancelledAt = new Date().toISOString();
+    const cancellationReason = reason?.trim() || 'No reason provided';
+
+    // 1. Update online_orders
+    const { error: updateError } = await db
+      .from('online_orders')
+      .update({
+        fulfillment_status: 'Cancelled',
+        cancellation_reason: cancellationReason,
+        cancelled_at: cancelledAt,
+      })
+      .eq('id', order.id);
+
+    if (updateError) return { success: false, error: 'Failed to cancel order' };
+
+    const items = (order.online_order_items ?? []) as any[];
+
+    // 2. Update transaction status to cancelled — fire and forget
+    if (order.transaction_id) {
+      void (async () => {
+        try {
+          await db.from('transactions').update({ status: 'cancelled' }).eq('id', order.transaction_id);
+        } catch {}
+      })();
+    }
+
+    // 3. Release stock back to catalog — fire and forget
+    if (items.length > 0) {
+      void (async () => {
+        try {
+          await this.releaseStock(items.map((item: any) => ({
+            id: String(item.product_id),
+            quantity: Number(item.quantity),
+          })));
+        } catch {}
+      })();
+    }
+
+    // 4. Send cancellation email — fire and forget
+    if (this.mailerService.isConfigured() && customerEmail) {
+      void (async () => {
+        try {
+          await this.mailerService.sendOrderCancellationEmail(
+            customerEmail,
+            customerEmail.split('@')[0] || 'there',
+            {
+              receiptNumber: order.receipt_number,
+              reason: cancellationReason,
+              items: items.map((item: any) => ({
+                name: item.product_name,
+                quantity: Number(item.quantity),
+                price: Number(item.unit_price),
+              })),
+              total: Number(order.total),
+              shippingAddress: order.shipping_address,
+              paymentMethod: order.payment_method,
+            },
+          );
+        } catch {}
+      })();
+    }
+
+    return { success: true };
+  }
+
   async getOrderStatus(receiptNumber: string) {
-    const { data: receipt } = await this.supabaseService.secondSupabaseAdmin.from('receipts').select('receipt_id').eq('receipt_number', receiptNumber).single();
-    if (!receipt?.receipt_id) return null;
-    const { data: transaction } = await this.supabaseService.secondSupabaseAdmin.from('transactions').select('status, updated_at').eq('receipt_id', receipt.receipt_id).single();
-    if (!transaction) return null;
-    const statusMap: Record<string, string> = { paid: 'Processing', preparing: 'Processing', ready: 'In Transit', picked_up: 'In Transit', delivered: 'Delivered', cancelled: 'Cancelled' };
-    return { status: statusMap[transaction.status] ?? 'Processing', rawStatus: transaction.status, updatedAt: transaction.updated_at };
+    const result = await requestDownstream<{ status: string; rawStatus: string; updatedAt: string } | { error: string }>({
+      baseUrl: SERVICE_URLS.catalog,
+      path: `/internal/receipts/status/${encodeURIComponent(receiptNumber)}`,
+      method: 'GET',
+    });
+
+    if (result.status === 404 || result.status === 500) return null;
+    const data = result.data as any;
+    if (!data?.status) return null;
+    return { status: data.status, rawStatus: data.rawStatus, updatedAt: data.updatedAt };
   }
 
   async placeOrder(userId: string, body: unknown, customer?: CustomerContact) {

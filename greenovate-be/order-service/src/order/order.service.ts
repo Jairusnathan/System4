@@ -25,7 +25,7 @@ export class OrderService {
     let query = this.supabaseService.supabaseAdmin
       .from('online_orders')
       .select(
-        'id, receipt_number, order_number, tx_no, created_at, subtotal, delivery_fee, discount_amount, total, promo_code, fulfillment_status, shipping_address, payment_method, customer_id, online_order_items ( product_id, product_name, category, unit_price, quantity )',
+        'id, receipt_number, order_number, tx_no, created_at, subtotal, delivery_fee, discount_amount, total, promo_code, fulfillment_status, shipping_address, payment_method, customer_id, cancellation_reason, cancelled_at, online_order_items ( product_id, product_name, category, unit_price, quantity )',
         { count: 'exact' },
       )
       .order('created_at', { ascending: false });
@@ -56,11 +56,13 @@ export class OrderService {
       status: row.fulfillment_status,
       shippingAddress: row.shipping_address,
       paymentMethod: row.payment_method,
+      cancellationReason: row.cancellation_reason ?? undefined,
+      cancelledAt: row.cancelled_at ?? undefined,
     }));
     return { data: rows, total: count ?? 0 };
   }
 
-  async adminUpdateOrderStatus(receiptNumber: string, newStatus: string) {
+  async adminUpdateOrderStatus(receiptNumber: string, newStatus: string, reason?: string) {
     const db = this.supabaseService.supabaseAdmin;
     const { data: order, error: fetchError } = await db
       .from('online_orders')
@@ -68,14 +70,15 @@ export class OrderService {
       .eq('receipt_number', receiptNumber)
       .single();
     if (fetchError || !order) return { success: false, error: 'Order not found' };
+    const previousStatus = String(order.fulfillment_status ?? '');
     const updateData: Record<string, unknown> = { fulfillment_status: newStatus };
     if (newStatus === 'Cancelled') {
-      updateData.cancellation_reason = 'Cancelled by admin';
+      updateData.cancellation_reason = reason?.trim() || 'Cancelled by admin';
       updateData.cancelled_at = new Date().toISOString();
     }
     const { error: updateError } = await db.from('online_orders').update(updateData).eq('id', order.id);
     if (updateError) return { success: false, error: 'Failed to update order status' };
-    return { success: true };
+    return { success: true, receiptNumber, previousStatus, newStatus };
   }
 
   async adminGetStats() {

@@ -19,6 +19,7 @@ import {
 import { normalizePhilippinePhone, PH_PHONE_MESSAGE } from '@/lib/phone';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { usePhilippineLocations } from '@/hooks/usePhilippineLocations';
+import { useOosSettings, isPastCutoff } from '@/hooks/useOosSettings';
 
 const formatDeliveryAddress = (info: {
   address: string;
@@ -247,11 +248,16 @@ export default function Checkout() {
     provincesStatus,
     citiesStatus,
   } = usePhilippineLocations(checkoutAddressForm.province, checkoutAddressForm.city);
-  const MIN_ORDER_AMOUNT = 50;
-  const deliveryFee = deliveryEstimate?.fee ?? 0;
+  const { settings: oosSettings } = useOosSettings();
+  const MIN_ORDER_AMOUNT = oosSettings.min_order_amount;
+  const isFreeDelivery = deliveryMethod !== 'claim_at_branch' && cartTotal >= oosSettings.free_delivery_min;
+  const baseDeliveryFee = isFreeDelivery ? 0 : (deliveryEstimate?.fee ?? oosSettings.delivery_fee);
+  const deliveryFee = deliveryMethod === 'claim_at_branch' ? 0 : baseDeliveryFee;
   const discountAmount = appliedPromo?.discountAmount ?? 0;
   const orderTotal = Math.max(0, cartTotal + deliveryFee - discountAmount);
   const isBelowMinOrder = cartTotal < MIN_ORDER_AMOUNT;
+  const isAboveMaxItems = cart.length > oosSettings.max_order_items;
+  const isPastOrderCutoff = isPastCutoff(oosSettings.order_cutoff_time);
   const savedAddressPrompt = getSavedAddressPrompt(savedAddresses.length);
   const emptySavedAddressTitle = getEmptySavedAddressTitle(savedAddresses.length);
   const emptySavedAddressMessage = getEmptySavedAddressMessage(savedAddresses.length);
@@ -709,12 +715,12 @@ export default function Checkout() {
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
                             <button
-                              onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                              onClick={() => updateQuantity(item.id, -1)}
                               className="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-100 font-bold transition-colors"
                             >−</button>
                             <span className="w-8 text-center font-black text-slate-900">{item.quantity}</span>
                             <button
-                              onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                              onClick={() => updateQuantity(item.id, +1)}
                               className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white hover:bg-blue-700 font-bold transition-colors"
                             >+</button>
                           </div>
@@ -1629,7 +1635,7 @@ export default function Checkout() {
                     </button>
                     <button
                       onClick={handlePlaceOrder}
-                      disabled={isPlacingOrder}
+                      disabled={isPlacingOrder || isBelowMinOrder || isAboveMaxItems}
                       className="flex-[2] py-4 bg-blue-600 text-white rounded-2xl font-black text-lg hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       {isPlacingOrder ? 'Placing Order...' : `Place Order (₱${orderTotal.toFixed(2)})`}
@@ -1691,11 +1697,34 @@ export default function Checkout() {
                 </div>
               </div>
               
-              {isBelowMinOrder && (
-                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-bold text-amber-700">
-                  Minimum order: ₱{MIN_ORDER_AMOUNT.toFixed(2)} — add ₱{(MIN_ORDER_AMOUNT - cartTotal).toFixed(2)} more.
-                </div>
-              )}
+              {/* Notices */}
+              <div className="space-y-2 mb-4">
+                {isBelowMinOrder && (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-bold text-amber-700">
+                    ⚠️ Minimum order is ₱{MIN_ORDER_AMOUNT.toFixed(2)} — add ₱{(MIN_ORDER_AMOUNT - cartTotal).toFixed(2)} more to continue.
+                  </div>
+                )}
+                {isAboveMaxItems && (
+                  <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-bold text-red-700">
+                    ⚠️ Max {oosSettings.max_order_items} different products per order. Please remove {cart.length - oosSettings.max_order_items} item type(s).
+                  </div>
+                )}
+                {isPastOrderCutoff && (
+                  <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs font-bold text-blue-700">
+                    🕒 Order cutoff is {oosSettings.order_cutoff_time}. Your order will be queued for tomorrow.
+                  </div>
+                )}
+                {isFreeDelivery && deliveryMethod !== 'claim_at_branch' && (
+                  <div className="rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-xs font-bold text-green-700">
+                    🎉 Your order qualifies for <span className="font-black">free delivery!</span>
+                  </div>
+                )}
+                {!isFreeDelivery && deliveryMethod !== 'claim_at_branch' && oosSettings.free_delivery_min > cartTotal && (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+                    Add <span className="font-black">₱{(oosSettings.free_delivery_min - cartTotal).toFixed(2)}</span> more for free delivery.
+                  </div>
+                )}
+              </div>
 
               <div className="space-y-4">
                 <div className="flex items-center gap-3 text-xs text-slate-500 bg-slate-50 p-4 rounded-2xl">

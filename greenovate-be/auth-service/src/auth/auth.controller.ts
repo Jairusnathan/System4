@@ -1,6 +1,6 @@
 import {
   BadRequestException, Body, Controller, Delete, Get, Headers,
-  InternalServerErrorException, NotFoundException, Param, Post,
+  InternalServerErrorException, NotFoundException, Param, Patch, Post,
   Put, Query, Req, Res, UnauthorizedException,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
@@ -27,10 +27,64 @@ export class AuthController {
   @Post('login')
   async login(@Body() body: any, @Res({ passthrough: true }) response: Response) {
     try {
-      const email = body?.email?.toLowerCase()?.trim();
+      const identifier = (body?.email ?? body?.username ?? '').toLowerCase().trim();
       const password = body?.password;
       const rememberMe = body?.rememberMe === true;
-      const { data: user, error } = await this.supabaseService.supabase.from('customers').select('*').eq('email', email).single();
+      const db = this.supabaseService.supabase;
+      const adminDb = this.tryGetAdmin();
+
+      // ── Check staff table first (by username, then by email) ─────────────
+      if (adminDb) {
+        let adminUser: Record<string, any> | null = null;
+        const { data: byUsername } = await adminDb.from('staff').select('*').eq('username', identifier).maybeSingle();
+        if (byUsername) {
+          adminUser = byUsername;
+        } else {
+          const { data: byEmail } = await adminDb.from('staff').select('*').eq('email', identifier).maybeSingle();
+          if (byEmail) adminUser = byEmail;
+        }
+
+        if (adminUser) {
+          const lockedUntil = adminUser.account_locked_until ? new Date(adminUser.account_locked_until) : null;
+          if (lockedUntil && lockedUntil > new Date()) {
+            const minutesLeft = Math.ceil((lockedUntil.getTime() - Date.now()) / 60_000);
+            throw new UnauthorizedException(`Account locked. Try again in ${minutesLeft} minute${minutesLeft !== 1 ? 's' : ''}.`);
+          }
+          const valid = await bcrypt.compare(password, adminUser.password);
+          if (!valid) {
+            const attempts = Number(adminUser.failed_login_attempts ?? 0) + 1;
+            const shouldLock = attempts >= 5;
+            const upd: Record<string, unknown> = { failed_login_attempts: attempts };
+            if (shouldLock) upd.account_locked_until = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+            void (async () => { try { await adminDb.from('staff').update(upd).eq('id', adminUser!.id); } catch {} })();
+            throw new UnauthorizedException('Invalid credentials');
+          }
+          void (async () => { try { await adminDb.from('staff').update({ failed_login_attempts: 0, account_locked_until: null }).eq('id', adminUser!.id); } catch {} })();
+          // Block login for inactive staff
+          if (adminUser.is_active === false) {
+            throw new UnauthorizedException('Your account has been deactivated. Contact your super admin.');
+          }
+          const staffRole = (adminUser.role ?? 'staff') as string;
+          const isOnboarded = adminUser.is_onboarded !== false;
+          const payload = { userId: adminUser.id, email: adminUser.email ?? adminUser.username, isAdmin: true, staffRole, isOnboarded };
+          const token = this.authService.signAccessToken(payload);
+          const refreshToken = this.authService.signRefreshToken(payload);
+          this.authService.setRefreshTokenCookie(response, refreshToken, rememberMe);
+          this.logAction({
+            staffId: adminUser.id,
+            staffName: adminUser.full_name ?? (`${adminUser.first_name ?? ''} ${adminUser.last_name ?? ''}`.trim() || 'Admin'),
+            staffRole,
+            action: 'Logged in to admin console',
+            category: 'auth',
+            details: `Username: @${adminUser.username ?? 'unknown'}; Role: ${staffRole}; Remember me: ${rememberMe ? 'yes' : 'no'}`,
+          });
+          const { password: _p, ...safeAdmin } = adminUser;
+          return { token, rememberMe, isAdmin: true, staffRole, isOnboarded, user: safeAdmin };
+        }
+      }
+
+      // ── Check customers table ─────────────────────────────────────────────
+      const { data: user, error } = await db.from('customers').select('*').eq('email', identifier).single();
       if (error || !user) throw new UnauthorizedException('Invalid credentials');
       const lockedUntil = user.account_locked_until ? new Date(user.account_locked_until) : null;
       if (lockedUntil && lockedUntil > new Date()) {
@@ -45,28 +99,25 @@ export class AuthController {
         if (shouldLock) updateData.account_locked_until = new Date(Date.now() + 60 * 60 * 1000).toISOString();
         void (async () => {
           try {
-            const { error: updateErr } = await this.supabaseService.supabase.from('customers').update(updateData).eq('id', user.id);
-            if (!updateErr && shouldLock && this.mailerService.isConfigured()) await this.mailerService.sendAccountLockedEmail(email, user.full_name || 'User');
+            const { error: updateErr } = await db.from('customers').update(updateData).eq('id', user.id);
+            if (!updateErr && shouldLock && this.mailerService.isConfigured()) await this.mailerService.sendAccountLockedEmail(identifier, user.full_name || 'User');
           } catch { /* ignore */ }
         })();
         throw new UnauthorizedException('Invalid credentials');
       }
-      void (async () => { try { await this.supabaseService.supabase.from('customers').update({ failed_login_attempts: 0, account_locked_until: null }).eq('id', user.id); } catch { /* ignore */ } })();
-      const isAdmin = user.is_admin === true;
-      const payload = { userId: user.id, email: user.email, ...(isAdmin ? { isAdmin: true } : {}) };
+      void (async () => { try { await db.from('customers').update({ failed_login_attempts: 0, account_locked_until: null }).eq('id', user.id); } catch {} })();
+      const payload = { userId: user.id, email: user.email };
       const token = this.authService.signAccessToken(payload);
       const refreshToken = this.authService.signRefreshToken(payload);
-      const admin = this.tryGetAdmin();
-      if (admin) {
+      if (adminDb) {
         try {
           const tokenHash = Buffer.from(refreshToken).toString('base64url').slice(0, 64);
-          await admin.from('refresh_token_families').insert({ user_id: user.id, token_hash: tokenHash, family_id: crypto.randomUUID(), expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() });
+          await adminDb.from('refresh_token_families').insert({ user_id: user.id, token_hash: tokenHash, family_id: crypto.randomUUID(), expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() });
         } catch { /* non-fatal */ }
       }
-      const userWithoutPassword = { ...user };
-      delete userWithoutPassword.password;
+      const { password: _pw, ...userWithoutPassword } = user;
       this.authService.setRefreshTokenCookie(response, refreshToken, rememberMe);
-      return { token, rememberMe, isAdmin, user: userWithoutPassword };
+      return { token, rememberMe, isAdmin: false, user: userWithoutPassword };
     } catch (error) {
       if (error instanceof UnauthorizedException) throw error;
       console.error('Login error:', error);
@@ -153,8 +204,28 @@ export class AuthController {
   }
 
   @Post('logout')
-  async logout(@Req() request: Request, @Res({ passthrough: true }) response: Response) {
+  async logout(@Req() request: Request, @Res({ passthrough: true }) response: Response, @Headers('authorization') authorization?: string) {
     this.authService.clearRefreshTokenCookie(response);
+    // Best-effort: log logout if token is present
+    try {
+      const decoded = this.authService.verifyAccessToken(
+        this.authService.extractBearerToken(authorization) ?? '',
+      );
+      if (decoded?.userId && (decoded as any).isAdmin) {
+        const admin = this.tryGetAdmin();
+        if (admin) {
+          const { data: staff } = await admin.from('staff').select('full_name, role').eq('id', decoded.userId).single();
+          this.logAction({
+            staffId: decoded.userId as string,
+            staffName: (staff?.full_name as string | null) ?? 'Admin',
+            staffRole: (staff?.role as string | null) ?? (decoded as any).staffRole,
+            action: 'Logged out of admin console',
+            category: 'auth',
+            details: `Role: ${(staff?.role as string | null) ?? (decoded as any).staffRole ?? 'admin'}`,
+          });
+        }
+      }
+    } catch { /* non-fatal */ }
     return { success: true };
   }
 
@@ -349,6 +420,221 @@ export class AuthController {
     }
   }
 
+  // ─── Admin: Own profile ──────────────────────────────────────────────────────
+
+  @Get('admin/profile')
+  async adminGetProfile(@Headers('authorization') authorization?: string) {
+    const me = this.requireAdmin(authorization);
+    const admin = this.tryGetAdmin();
+    if (!admin) throw new NotFoundException('Profile not found');
+    const { data, error } = await admin
+      .from('staff')
+      .select('id, staff_number, first_name, last_name, full_name, username, email, role, created_at')
+      .eq('id', me.userId)
+      .single();
+    if (error || !data) throw new NotFoundException('Profile not found');
+    return data;
+  }
+
+  @Put('admin/profile')
+  async adminUpdateProfile(
+    @Headers('authorization') authorization?: string,
+    @Body() body?: { first_name?: string; last_name?: string; full_name?: string },
+  ) {
+    const me = this.requireAdmin(authorization);
+    const admin = this.tryGetAdmin();
+    if (!admin) throw new InternalServerErrorException();
+    const { data: currentProfile } = await admin
+      .from('staff')
+      .select('first_name, last_name, full_name')
+      .eq('id', me.userId)
+      .single();
+    const updates: Record<string, string> = {};
+    if (body?.first_name?.trim()) updates.first_name = body.first_name.trim();
+    if (body?.last_name?.trim()) updates.last_name = body.last_name.trim();
+    if (updates.first_name || updates.last_name) {
+      const fn = updates.first_name ?? currentProfile?.first_name ?? '';
+      const ln = updates.last_name ?? currentProfile?.last_name ?? '';
+      updates.full_name = `${fn} ${ln}`.trim();
+    } else if (body?.full_name?.trim()) {
+      updates.full_name = body.full_name.trim();
+    }
+    if (Object.keys(updates).length === 0) throw new BadRequestException('No fields to update');
+    const { data, error } = await admin
+      .from('staff')
+      .update(updates)
+      .eq('id', me.userId)
+      .select('id, staff_number, first_name, last_name, full_name, username, email, created_at')
+      .single();
+    if (error) throw new InternalServerErrorException();
+    const details: string[] = [];
+    if (Object.prototype.hasOwnProperty.call(updates, 'first_name')) {
+      details.push(this.formatAuditChange('First name', currentProfile?.first_name, data?.first_name));
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, 'last_name')) {
+      details.push(this.formatAuditChange('Last name', currentProfile?.last_name, data?.last_name));
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, 'full_name')) {
+      details.push(this.formatAuditChange('Full name', currentProfile?.full_name, data?.full_name));
+    }
+    this.logAction({
+      staffId: me.userId as string,
+      staffName: (data?.full_name as string | null) ?? 'Admin',
+      staffRole: (me as any).staffRole,
+      action: `Updated own profile (${details.length})`,
+      category: 'profile',
+      details: details.join('; '),
+    });
+    return data;
+  }
+
+  @Post('admin/change-password')
+  async adminChangePassword(
+    @Headers('authorization') authorization?: string,
+    @Body() body?: { currentPassword?: string; newPassword?: string },
+  ) {
+    const me = this.requireAdmin(authorization);
+    const currentPassword = body?.currentPassword;
+    const newPassword = body?.newPassword;
+    if (!currentPassword || !newPassword) throw new BadRequestException('currentPassword and newPassword are required');
+    if (newPassword.length < 6) throw new BadRequestException('New password must be at least 6 characters');
+    const admin = this.tryGetAdmin();
+    if (!admin) throw new InternalServerErrorException();
+    const { data: adminUser } = await admin.from('staff').select('password').eq('id', me.userId).single();
+    if (!adminUser) throw new NotFoundException('Admin not found');
+    const isValid = await bcrypt.compare(currentPassword, adminUser.password);
+    if (!isValid) throw new UnauthorizedException('Current password is incorrect');
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await admin.from('staff').update({ password: hashed }).eq('id', me.userId);
+    const { data: changer } = await admin.from('staff').select('full_name').eq('id', me.userId).single();
+    this.logAction({
+      staffId: me.userId as string,
+      staffName: (changer?.full_name as string | null) ?? 'Admin',
+      staffRole: (me as any).staffRole,
+      action: 'Changed account password',
+      category: 'profile',
+      details: 'Updated own password from the admin profile settings',
+    });
+    return { success: true };
+  }
+
+  @Get('public/settings')
+  async getPublicSettings() {
+    const admin = this.tryGetAdmin();
+    if (!admin) return { data: {} };
+    const { data } = await admin.from('oos_settings').select('key, value');
+    const obj: Record<string, string> = {};
+    for (const row of (data ?? []) as { key: string; value: string }[]) {
+      obj[row.key] = row.value;
+    }
+    return { data: obj };
+  }
+
+  private formatAuditValue(value: unknown) {
+    if (value === null || typeof value === 'undefined') return 'empty';
+    if (typeof value === 'boolean') return value ? 'yes' : 'no';
+    if (Array.isArray(value)) return value.length > 0 ? JSON.stringify(value) : 'empty';
+    const normalized = String(value).trim();
+    return normalized ? normalized : 'empty';
+  }
+
+  private formatAuditChange(label: string, previousValue: unknown, nextValue: unknown) {
+    return `${label}: ${this.formatAuditValue(previousValue)} -> ${this.formatAuditValue(nextValue)}`;
+  }
+
+  // ─── Audit Logging ──────────────────────────────────────────────────────────
+
+  private logAction(opts: {
+    staffId?: string | null;
+    staffName?: string;
+    staffRole?: string;
+    action: string;
+    category: string;
+    details?: string;
+    entityId?: string;
+  }) {
+    void (async () => {
+      try {
+        const admin = this.tryGetAdmin();
+        if (!admin) return;
+        await admin.from('audit_logs').insert([{
+          staff_id: opts.staffId ?? null,
+          staff_name: opts.staffName ?? 'System',
+          staff_role: opts.staffRole ?? null,
+          action: opts.action,
+          category: opts.category,
+          details: opts.details ?? null,
+          entity_id: opts.entityId ?? null,
+        }]);
+      } catch { /* non-fatal */ }
+    })();
+  }
+
+  @Post('admin/audit-log')
+  async adminCreateAuditLog(
+    @Headers('authorization') authorization?: string,
+    @Body() body?: { action?: string; category?: string; details?: string; entityId?: string },
+  ) {
+    const me = this.requireAdmin(authorization);
+    const admin = this.tryGetAdmin();
+    if (!admin) return { success: false };
+    const { data: staff } = await admin.from('staff').select('full_name, role').eq('id', me.userId).single();
+    const staffName = (staff?.full_name as string | null) ?? 'Admin';
+    this.logAction({
+      staffId: me.userId as string,
+      staffName,
+      staffRole: (me as any).staffRole ?? (staff?.role as string | null),
+      action: body?.action ?? 'Unknown action',
+      category: body?.category ?? 'general',
+      details: body?.details,
+      entityId: body?.entityId,
+    });
+    return { success: true };
+  }
+
+  @Get('admin/audit-logs')
+  async adminGetAuditLogs(
+    @Headers('authorization') authorization?: string,
+    @Query('category') category?: string,
+    @Query('search') search?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    this.requireAdmin(authorization);
+    const admin = this.tryGetAdmin();
+    if (!admin) return { data: [], total: 0 };
+    const pageLimit = Math.min(Number(limit ?? 20), 100);
+    const pageOffset = Number(offset ?? 0);
+    let query = admin
+      .from('audit_logs')
+      .select('*', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(pageOffset, pageOffset + pageLimit - 1);
+    if (category && category !== 'all') query = query.eq('category', category);
+    if (from) query = (query as any).gte('created_at', from);
+    if (to) query = (query as any).lte('created_at', to);
+    if (search?.trim()) {
+      const s = search.trim();
+      query = query.or(`action.ilike.%${s}%,staff_name.ilike.%${s}%,details.ilike.%${s}%`);
+    }
+    const { data, error, count } = await query;
+    if (error) return { data: [], total: 0 };
+
+    // Also return category counts for the 30-day window
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: cats } = await admin
+      .from('audit_logs')
+      .select('category')
+      .gte('created_at', thirtyDaysAgo);
+    const catCounts: Record<string, number> = {};
+    for (const row of (cats ?? []) as { category: string }[]) {
+      catCounts[row.category] = (catCounts[row.category] ?? 0) + 1;
+    }
+    return { data: data ?? [], total: count ?? 0, categoryCounts: catCounts };
+  }
+
   private requireAdmin(authorization?: string | null) {
     const decoded = this.authService.verifyAccessToken(
       this.authService.extractBearerToken(authorization) ?? '',
@@ -356,7 +642,7 @@ export class AuthController {
     if (!decoded?.userId || !(decoded as any).isAdmin) {
       throw new UnauthorizedException('Admin access required');
     }
-    return decoded;
+    return decoded as typeof decoded & { staffRole?: string };
   }
 
   // ─── Admin: Customers ───────────────────────────────────────────────────────
@@ -375,7 +661,7 @@ export class AuthController {
     const pageOffset = Number(offset ?? 0);
     let query = admin
       .from('customers')
-      .select('id, full_name, email, phone, birthday, gender, is_admin, created_at', { count: 'exact' })
+      .select('id, customer_number, full_name, email, phone, birthday, gender, created_at', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(pageOffset, pageOffset + pageLimit - 1);
     if (search?.trim()) {
@@ -396,7 +682,7 @@ export class AuthController {
     if (!admin) throw new NotFoundException('Customer not found');
     const { data, error } = await admin
       .from('customers')
-      .select('id, full_name, email, phone, birthday, gender, is_admin, created_at')
+      .select('id, customer_number, full_name, email, phone, birthday, gender, created_at')
       .eq('id', id ?? '')
       .single();
     if (error || !data) throw new NotFoundException('Customer not found');
@@ -411,9 +697,8 @@ export class AuthController {
     const admin = this.tryGetAdmin();
     if (!admin) return { data: [] };
     const { data, error } = await admin
-      .from('customers')
-      .select('id, full_name, email, is_admin, created_at')
-      .eq('is_admin', true)
+      .from('staff')
+      .select('id, staff_number, first_name, last_name, full_name, username, email, role, is_active, is_onboarded, created_at')
       .order('created_at', { ascending: true });
     if (error) return { data: [] };
     return { data: data ?? [] };
@@ -424,22 +709,98 @@ export class AuthController {
     @Headers('authorization') authorization?: string,
     @Body() body?: any,
   ) {
-    this.requireAdmin(authorization);
-    const email = body?.email?.toLowerCase()?.trim();
-    const fullName = body?.full_name?.trim();
+    const meCreate = this.requireAdmin(authorization);
+    const firstName = body?.first_name?.trim();
+    const lastName = body?.last_name?.trim();
+    const username = body?.username?.toLowerCase()?.trim();
     const password = body?.password;
-    if (!email || !fullName || !password) throw new BadRequestException('email, full_name, and password are required');
-    const bcrypt = await import('bcrypt');
-    const hashed = await bcrypt.hash(password, 10);
+    // Cannot create super_admin accounts — only one allowed
+    const role = body?.role === 'admin' ? 'admin' : 'staff';
+    if (!firstName || !lastName || !username || !password) throw new BadRequestException('first_name, last_name, username, and password are required');
+    const fullName = `${firstName} ${lastName}`;
+    const bcryptLib = await import('bcrypt');
+    const hashed = await bcryptLib.hash(password, 10);
     const admin = this.tryGetAdmin();
     if (!admin) throw new InternalServerErrorException();
+    // Check username uniqueness
+    const { data: existing } = await admin.from('staff').select('id').eq('username', username).maybeSingle();
+    if (existing) throw new BadRequestException('Username already taken');
     const { data, error } = await admin
-      .from('customers')
-      .insert([{ full_name: fullName, email, phone: '+639000000000', birthday: '1990-01-01', gender: 'Other', password: hashed, is_admin: true }])
-      .select('id, full_name, email, is_admin, created_at')
+      .from('staff')
+      .insert([{ first_name: firstName, last_name: lastName, full_name: fullName, username, password: hashed, role, is_onboarded: false }])
+      .select('id, staff_number, first_name, last_name, full_name, username, role, created_at')
       .single();
     if (error) throw new BadRequestException(error.message);
+    const { data: me2 } = await admin.from('staff').select('full_name').eq('id', meCreate.userId).single();
+    this.logAction({
+      staffId: meCreate.userId as string,
+      staffName: (me2?.full_name as string | null) ?? 'Admin',
+      staffRole: (meCreate as any).staffRole,
+      action: `Created staff account @${username}`,
+      category: 'accounts',
+      details: `Name: ${fullName}; Role: ${role}; Onboarding: pending`,
+      entityId: data?.id,
+    });
     return data;
+  }
+
+  // ─── Staff onboarding: set email ────────────────────────────────────────────
+
+  @Post('staff/request-email')
+  async staffRequestEmail(
+    @Headers('authorization') authorization?: string,
+    @Body() body?: { email?: string },
+  ) {
+    const me = this.requireAdmin(authorization);
+    const email = body?.email?.toLowerCase()?.trim();
+    if (!email) throw new BadRequestException('email is required');
+    if (!this.mailerService.isConfigured()) throw new InternalServerErrorException('Email sending is not configured yet.');
+    const admin = this.tryGetAdmin();
+    if (!admin) throw new InternalServerErrorException();
+    // Check email not already used
+    const { data: existingStaff } = await admin.from('staff').select('id').eq('email', email).maybeSingle();
+    if (existingStaff && existingStaff.id !== me.userId) throw new BadRequestException('Email is already associated with another account');
+    const { data: existingCustomer } = await this.supabaseService.supabase.from('customers').select('id').eq('email', email).maybeSingle();
+    if (existingCustomer) throw new BadRequestException('Email is already registered as a customer account');
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const emailToken = jwt.sign({ staffId: me.userId, email, code, purpose: 'staff-onboarding' }, process.env.JWT_SECRET || 'your-secret-key', { expiresIn: '10m' });
+    await this.mailerService.sendStaffOnboardingEmail(email, code);
+    return { message: 'Verification code sent to your email', emailToken };
+  }
+
+  @Post('staff/verify-email')
+  async staffVerifyEmail(
+    @Headers('authorization') authorization?: string,
+    @Body() body?: { email?: string; code?: string; emailToken?: string },
+  ) {
+    const me = this.requireAdmin(authorization);
+    const { email: rawEmail, code, emailToken } = body ?? {};
+    const email = rawEmail?.toLowerCase()?.trim();
+    if (!email || !code || !emailToken) throw new BadRequestException('email, code, and emailToken are required');
+    let decoded: any;
+    try { decoded = jwt.verify(emailToken, process.env.JWT_SECRET || 'your-secret-key'); } catch { throw new UnauthorizedException('Verification code expired. Please request a new one.'); }
+    if (decoded.purpose !== 'staff-onboarding' || decoded.staffId !== me.userId || decoded.email !== email || decoded.code !== code) {
+      throw new UnauthorizedException('Invalid verification code');
+    }
+    const admin = this.tryGetAdmin();
+    if (!admin) throw new InternalServerErrorException();
+    const { data: staffRow } = await admin.from('staff').select('*').eq('id', me.userId).single();
+    if (!staffRow) throw new NotFoundException('Staff account not found');
+    await admin.from('staff').update({ email, is_onboarded: true }).eq('id', me.userId);
+    this.logAction({
+      staffId: me.userId as string,
+      staffName: (staffRow.full_name as string | null) ?? 'Admin',
+      staffRole: (me as any).staffRole ?? (staffRow.role as string | null),
+      action: 'Completed staff onboarding',
+      category: 'accounts',
+      details: `Email: ${email}; Onboarded: no -> yes`,
+      entityId: me.userId as string,
+    });
+    // Issue a new token with isOnboarded: true
+    const staffRole = (staffRow.role ?? 'staff') as string;
+    const payload = { userId: me.userId, email, isAdmin: true, staffRole, isOnboarded: true };
+    const newToken = this.authService.signAccessToken(payload);
+    return { success: true, token: newToken };
   }
 
   @Delete('admin/accounts/:id')
@@ -448,16 +809,56 @@ export class AuthController {
     @Param('id') id?: string,
   ) {
     const me = this.requireAdmin(authorization);
-    if (me.userId === id) throw new BadRequestException('Cannot remove your own admin account');
+    if ((me as any).staffRole !== 'super_admin') throw new UnauthorizedException('Only super admin can delete accounts');
+    if (me.userId === id) throw new BadRequestException('Cannot remove your own account');
     const admin = this.tryGetAdmin();
     if (!admin) throw new InternalServerErrorException();
-    const { error } = await admin
-      .from('customers')
-      .update({ is_admin: false })
-      .eq('id', id ?? '')
-      .eq('is_admin', true);
+    // Cannot delete super_admin
+    const { data: target } = await admin.from('staff').select('full_name, username, email, role').eq('id', id ?? '').single();
+    if (target?.role === 'super_admin') throw new BadRequestException('Cannot delete the super admin account');
+    const { error } = await admin.from('staff').delete().eq('id', id ?? '');
     if (error) throw new InternalServerErrorException();
+    const { data: deleter } = await admin.from('staff').select('full_name').eq('id', me.userId).single();
+    this.logAction({
+      staffId: me.userId as string,
+      staffName: (deleter?.full_name as string | null) ?? 'Admin',
+      staffRole: (me as any).staffRole,
+      action: `Deleted staff account @${target?.username ?? id}`,
+      category: 'accounts',
+      details: `Name: ${target?.full_name ?? 'Unknown'}; Role: ${target?.role ?? 'Unknown'}; Email: ${this.formatAuditValue(target?.email)}`,
+      entityId: id ?? undefined,
+    });
     return { success: true };
+  }
+
+  @Patch('admin/accounts/:id/toggle-active')
+  async adminToggleActive(
+    @Headers('authorization') authorization?: string,
+    @Param('id') id?: string,
+  ) {
+    const meToggle = this.requireAdmin(authorization);
+    if (meToggle.userId === id) throw new BadRequestException('Cannot deactivate your own account');
+    const admin = this.tryGetAdmin();
+    if (!admin) throw new InternalServerErrorException();
+    // Cannot deactivate super_admin
+    const { data: target } = await admin.from('staff').select('full_name, username, role, is_active').eq('id', id ?? '').single();
+    if (!target) throw new NotFoundException('Account not found');
+    if (target.role === 'super_admin') throw new BadRequestException('Cannot deactivate the super admin account');
+    // (meToggle used below for logging)
+    const newActive = !target.is_active;
+    const { error } = await admin.from('staff').update({ is_active: newActive }).eq('id', id ?? '');
+    if (error) throw new InternalServerErrorException();
+    const { data: toggler } = await admin.from('staff').select('full_name').eq('id', meToggle.userId).single();
+    this.logAction({
+      staffId: meToggle.userId as string,
+      staffName: (toggler?.full_name as string | null) ?? 'Admin',
+      staffRole: (meToggle as any).staffRole,
+      action: `Updated staff account status @${target.username ?? id}`,
+      category: 'accounts',
+      details: `Name: ${target.full_name ?? 'Unknown'}; Role: ${target.role}; ${this.formatAuditChange('Status', target.is_active ? 'active' : 'inactive', newActive ? 'active' : 'inactive')}`,
+      entityId: id ?? undefined,
+    });
+    return { success: true, is_active: newActive };
   }
 
   // ─── Admin: OOS Settings ────────────────────────────────────────────────────
@@ -481,16 +882,68 @@ export class AuthController {
     @Headers('authorization') authorization?: string,
     @Body() body?: Record<string, string>,
   ) {
-    this.requireAdmin(authorization);
+    const meSettings = this.requireAdmin(authorization);
     const admin = this.tryGetAdmin();
     if (!admin) throw new InternalServerErrorException();
     const entries = Object.entries(body ?? {});
     if (entries.length === 0) return { success: true };
+
+    const settingLabels: Record<string, string> = {
+      delivery_fee: 'delivery fee',
+      free_delivery_min: 'free delivery minimum',
+      min_order_amount: 'minimum order amount',
+      max_order_items: 'maximum order items',
+      order_cutoff_time: 'order cutoff time',
+      contact_email: 'contact email',
+      contact_phone: 'contact phone',
+      oos_enabled: 'store status',
+    };
+
+    const { data: existingRows } = await admin.from('oos_settings').select('key, value');
+    const existing = new Map<string, string>();
+    for (const row of (existingRows ?? []) as { key: string; value: string }[]) {
+      existing.set(row.key, String(row.value ?? ''));
+    }
+
+    const changedKeys = entries
+      .filter(([key, value]) => existing.get(key) !== String(value))
+      .map(([key]) => key);
+
+    if (changedKeys.length === 0) return { success: true };
+
+    const formatSettingValue = (key: string, value: string | undefined) => {
+      const normalized = String(value ?? '').trim();
+      if (!normalized) return 'empty';
+      if (key === 'oos_enabled') {
+        return normalized === 'true' ? 'enabled' : 'disabled';
+      }
+      return normalized;
+    };
+
+    const changeDetails = changedKeys.map((key) => {
+      const label = settingLabels[key] ?? key.replace(/_/g, ' ');
+      const previousValue = formatSettingValue(key, existing.get(key));
+      const nextValue = formatSettingValue(
+        key,
+        entries.find(([entryKey]) => entryKey === key)?.[1],
+      );
+      return this.formatAuditChange(label, previousValue, nextValue);
+    });
+
     for (const [key, value] of entries) {
       await admin
         .from('oos_settings')
         .upsert({ key, value: String(value), updated_at: new Date().toISOString() }, { onConflict: 'key' });
     }
+    const { data: setter } = await admin.from('staff').select('full_name').eq('id', meSettings.userId).single();
+    this.logAction({
+      staffId: meSettings.userId as string,
+      staffName: (setter?.full_name as string | null) ?? 'Admin',
+      staffRole: (meSettings as any).staffRole,
+      action: `Updated OOS settings (${changedKeys.length})`,
+      category: 'settings',
+      details: changeDetails.join('; '),
+    });
     return { success: true };
   }
 
@@ -500,34 +953,62 @@ export class AuthController {
   async adminGetSearchAnalytics(
     @Headers('authorization') authorization?: string,
     @Query('limit') limit?: string,
+    @Query('from')  from?: string,
+    @Query('to')    to?: string,
   ) {
     this.requireAdmin(authorization);
     const admin = this.tryGetAdmin();
     if (!admin) return { data: [] };
     const pageLimit = Math.min(Number(limit ?? 50), 200);
-    const { data, error } = await admin
+
+    // Fetch raw rows — table stores individual rows per search (no count column)
+    let q = admin
       .from('search_analytics')
-      .select('query, count, last_searched_at')
-      .order('count', { ascending: false })
-      .limit(pageLimit);
-    if (error) return { data: [] };
-    return { data: data ?? [] };
+      .select('query, searched_at')
+      .order('searched_at', { ascending: false });
+    if (from) q = (q as any).gte('searched_at', from);
+    if (to)   q = (q as any).lte('searched_at', to);
+    const { data, error } = await q.limit(pageLimit * 20);
+
+    if (error || !data) return { data: [] };
+
+    // Aggregate counts in memory
+    const map = new Map<string, { count: number; last_searched_at: string }>();
+    for (const row of data as { query: string; searched_at: string }[]) {
+      const q = row.query.toLowerCase().trim();
+      if (!q) continue;
+      if (!map.has(q)) {
+        map.set(q, { count: 0, last_searched_at: row.searched_at });
+      }
+      map.get(q)!.count += 1;
+    }
+
+    return {
+      data: [...map.entries()]
+        .sort((a, b) => b[1].count - a[1].count)
+        .slice(0, pageLimit)
+        .map(([query, { count, last_searched_at }]) => ({ query, count, last_searched_at })),
+    };
   }
 
   @Get('admin/analytics/product-views')
   async adminGetProductViewAnalytics(
     @Headers('authorization') authorization?: string,
     @Query('limit') limit?: string,
+    @Query('from')  from?: string,
+    @Query('to')    to?: string,
   ) {
     this.requireAdmin(authorization);
     const admin = this.tryGetAdmin();
     if (!admin) return { data: [] };
     const pageLimit = Math.min(Number(limit ?? 50), 200);
-    const { data, error } = await admin
+    let q = admin
       .from('browsing_history')
-      .select('product_id, category, view_count')
-      .order('view_count', { ascending: false })
-      .limit(pageLimit);
+      .select('product_id, category, view_count, viewed_at')
+      .order('view_count', { ascending: false });
+    if (from) q = (q as any).gte('viewed_at', from);
+    if (to)   q = (q as any).lte('viewed_at', to);
+    const { data, error } = await q.limit(pageLimit * 5);
     if (error) return { data: [] };
     // Aggregate by product_id
     const map = new Map<string, { product_id: string; category: string; total_views: number }>();
@@ -552,8 +1033,8 @@ export class AuthController {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const [totalResult, todayResult] = await Promise.all([
-      admin.from('customers').select('id', { count: 'exact', head: true }).eq('is_admin', false),
-      admin.from('customers').select('id', { count: 'exact', head: true }).eq('is_admin', false).gte('created_at', today.toISOString()),
+      admin.from('customers').select('id', { count: 'exact', head: true }),
+      admin.from('customers').select('id', { count: 'exact', head: true }).gte('created_at', today.toISOString()),
     ]);
     return {
       totalCustomers: totalResult.count ?? 0,

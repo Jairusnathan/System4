@@ -54,6 +54,16 @@ export class MailerService {
     });
   }
 
+  async sendStaffOnboardingEmail(email: string, code: string) {
+    const transporter = this.getTransporter();
+    await transporter.sendMail({
+      from: this.smtpFrom, to: email,
+      subject: 'PharmaQuick Staff — Email Verification Code',
+      text: `Your PharmaQuick staff email verification code is ${code}. It will expire in 10 minutes.`,
+      html: `<div style="font-family:Arial,sans-serif;color:#0f172a;line-height:1.6;"><h2>Verify Your Email</h2><p>Use the code below to verify your email address and complete your PharmaQuick staff account setup.</p><div style="font-size:32px;font-weight:700;letter-spacing:8px;margin:24px 0;color:#2563eb;">${code}</div><p>This code will expire in 10 minutes.</p></div>`,
+    });
+  }
+
   async sendWelcomeEmail(email: string, fullName: string) {
     const transporter = this.getTransporter();
     const firstName = fullName.trim().split(/\s+/)[0] || 'there';

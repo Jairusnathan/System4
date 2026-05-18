@@ -12,6 +12,7 @@ import {
   ClipboardCheck,
 } from 'lucide-react';
 import { getAccessToken } from '@/lib/auth-client';
+import { UndoToastStack, useUndoQueue } from '@/components/admin/UndoToast';
 
 type ReturnItem = { productId: string; name: string; quantity: number };
 type ReturnRequest = {
@@ -28,11 +29,20 @@ type ReturnRequest = {
 
 const STATUSES = ['', 'pending', 'reviewing', 'approved', 'rejected'];
 
+// Strict status hierarchy — must go Pending → Reviewing → Approved/Rejected
+// Cannot skip a step
+const QUICK_TRANSITIONS: Record<string, string[]> = {
+  pending:   ['reviewing'],  // quick dropdown: move to reviewing only
+  reviewing: [],             // approved/rejected need note — only in expanded view
+  approved:  [],
+  rejected:  [],
+};
+
 const NEXT_STATUSES: Record<string, string[]> = {
-  pending: ['reviewing', 'approved', 'rejected'],
-  reviewing: ['approved', 'rejected'],
-  approved: [],
-  rejected: [],
+  pending:   ['reviewing'],           // ONLY reviewing — cannot approve/reject from pending
+  reviewing: ['approved', 'rejected'],// After reviewing, decision required
+  approved:  [],
+  rejected:  [],
 };
 
 const formatStatusLabel = (status: string) =>
@@ -74,6 +84,8 @@ export default function AdminReturnsPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
   const [adminNote, setAdminNote] = useState<Record<string, string>>({});
+  const [noteError, setNoteError] = useState<Record<string, boolean>>({});
+  const undo = useUndoQueue();
   const LIMIT = 20;
 
   const fetchReturns = useCallback(async () => {
@@ -98,23 +110,62 @@ export default function AdminReturnsPage() {
     fetchReturns();
   }, [fetchReturns]);
 
+  const REQUIRES_NOTE = ['approved', 'rejected'];
+
   const updateStatus = async (id: string, newStatus: string) => {
+    const note = adminNote[id]?.trim() ?? '';
+
+    // Require admin note for approve/reject decisions
+    if (REQUIRES_NOTE.includes(newStatus) && !note) {
+      setNoteError(prev => ({ ...prev, [id]: true }));
+      setExpanded(id); // force expand so user sees the textarea
+      return;
+    }
+
+    setNoteError(prev => ({ ...prev, [id]: false }));
     const token = getAccessToken();
     if (!token) return;
+
+    // Find current status for undo
+    const request = returns.find(r => r.id === id);
+    const prevStatus = request?.status ?? '';
+    const label = request?.receipt_number ?? id.slice(0, 8);
+
     setUpdating(id);
     try {
       const res = await fetch(`/api/admin/returns/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ status: newStatus, adminNote: adminNote[id] ?? '' }),
+        body: JSON.stringify({ status: newStatus, adminNote: note }),
       });
       if (res.ok) {
-        setReturns(prev => prev.map(request =>
-          request.id === id ? { ...request, status: newStatus } : request
+        setReturns(prev => prev.map(r =>
+          r.id === id ? { ...r, status: newStatus, admin_note: note } : r
         ));
+        // Push to undo queue
+        if (prevStatus) {
+          undo.push({ id, label, prevStatus, newStatus });
+        }
       }
     } finally {
       setUpdating(null);
+    }
+  };
+
+  const handleUndo = async (entry: import('@/components/admin/UndoToast').UndoEntry) => {
+    undo.remove(entry.id);
+    // Undo: revert to previous status (bypass note requirement for undo)
+    const token = getAccessToken();
+    if (!token) return;
+    const res = await fetch(`/api/admin/returns/${entry.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ status: entry.prevStatus, adminNote: 'Status reverted by admin (undo)' }),
+    });
+    if (res.ok) {
+      setReturns(prev => prev.map(r =>
+        r.id === entry.id ? { ...r, status: entry.prevStatus } : r
+      ));
     }
   };
 
@@ -174,7 +225,7 @@ export default function AdminReturnsPage() {
         </div>
       </section>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+<section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Filter Requests</p>
@@ -224,7 +275,8 @@ export default function AdminReturnsPage() {
         ) : (
           <div className="divide-y divide-slate-100">
             {returns.map(request => {
-              const nextStatuses = NEXT_STATUSES[request.status] ?? [];
+              const quickStatuses = QUICK_TRANSITIONS[request.status] ?? [];
+              const nextStatuses  = NEXT_STATUSES[request.status] ?? [];
               const isExpanded = expanded === request.id;
 
               return (
@@ -272,9 +324,9 @@ export default function AdminReturnsPage() {
                               </span>
                             </div>
 
-                            {nextStatuses.length > 0 && (
+                            {quickStatuses.length > 0 && (
                               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                                <span className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Update status</span>
+                                <span className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Quick update</span>
                                 {updating === request.id ? (
                                   <div className="flex h-11 items-center rounded-2xl border border-slate-200 px-4">
                                     <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
@@ -288,8 +340,8 @@ export default function AdminReturnsPage() {
                                     }}
                                     className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10"
                                   >
-                                    <option value="" disabled>Update...</option>
-                                    {nextStatuses.map(status => (
+                                    <option value="" disabled>Move to...</option>
+                                    {quickStatuses.map(status => (
                                       <option key={status} value={status}>
                                         {formatStatusLabel(status)}
                                       </option>
@@ -297,6 +349,12 @@ export default function AdminReturnsPage() {
                                   </select>
                                 )}
                               </div>
+                            )}
+                            {/* Hint: approve/reject requires expanded note */}
+                            {nextStatuses.some(s => s === 'approved' || s === 'rejected') && (
+                              <p className="text-xs text-slate-400 italic">
+                                Expand to Approve or Reject — admin review note required.
+                              </p>
                             )}
                           </div>
                         </div>
@@ -330,20 +388,41 @@ export default function AdminReturnsPage() {
                         </div>
 
                         <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Admin Review</p>
+                          <div className="flex items-center justify-between mb-1">
+                            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Admin Review</p>
+                            <span className="text-[10px] font-bold text-red-500 uppercase tracking-wide">
+                              Required for Approve / Reject
+                            </span>
+                          </div>
                           <textarea
                             rows={5}
                             value={adminNote[request.id] ?? request.admin_note ?? ''}
-                            onChange={e => setAdminNote(prev => ({ ...prev, [request.id]: e.target.value }))}
+                            onChange={e => {
+                              setAdminNote(prev => ({ ...prev, [request.id]: e.target.value }));
+                              if (e.target.value.trim()) setNoteError(prev => ({ ...prev, [request.id]: false }));
+                            }}
                             placeholder="Add an internal note for the refund or replacement decision..."
-                            className="mt-4 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-500/10 resize-none"
+                            className={`mt-1 w-full rounded-2xl border px-4 py-3 text-sm text-slate-700 outline-none transition resize-none ${
+                              noteError[request.id]
+                                ? 'border-red-400 bg-red-50 focus:border-red-500 focus:ring-4 focus:ring-red-500/10'
+                                : 'border-slate-200 bg-slate-50 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-500/10'
+                            }`}
                           />
+                          {noteError[request.id] && (
+                            <p className="mt-1.5 text-xs font-bold text-red-500 flex items-center gap-1">
+                              ⚠ Admin review note is required before approving or rejecting.
+                            </p>
+                          )}
 
                           {nextStatuses.length > 0 && (
                             <div className="mt-4 flex flex-wrap gap-2">
                               {nextStatuses.map(status => {
+                                const requiresNote = status === 'approved' || status === 'rejected';
+                                const currentNote = (adminNote[request.id] ?? request.admin_note ?? '').trim();
+                                const isDisabled = updating === request.id || (requiresNote && !currentNote);
+
                                 const buttonClass =
-                                  status === 'approved' || status === 'resolved'
+                                  status === 'approved'
                                     ? 'bg-green-600 text-white hover:bg-green-700'
                                     : status === 'rejected'
                                       ? 'bg-red-600 text-white hover:bg-red-700'
@@ -353,13 +432,19 @@ export default function AdminReturnsPage() {
                                   <button
                                     key={status}
                                     onClick={() => updateStatus(request.id, status)}
-                                    disabled={updating === request.id}
-                                    className={`rounded-xl px-4 py-2 text-sm font-bold transition ${buttonClass} disabled:cursor-not-allowed disabled:opacity-50`}
+                                    disabled={isDisabled}
+                                    title={requiresNote && !currentNote ? 'Admin review note is required' : undefined}
+                                    className={`rounded-xl px-4 py-2 text-sm font-bold transition ${buttonClass} disabled:cursor-not-allowed disabled:opacity-40`}
                                   >
-                                    {formatStatusLabel(status)}
+                                    {updating === request.id ? <Loader2 className="h-4 w-4 animate-spin inline" /> : formatStatusLabel(status)}
                                   </button>
                                 );
                               })}
+                              {nextStatuses.some(s => s === 'approved' || s === 'rejected') && (
+                                <p className="w-full text-xs text-slate-400 mt-1">
+                                  Approve / Reject buttons enable once you add a review note.
+                                </p>
+                              )}
                             </div>
                           )}
                         </div>
@@ -396,6 +481,11 @@ export default function AdminReturnsPage() {
           </div>
         )}
       </section>
+      <UndoToastStack
+        entries={undo.entries}
+        onUndo={handleUndo}
+        onDismiss={undo.remove}
+      />
     </div>
   );
 }

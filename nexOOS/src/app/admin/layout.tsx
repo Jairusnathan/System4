@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, ShoppingBag, RotateCcw, Users, Package,
   MapPin, Settings, Shield, Pill, LogOut, Menu,
-  X, Mail, Bell, ChevronRight,
+  X, Bell, ChevronRight, Clock, ScrollText,
 } from 'lucide-react';
 import { getAccessToken, clearAccessToken } from '@/lib/auth-client';
 
@@ -35,16 +35,11 @@ const NAV_GROUPS = [
     ],
   },
   {
-    label: 'Insights',
-    items: [
-      { href: '/admin/emails',     label: 'Email Center',     icon: Mail },
-    ],
-  },
-  {
     label: 'System',
     items: [
-      { href: '/admin/settings',   label: 'OOS Settings',     icon: Settings },
-      { href: '/admin/accounts',   label: 'Admin Accounts',   icon: Shield },
+      { href: '/admin/settings',     label: 'OOS Settings',   icon: Settings },
+      { href: '/admin/accounts',     label: 'Admin Accounts', icon: Shield },
+      { href: '/admin/audit-logs',   label: 'Audit Trail',    icon: ScrollText },
     ],
   },
 ];
@@ -62,6 +57,7 @@ const PAGE_DESCRIPTIONS: Record<string, string> = {
   '/admin/emails':     'Automated email triggers and test sender',
   '/admin/settings':   'Configure online ordering system options',
   '/admin/accounts':   'Manage administrator accounts',
+  '/admin/audit-logs': 'Complete history of all admin actions',
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -78,13 +74,17 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
   }
 }
 
-function getInitials(email: string) {
-  return (email.split('@')[0] ?? 'AD').slice(0, 2).toUpperCase();
+function getInitials(identifier: string) {
+  const base = identifier.includes('@') ? identifier.split('@')[0] : identifier;
+  const parts = base.replace(/[._-]/g, ' ').trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  return (base ?? 'AD').slice(0, 2).toUpperCase();
 }
 
-function formatName(email: string) {
+function formatName(identifier: string) {
+  const base = identifier.includes('@') ? identifier.split('@')[0] : identifier;
   return (
-    email.split('@')[0]
+    base
       ?.replace(/[._-]/g, ' ')
       .replace(/\b\w/g, c => c.toUpperCase()) || 'Admin'
   );
@@ -96,11 +96,67 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const router   = useRouter();
 
-  const [adminEmail,   setAdminEmail]   = useState('');
-  const [adminName,    setAdminName]    = useState('Admin');
-  const [sidebarOpen,  setSidebarOpen]  = useState(false);
-  const [checked,      setChecked]      = useState(false);
-  const [dateStr,      setDateStr]      = useState('');
+  const [adminEmail,    setAdminEmail]    = useState('');
+  const [adminName,     setAdminName]     = useState('Admin');
+  const [staffRole,     setStaffRole]     = useState<'super_admin' | 'admin' | 'staff'>('staff');
+  const [sidebarOpen,   setSidebarOpen]   = useState(false);
+  const [checked,       setChecked]       = useState(false);
+  const [dateStr,       setDateStr]       = useState('');
+  const [bellOpen,      setBellOpen]      = useState(false);
+  const [pendingOrders, setPendingOrders] = useState(0);
+  const [pendingReturns,setPendingReturns]= useState(0);
+  const [recentPending, setRecentPending] = useState<{id:string;receiptNumber?:string;date:string}[]>([]);
+  const [recentReturns, setRecentReturns] = useState<{id:string;receipt_number:string;reason:string}[]>([]);
+
+  // Auto-logout after 15 minutes of inactivity
+  useEffect(() => {
+    const TIMEOUT_MS = 15 * 60 * 1000;
+    let timer: ReturnType<typeof setTimeout>;
+
+    const reset = () => {
+      clearTimeout(timer);
+      timer = setTimeout(async () => {
+        // Log inactivity logout before clearing the token
+        const token = getAccessToken();
+        if (token) {
+          try {
+            await fetch('/api/admin/audit-log', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({
+                action: 'Automatically logged out due to 15 minutes of inactivity',
+                category: 'auth',
+              }),
+            });
+          } catch { /* non-fatal */ }
+        }
+        clearAccessToken();
+        localStorage.removeItem('is_admin');
+        localStorage.removeItem('admin_display_name');
+        fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
+        window.location.replace('/?session=expired');
+      }, TIMEOUT_MS);
+    };
+
+    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click'];
+    events.forEach(e => window.addEventListener(e, reset, { passive: true }));
+    reset(); // start the timer
+
+    return () => {
+      clearTimeout(timer);
+      events.forEach(e => window.removeEventListener(e, reset));
+    };
+  }, []);
+
+  // Listen for profile name updates from the profile page
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const name = (e as CustomEvent<string>).detail;
+      if (name) setAdminName(name);
+    };
+    window.addEventListener('admin-name-updated', handler);
+    return () => window.removeEventListener('admin-name-updated', handler);
+  }, []);
 
   // Clock — update every minute
   useEffect(() => {
@@ -124,15 +180,41 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       router.replace('/');
       return;
     }
+    // Redirect unboarded staff to onboarding page
+    if (payload?.isOnboarded === false) {
+      router.replace('/onboarding');
+      return;
+    }
     const email = (payload?.email as string) ?? '';
+    const rawRole = (payload?.staffRole as string) ?? 'staff';
+    const role: 'super_admin' | 'admin' | 'staff' = rawRole === 'super_admin' ? 'super_admin' : rawRole === 'admin' ? 'admin' : 'staff';
     setAdminEmail(email);
-    setAdminName(formatName(email));
+    // Use stored display name if available (updated by profile page)
+    const storedName = localStorage.getItem('admin_display_name');
+    setAdminName(storedName || formatName(email));
+    setStaffRole(role);
     setChecked(true);
+
+    // Fetch notification data (reuse token already declared above)
+    {
+      const h = { Authorization: `Bearer ${token}` };
+      Promise.all([
+        fetch('/api/admin/stats', { headers: h }).then(r => r.json()).catch(() => ({})),
+        fetch('/api/admin/orders?status=Processing&limit=4', { headers: h }).then(r => r.json()).catch(() => ({})),
+        fetch('/api/admin/returns?status=pending&limit=4', { headers: h }).then(r => r.json()).catch(() => ({})),
+      ]).then(([stats, ords, rets]) => {
+        setPendingOrders(stats?.pendingOrders ?? 0);
+        setPendingReturns(stats?.pendingReturns ?? 0);
+        setRecentPending(ords?.data ?? []);
+        setRecentReturns(rets?.data ?? []);
+      }).catch(() => {});
+    }
   }, [router]);
 
   const handleLogout = () => {
     clearAccessToken();
     localStorage.removeItem('is_admin');
+    localStorage.removeItem('admin_display_name');
     fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
     window.location.href = '/';
   };
@@ -206,7 +288,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 {group.label}
               </p>
 
-              {group.items.map(({ href, label, icon: Icon }) => {
+              {group.items.filter(({ href }) => {
+                // Hide Admin Accounts from staff role
+                if (href === '/admin/accounts' && staffRole === 'staff') return false;
+                return true;
+              }).map(({ href, label, icon: Icon }) => {
                 const active = href === '/admin'
                   ? pathname === '/admin'
                   : pathname.startsWith(href);
@@ -245,16 +331,24 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         {/* User + Sign out */}
         <div className="shrink-0 px-3 py-3 border-t border-white/5">
-          {/* User info row */}
-          <div className="flex items-center gap-3 px-2 py-2.5 rounded-xl mb-1">
+          {/* User info row — clicks to profile */}
+          <Link href="/admin/profile" onClick={() => setSidebarOpen(false)}
+            className="flex items-center gap-3 px-2 py-2.5 rounded-xl mb-1 hover:bg-white/[0.06] transition-colors group">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center shrink-0 shadow-md">
               <span className="text-[11px] font-black text-white">{getInitials(adminEmail)}</span>
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[12px] font-bold text-white truncate leading-tight">{adminName}</p>
+              <p className="text-[12px] font-bold text-white truncate leading-tight group-hover:text-blue-300 transition-colors">{adminName}</p>
               <p className="text-[10px] text-slate-500 truncate leading-tight">{adminEmail}</p>
+              <span className={`inline-block mt-0.5 text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded ${
+                staffRole === 'super_admin' ? 'bg-amber-500/20 text-amber-300'
+                : staffRole === 'admin' ? 'bg-blue-500/20 text-blue-300'
+                : 'bg-slate-500/20 text-slate-400'
+              }`}>
+                {staffRole === 'super_admin' ? 'Super Admin' : staffRole === 'admin' ? 'Admin' : 'Staff'}
+              </span>
             </div>
-          </div>
+          </Link>
 
           {/* Sign out */}
           <button
@@ -301,24 +395,118 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           {/* Right side */}
           <div className="flex items-center gap-2 shrink-0 ml-auto lg:ml-0">
             {/* Bell */}
-            <button className="relative p-2 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors">
-              <Bell className="w-4 h-4" />
-              <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full ring-2 ring-white" />
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setBellOpen(v => !v)}
+                className="relative p-2 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <Bell className="w-4 h-4" />
+                {(pendingOrders + pendingReturns) > 0 && (
+                  <span className="absolute top-1 right-1 min-w-[16px] h-4 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center px-0.5 ring-2 ring-white">
+                    {pendingOrders + pendingReturns}
+                  </span>
+                )}
+              </button>
+
+              {/* Dropdown */}
+              {bellOpen && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setBellOpen(false)} />
+                  <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl shadow-xl border border-slate-100 z-40 overflow-hidden">
+                    {/* Header */}
+                    <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                      <p className="text-sm font-black text-slate-900">Notifications</p>
+                      {(pendingOrders + pendingReturns) > 0 && (
+                        <span className="px-2 py-0.5 bg-red-50 text-red-600 text-xs font-black rounded-full">
+                          {pendingOrders + pendingReturns} pending
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Pending Orders */}
+                    {pendingOrders > 0 && (
+                      <div>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4 pt-3 pb-1">
+                          Pending Orders ({pendingOrders})
+                        </p>
+                        {recentPending.map(o => (
+                          <Link key={o.id} href="/admin/orders" onClick={() => setBellOpen(false)}
+                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors">
+                            <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                              <ShoppingBag className="w-3.5 h-3.5 text-blue-500" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold text-slate-800">{o.receiptNumber ?? o.id.slice(0,8)}</p>
+                              <p className="text-[10px] text-slate-400 flex items-center gap-1">
+                                <Clock className="w-2.5 h-2.5" />
+                                {new Date(o.date).toLocaleDateString('en-PH')}
+                              </p>
+                            </div>
+                            <span className="text-[10px] font-bold text-blue-600 shrink-0">Processing</span>
+                          </Link>
+                        ))}
+                        {pendingOrders > 4 && (
+                          <Link href="/admin/orders" onClick={() => setBellOpen(false)}
+                            className="block text-center text-xs font-bold text-blue-500 hover:text-blue-700 py-2 px-4">
+                            +{pendingOrders - 4} more orders →
+                          </Link>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Pending Returns */}
+                    {pendingReturns > 0 && (
+                      <div className={pendingOrders > 0 ? 'border-t border-slate-100' : ''}>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4 pt-3 pb-1">
+                          Return Requests ({pendingReturns})
+                        </p>
+                        {recentReturns.map(r => (
+                          <Link key={r.id} href="/admin/returns" onClick={() => setBellOpen(false)}
+                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors">
+                            <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
+                              <RotateCcw className="w-3.5 h-3.5 text-amber-500" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold text-slate-800">{r.receipt_number}</p>
+                              <p className="text-[10px] text-slate-400 truncate">{r.reason}</p>
+                            </div>
+                            <span className="text-[10px] font-bold text-amber-600 shrink-0">Pending</span>
+                          </Link>
+                        ))}
+                        {pendingReturns > 4 && (
+                          <Link href="/admin/returns" onClick={() => setBellOpen(false)}
+                            className="block text-center text-xs font-bold text-amber-500 hover:text-amber-700 py-2 px-4">
+                            +{pendingReturns - 4} more returns →
+                          </Link>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Empty state */}
+                    {pendingOrders === 0 && pendingReturns === 0 && (
+                      <div className="px-4 py-8 text-center">
+                        <Bell className="w-6 h-6 text-slate-200 mx-auto mb-2" />
+                        <p className="text-xs text-slate-400">All caught up! No pending items.</p>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
 
             {/* Divider */}
             <div className="w-px h-5 bg-slate-200 mx-0.5" />
 
-            {/* User chip */}
-            <div className="flex items-center gap-2">
+            {/* User chip — clicks to profile */}
+            <Link href="/admin/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
               <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center shadow-md shrink-0">
                 <span className="text-[11px] font-black text-white">{getInitials(adminEmail)}</span>
               </div>
               <div className="hidden sm:block leading-tight">
                 <p className="text-xs font-black text-slate-900">{adminName}</p>
-                <p className="text-[10px] text-slate-400">Administrator</p>
+                <p className="text-[10px] text-slate-400">{staffRole === 'super_admin' ? 'Super Admin' : staffRole === 'admin' ? 'Admin' : 'Admin Staff'}</p>
               </div>
-            </div>
+            </Link>
           </div>
         </header>
 

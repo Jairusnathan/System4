@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Headers, Param, Post, Put, Query, Req, Res } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Headers, Param, Patch, Post, Put, Query, Req, Res } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { SERVICE_URLS } from '../shared/http/service-urls';
 import { requestDownstream } from '../shared/http/request-downstream';
@@ -75,13 +75,14 @@ export class AuthGatewayController {
   @Post('logout')
   async logout(
     @Req() request: Request,
+    @Headers('authorization') authorization: string | undefined,
     @Res({ passthrough: true }) response: Response,
   ) {
     const result = await requestDownstream<unknown>({
       baseUrl: SERVICE_URLS.auth,
       path: '/auth/logout',
       method: 'POST',
-      headers: { cookie: request.headers.cookie },
+      headers: { cookie: request.headers.cookie, authorization },
     });
 
     applyDownstreamCookies(response, result.headers);
@@ -233,6 +234,79 @@ export class AuthGatewayController {
     return result.data;
   }
 
+  @Get('admin/profile')
+  async adminGetProfile(
+    @Headers('authorization') authorization: string | undefined,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await requestDownstream<unknown>({ baseUrl: SERVICE_URLS.auth, path: '/auth/admin/profile', headers: { authorization } });
+    response.status(result.status); return result.data;
+  }
+
+  @Put('admin/profile')
+  async adminUpdateProfile(
+    @Headers('authorization') authorization: string | undefined,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await requestDownstream<unknown>({ baseUrl: SERVICE_URLS.auth, path: '/auth/admin/profile', method: 'PUT', headers: { authorization }, body });
+    response.status(result.status); return result.data;
+  }
+
+  @Post('admin/change-password')
+  async adminChangePassword(
+    @Headers('authorization') authorization: string | undefined,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await requestDownstream<unknown>({ baseUrl: SERVICE_URLS.auth, path: '/auth/admin/change-password', method: 'POST', headers: { authorization }, body });
+    response.status(result.status); return result.data;
+  }
+
+  @Post('staff/request-email')
+  async staffRequestEmail(
+    @Headers('authorization') authorization: string | undefined,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await requestDownstream<unknown>({
+      baseUrl: SERVICE_URLS.auth,
+      path: '/auth/staff/request-email',
+      method: 'POST',
+      headers: { authorization },
+      body,
+    });
+    response.status(result.status);
+    return result.data;
+  }
+
+  @Post('staff/verify-email')
+  async staffVerifyEmail(
+    @Headers('authorization') authorization: string | undefined,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await requestDownstream<unknown>({
+      baseUrl: SERVICE_URLS.auth,
+      path: '/auth/staff/verify-email',
+      method: 'POST',
+      headers: { authorization },
+      body,
+    });
+    response.status(result.status);
+    return result.data;
+  }
+
+  @Get('public/settings')
+  async getPublicSettings(@Res({ passthrough: true }) response: Response) {
+    const result = await requestDownstream<unknown>({
+      baseUrl: SERVICE_URLS.auth,
+      path: '/auth/public/settings',
+    });
+    response.status(result.status);
+    return result.data;
+  }
+
   // ─── Admin endpoints ──────────────────────────────────────────────────────
 
   @Get('admin/customers')
@@ -303,6 +377,16 @@ export class AuthGatewayController {
     return result.data;
   }
 
+  @Patch('admin/accounts/:id/toggle-active')
+  async adminToggleActive(
+    @Headers('authorization') authorization: string | undefined,
+    @Param('id') id: string,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await requestDownstream<unknown>({ baseUrl: SERVICE_URLS.auth, path: `/auth/admin/accounts/${encodeURIComponent(id)}/toggle-active`, method: 'PATCH', headers: { authorization } });
+    response.status(result.status); return result.data;
+  }
+
   @Delete('admin/accounts/:id')
   async adminDeleteAccount(
     @Headers('authorization') authorization: string | undefined,
@@ -313,6 +397,51 @@ export class AuthGatewayController {
       baseUrl: SERVICE_URLS.auth,
       path: `/auth/admin/accounts/${encodeURIComponent(id)}`,
       method: 'DELETE',
+      headers: { authorization },
+    });
+    response.status(result.status);
+    return result.data;
+  }
+
+  @Post('admin/audit-log')
+  async adminCreateAuditLog(
+    @Headers('authorization') authorization: string | undefined,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await requestDownstream<unknown>({
+      baseUrl: SERVICE_URLS.auth,
+      path: '/auth/admin/audit-log',
+      method: 'POST',
+      headers: { authorization },
+      body,
+    });
+    response.status(result.status);
+    return result.data;
+  }
+
+  @Get('admin/audit-logs')
+  async adminGetAuditLogs(
+    @Headers('authorization') authorization: string | undefined,
+    @Query('category') category: string | undefined,
+    @Query('search') search: string | undefined,
+    @Query('from') from: string | undefined,
+    @Query('to') to: string | undefined,
+    @Query('limit') limit: string | undefined,
+    @Query('offset') offset: string | undefined,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const parts: string[] = [];
+    if (category) parts.push(`category=${encodeURIComponent(category)}`);
+    if (search)   parts.push(`search=${encodeURIComponent(search)}`);
+    if (from)     parts.push(`from=${encodeURIComponent(from)}`);
+    if (to)       parts.push(`to=${encodeURIComponent(to)}`);
+    if (limit)    parts.push(`limit=${encodeURIComponent(limit)}`);
+    if (offset)   parts.push(`offset=${encodeURIComponent(offset)}`);
+    const qs = parts.length ? `?${parts.join('&')}` : '';
+    const result = await requestDownstream<unknown>({
+      baseUrl: SERVICE_URLS.auth,
+      path: `/auth/admin/audit-logs${qs}`,
       headers: { authorization },
     });
     response.status(result.status);
@@ -368,12 +497,18 @@ export class AuthGatewayController {
   async adminGetSearchAnalytics(
     @Headers('authorization') authorization: string | undefined,
     @Query('limit') limit: string | undefined,
+    @Query('from')  from:  string | undefined,
+    @Query('to')    to:    string | undefined,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const suffix = limit ? `?limit=${limit}` : '';
+    const parts: string[] = [];
+    if (limit) parts.push(`limit=${encodeURIComponent(limit)}`);
+    if (from)  parts.push(`from=${encodeURIComponent(from)}`);
+    if (to)    parts.push(`to=${encodeURIComponent(to)}`);
+    const qs = parts.length ? `?${parts.join('&')}` : '';
     const result = await requestDownstream<unknown>({
       baseUrl: SERVICE_URLS.auth,
-      path: `/auth/admin/analytics/searches${suffix}`,
+      path: `/auth/admin/analytics/searches${qs}`,
       headers: { authorization },
     });
     response.status(result.status);
@@ -384,12 +519,18 @@ export class AuthGatewayController {
   async adminGetProductViewAnalytics(
     @Headers('authorization') authorization: string | undefined,
     @Query('limit') limit: string | undefined,
+    @Query('from')  from:  string | undefined,
+    @Query('to')    to:    string | undefined,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const suffix = limit ? `?limit=${limit}` : '';
+    const parts: string[] = [];
+    if (limit) parts.push(`limit=${encodeURIComponent(limit)}`);
+    if (from)  parts.push(`from=${encodeURIComponent(from)}`);
+    if (to)    parts.push(`to=${encodeURIComponent(to)}`);
+    const qs = parts.length ? `?${parts.join('&')}` : '';
     const result = await requestDownstream<unknown>({
       baseUrl: SERVICE_URLS.auth,
-      path: `/auth/admin/analytics/product-views${suffix}`,
+      path: `/auth/admin/analytics/product-views${qs}`,
       headers: { authorization },
     });
     response.status(result.status);

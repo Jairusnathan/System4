@@ -15,14 +15,15 @@ import {
 import { getAccessToken } from '@/lib/auth-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type OrderItem  = { name: string; price: number; quantity: number; category: string };
+type OrderItem  = { id?: string; name: string; price: number; quantity: number; category: string };
 type Order      = { id: string; receiptNumber?: string; date: string; total: number; subtotal: number; deliveryFee: number; discountAmount: number; status: string; shippingAddress: string; paymentMethod: string; items: OrderItem[] };
 type ReturnReq  = { id: string; receipt_number: string; reason: string; created_at: string; status: string };
 type SearchRow  = { query: string; count: number };
 type ViewRow    = { product_id: string; category: string; total_views: number };
 type OrderStats = { totalOrders: number; ordersToday: number; pendingOrders: number; todayRevenue: number; pendingReturns: number; processingOrders: number; inTransitOrders: number; deliveredOrders: number; cancelledOrders: number };
 type AuthStats  = { totalCustomers: number; newToday: number };
-type ViewType   = 'month' | 'year' | 'compare';
+type ViewType   = 'overall' | 'month' | 'year' | 'compare';
+type BasketPairRow = { pair: string; count: number; support: number; left: string; right: string };
 
 // ─── Colour palette — accent-restrained ──────────────────────────────────────
 // One blue, one green, one amber, one red — all slightly muted
@@ -88,6 +89,24 @@ function buildMonthly(orders: Order[], y: number) {
   return rows.map(r => ({ ...r, revenue: Math.round(r.revenue) }));
 }
 
+function buildOverall(orders: Order[]) {
+  // Group by "Mon YYYY" sorted chronologically
+  const map = new Map<string, { revenue: number; orders: number; sortKey: number }>();
+  for (const o of orders) {
+    if (o.status === 'Cancelled') continue;
+    const d = new Date(o.date);
+    const label = `${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`;
+    const sortKey = d.getFullYear() * 100 + d.getMonth();
+    if (!map.has(label)) map.set(label, { revenue: 0, orders: 0, sortKey });
+    const row = map.get(label)!;
+    row.revenue += o.total;
+    row.orders  += 1;
+  }
+  return [...map.entries()]
+    .sort((a, b) => a[1].sortKey - b[1].sortKey)
+    .map(([label, { revenue, orders }]) => ({ label, revenue: Math.round(revenue), orders }));
+}
+
 function buildCompare(orders: Order[], yA: number, yB: number) {
   const rows = MONTHS_SHORT.map(m => ({ label: m, [yA]: 0, [yB]: 0 }));
   for (const o of orders) {
@@ -115,6 +134,52 @@ function buildCategory(orders: Order[], n = 6) {
   const m: Record<string, number> = {};
   for (const o of orders) { if (o.status === 'Cancelled') continue; for (const i of o.items ?? []) { const c = i.category || 'Other'; m[c] = (m[c] ?? 0) + i.price * i.quantity; } }
   return Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, n).map(([name, value]) => ({ name, value: Math.round(value) }));
+}
+
+function buildMarketBasket(orders: Order[], n = 8) {
+  const pairCounts = new Map<string, { left: string; right: string; count: number }>();
+  let eligibleOrders = 0;
+
+  for (const order of orders) {
+    if (order.status === 'Cancelled') continue;
+
+    const uniqueItems = new Map<string, string>();
+    for (const item of order.items ?? []) {
+      const rawName = String(item.name ?? '').trim();
+      const rawId = String(item.id ?? '').trim();
+      const identity = rawId || rawName.toLowerCase();
+      if (!identity || !rawName) continue;
+      if (!uniqueItems.has(identity)) uniqueItems.set(identity, rawName);
+    }
+
+    const names = [...uniqueItems.values()].sort((a, b) => a.localeCompare(b));
+    if (names.length < 2) continue;
+    eligibleOrders += 1;
+
+    for (let i = 0; i < names.length - 1; i += 1) {
+      for (let j = i + 1; j < names.length; j += 1) {
+        const left = names[i];
+        const right = names[j];
+        const key = `${left}||${right}`;
+        const current = pairCounts.get(key);
+        if (current) current.count += 1;
+        else pairCounts.set(key, { left, right, count: 1 });
+      }
+    }
+  }
+
+  const rows: BasketPairRow[] = [...pairCounts.values()]
+    .sort((a, b) => b.count - a.count || a.left.localeCompare(b.left) || a.right.localeCompare(b.right))
+    .slice(0, n)
+    .map(({ left, right, count }) => ({
+      pair: `${left.length > 18 ? `${left.slice(0, 16)}...` : left} + ${right.length > 18 ? `${right.slice(0, 16)}...` : right}`,
+      count,
+      support: eligibleOrders ? Number(((count / eligibleOrders) * 100).toFixed(1)) : 0,
+      left,
+      right,
+    }));
+
+  return { rows, eligibleOrders };
 }
 
 // ─── UI Atoms ─────────────────────────────────────────────────────────────────
@@ -191,9 +256,9 @@ function SectionCard({ title, href, linkLabel = 'View all', children }: {
 export default function AdminDashboard() {
   const [allOrders,  setAllOrders]  = useState<Order[]>([]);
   const [recent,     setRecent]     = useState<Order[]>([]);
-  const [returns,    setReturns]    = useState<ReturnReq[]>([]);
-  const [searches,   setSearches]   = useState<SearchRow[]>([]);
-  const [views,      setViews]      = useState<ViewRow[]>([]);
+  const [allReturns, setAllReturns] = useState<ReturnReq[]>([]);
+  const [searches,    setSearches]    = useState<SearchRow[]>([]);
+  const [views,       setViews]       = useState<ViewRow[]>([]);
   const [orderStats, setOrderStats] = useState<OrderStats | null>(null);
   const [authStats,  setAuthStats]  = useState<AuthStats | null>(null);
   const [loading,    setLoading]    = useState(true);
@@ -203,35 +268,81 @@ export default function AdminDashboard() {
   const [month,       setMonth]       = useState(CUR_MON);
   const [compareYear, setCompareYear] = useState(CUR_YEAR - 1);
 
+  // Compute date range from filter
+  const dateRange = useMemo((): { from: string; to: string } | null => {
+    if (viewType === 'overall') return null;
+    if (viewType === 'month') {
+      const from = new Date(year, month, 1).toISOString();
+      const to   = new Date(year, month + 1, 0, 23, 59, 59).toISOString();
+      return { from, to };
+    }
+    if (viewType === 'year') {
+      return { from: new Date(year, 0, 1).toISOString(), to: new Date(year, 11, 31, 23, 59, 59).toISOString() };
+    }
+    // compare
+    const minY = Math.min(year, compareYear);
+    const maxY = Math.max(year, compareYear);
+    return { from: new Date(minY, 0, 1).toISOString(), to: new Date(maxY, 11, 31, 23, 59, 59).toISOString() };
+  }, [viewType, year, month, compareYear]);
+
+  const safe = (url: string, token: string) =>
+    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : {})
+      .catch(() => ({}));
+
+  // Initial load — orders, stats, returns
   useEffect(() => {
     const token = getAccessToken();
     if (!token) return;
-    const h = { Authorization: `Bearer ${token}` };
     Promise.all([
-      fetch('/api/admin/stats',                                  { headers: h }).then(r => r.json()),
-      fetch('/api/admin/auth-stats',                             { headers: h }).then(r => r.json()),
-      fetch('/api/admin/orders?limit=500',                       { headers: h }).then(r => r.json()),
-      fetch('/api/admin/orders?limit=8',                         { headers: h }).then(r => r.json()),
-      fetch('/api/admin/returns?status=pending&limit=5',         { headers: h }).then(r => r.json()),
-      fetch('/api/admin/analytics?type=searches&limit=10',       { headers: h }).then(r => r.json()),
-      fetch('/api/admin/analytics?type=product-views&limit=10',  { headers: h }).then(r => r.json()),
-    ]).then(([stats, aStats, allOrd, recOrd, ret, srch, vw]) => {
-      setOrderStats(stats); setAuthStats(aStats);
-      setAllOrders(allOrd?.data ?? []); setRecent(recOrd?.data ?? []);
-      setReturns(ret?.data ?? []); setSearches(srch?.data ?? []); setViews(vw?.data ?? []);
-    }).catch(() => {}).finally(() => setLoading(false));
+      safe('/api/admin/stats', token),
+      safe('/api/admin/auth-stats', token),
+      safe('/api/admin/orders?limit=500', token),
+      safe('/api/admin/orders?limit=8', token),
+      safe('/api/admin/returns?limit=200', token),
+    ]).then(([stats, aStats, allOrd, recOrd, ret]) => {
+      if (stats?.totalOrders !== undefined) setOrderStats(stats);
+      if (aStats?.totalCustomers !== undefined) setAuthStats(aStats);
+      setAllOrders(allOrd?.data ?? []);
+      setRecent(recOrd?.data ?? []);
+      setAllReturns(ret?.data ?? []);
+    }).finally(() => setLoading(false));
   }, []);
 
+  // Re-fetch analytics when date filter changes
+  useEffect(() => {
+    const token = getAccessToken();
+    if (!token) return;
+    const parts = ['limit=50'];
+    if (dateRange?.from) parts.push(`from=${encodeURIComponent(dateRange.from)}`);
+    if (dateRange?.to)   parts.push(`to=${encodeURIComponent(dateRange.to)}`);
+    const qs = parts.join('&');
+    Promise.all([
+      safe(`/api/admin/analytics?type=searches&${qs}`, token),
+      safe(`/api/admin/analytics?type=product-views&${qs}`, token),
+    ]).then(([srch, vw]) => {
+      setSearches(srch?.data ?? []);
+      setViews(vw?.data ?? []);
+    }).catch(() => {});
+  }, [dateRange]);
+
   const filtered = useMemo(() => {
-    if (viewType === 'month') return filterMonth(allOrders, year, month);
-    if (viewType === 'year')  return filterYear(allOrders, year);
+    if (viewType === 'overall') return allOrders;
+    if (viewType === 'month')   return filterMonth(allOrders, year, month);
+    if (viewType === 'year')    return filterYear(allOrders, year);
     return allOrders.filter(o => { const y = new Date(o.date).getFullYear(); return y === year || y === compareYear; });
   }, [allOrders, viewType, year, month, compareYear]);
 
-  const timeSeries   = useMemo(() => { if (viewType==='month') return buildDaily(allOrders,year,month); if (viewType==='year') return buildMonthly(allOrders,year); return buildCompare(allOrders,year,compareYear); }, [allOrders,viewType,year,month,compareYear]);
+  const timeSeries = useMemo(() => {
+    if (viewType === 'overall') return buildOverall(allOrders);
+    if (viewType === 'month')   return buildDaily(allOrders, year, month);
+    if (viewType === 'year')    return buildMonthly(allOrders, year);
+    return buildCompare(allOrders, year, compareYear);
+  }, [allOrders, viewType, year, month, compareYear]);
   const paymentData  = useMemo(() => buildPayment(filtered),       [filtered]);
   const topProducts  = useMemo(() => buildTopProducts(filtered,7), [filtered]);
   const categoryData = useMemo(() => buildCategory(filtered,6),    [filtered]);
+  const basketAnalysis = useMemo(() => buildMarketBasket(filtered, 8), [filtered]);
 
   const statusData = useMemo(() => {
     const c = { Processing: 0, 'In Transit': 0, Delivered: 0, Cancelled: 0 } as Record<string, number>;
@@ -242,11 +353,36 @@ export default function AdminDashboard() {
     }));
   }, [filtered]);
 
+  // Build product name map from order items (product_id → name)
+  const productNames = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const order of allOrders) {
+      for (const item of order.items ?? []) {
+        if (item.id && item.name && !map[String(item.id)]) {
+          map[String(item.id)] = item.name;
+        }
+      }
+    }
+    return map;
+  }, [allOrders]);
+
+  // Pending returns for the top widget (always all pending, not date-filtered)
+  const returns = useMemo(
+    () => allReturns.filter(r => r.status === 'pending').slice(0, 5),
+    [allReturns]
+  );
+
   const returnStatusData = useMemo(() => {
+    const filtered = dateRange
+      ? allReturns.filter(r => {
+          const d = new Date(r.created_at).getTime();
+          return d >= new Date(dateRange.from).getTime() && d <= new Date(dateRange.to).getTime();
+        })
+      : allReturns;
     const m: Record<string, number> = {};
-    for (const r of returns) m[r.status] = (m[r.status] ?? 0) + 1;
+    for (const r of filtered) m[r.status] = (m[r.status] ?? 0) + 1;
     return Object.entries(m).map(([name, value]) => ({ name, value }));
-  }, [returns]);
+  }, [allReturns, dateRange]);
 
   const periodOrders  = filtered.length;
   const periodRevenue = filtered.filter(o => o.status !== 'Cancelled').reduce((s, o) => s + o.total, 0);
@@ -254,7 +390,8 @@ export default function AdminDashboard() {
   const fulfillment   = Math.round((delivered / (periodOrders || 1)) * 100);
   const radialData    = [{ name: 'Fulfilled', value: fulfillment, fill: C_GREEN }, { name: 'Other', value: 100 - fulfillment, fill: '#f1f5f9' }];
   const needsAttention = (orderStats?.pendingOrders ?? 0) + (orderStats?.pendingReturns ?? 0);
-  const periodLabel   = viewType==='month' ? `${MONTHS_LONG[month]} ${year}` : viewType==='year' ? String(year) : `${year} vs ${compareYear}`;
+  const periodLabel   = viewType==='overall' ? 'All Time' : viewType==='month' ? `${MONTHS_LONG[month]} ${year}` : viewType==='year' ? String(year) : `${year} vs ${compareYear}`;
+  const topBasketPair = basketAnalysis.rows[0];
 
   if (loading) {
     return (
@@ -375,30 +512,42 @@ export default function AdminDashboard() {
 
         {/* Date filter */}
         <div className="bg-white border border-slate-100 shadow-sm rounded-2xl p-4 flex flex-wrap items-center gap-5 mb-4">
+          {/* View Type buttons */}
           <div>
             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">View Type</p>
             <div className="flex gap-1.5">
-              {(['month', 'year', 'compare'] as ViewType[]).map(v => (
-                <button key={v} onClick={() => setViewType(v)}
+              {([
+                { key: 'overall', label: 'Overall' },
+                { key: 'month',   label: 'Month'   },
+                { key: 'year',    label: 'Year'    },
+                { key: 'compare', label: 'Compare' },
+              ] as { key: ViewType; label: string }[]).map(({ key, label }) => (
+                <button key={key} onClick={() => setViewType(key)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide transition-all border ${
-                    viewType === v
+                    viewType === key
                       ? 'bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-100'
                       : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700'
                   }`}>
-                  {v === 'month' ? 'Month' : v === 'year' ? 'Year' : 'Compare'}
+                  {label}
                 </button>
               ))}
             </div>
           </div>
 
-          <div>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">{viewType === 'compare' ? 'Year A' : 'Year'}</p>
-            <select value={year} onChange={e => setYear(Number(e.target.value))}
-              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-semibold text-slate-700 focus:outline-none focus:border-blue-400">
-              {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
-          </div>
+          {/* Year selector — hidden in Overall */}
+          {viewType !== 'overall' && (
+            <div>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">
+                {viewType === 'compare' ? 'Year A' : 'Year'}
+              </p>
+              <select value={year} onChange={e => setYear(Number(e.target.value))}
+                className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-semibold text-slate-700 focus:outline-none focus:border-blue-400">
+                {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
+          )}
 
+          {/* Month selector — only in month view */}
           {viewType === 'month' && (
             <div>
               <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Month</p>
@@ -409,6 +558,7 @@ export default function AdminDashboard() {
             </div>
           )}
 
+          {/* Year B — only in compare */}
           {viewType === 'compare' && (
             <div>
               <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Year B</p>
@@ -579,6 +729,76 @@ export default function AdminDashboard() {
           </ChartCard>
         </div>
 
+        <div className="grid items-start lg:grid-cols-[minmax(0,1.5fr)_minmax(280px,0.9fr)] gap-4 mb-4">
+          <ChartCard title={`Market Basket Analysis - ${periodLabel}`}>
+            {basketAnalysis.rows.length === 0 ? <EmptyChart label="Need at least two-item non-cancelled orders for basket analysis" /> : (
+              <>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <p className="text-xs text-slate-400">
+                    Based on {basketAnalysis.eligibleOrders.toLocaleString()} non-cancelled orders with at least 2 distinct products.
+                  </p>
+                  {topBasketPair && (
+                    <span className="shrink-0 rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold text-blue-600">
+                      Top pair: {topBasketPair.count} orders
+                    </span>
+                  )}
+                </div>
+                <ResponsiveContainer width="100%" height={240}>
+                  <BarChart data={basketAnalysis.rows.slice(0, 6)} layout="vertical" margin={{ top: 4, right: 16, left: 10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
+                    <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                    <YAxis type="category" dataKey="pair" tick={{ fontSize: 10, fill: '#64748b' }} width={180} />
+                    <Tooltip
+                      {...TT}
+                      formatter={(value: number, key: string) => key === 'count' ? [value, 'Orders together'] : [`${value}%`, 'Support']}
+                      labelFormatter={(_, payload) => {
+                        const row = payload?.[0]?.payload as BasketPairRow | undefined;
+                        return row ? `${row.left} + ${row.right}` : '';
+                      }}
+                    />
+                    <Bar dataKey="count" radius={[0, 5, 5, 0]}>
+                      {basketAnalysis.rows.map((_, i) => (
+                        <Cell key={i} fill={i === 0 ? C_BLUE : i < 3 ? '#60a5fa' : '#bfdbfe'} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </>
+            )}
+          </ChartCard>
+
+          <ChartCard title="Pair Strength">
+            {basketAnalysis.rows.length === 0 ? <EmptyChart label="No repeated product pairings yet" /> : (
+              <div className="max-h-[340px] space-y-3 overflow-y-auto pr-1 pt-1">
+                {basketAnalysis.rows.slice(0, 6).map((row, i) => (
+                  <div key={`${row.left}-${row.right}`} className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-black text-slate-300">{i + 1}</p>
+                        <p className="text-xs font-bold text-slate-800">{row.left}</p>
+                        <p className="text-xs text-slate-500">{row.right}</p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="text-sm font-black text-slate-900">{row.count}</p>
+                        <p className="text-[10px] text-slate-400">orders</p>
+                      </div>
+                    </div>
+                    <div className="mt-2">
+                      <div className="mb-1 flex items-center justify-between text-[10px] font-bold text-slate-400">
+                        <span>Support</span>
+                        <span>{row.support}%</span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+                        <div className="h-full rounded-full bg-blue-500" style={{ width: `${Math.min(row.support, 100)}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </ChartCard>
+        </div>
+
         {/* Row 4 — Return status + Searches + Views */}
         <div className="grid lg:grid-cols-3 gap-4">
           <ChartCard title="Return Requests by Status">
@@ -610,7 +830,7 @@ export default function AdminDashboard() {
               </div>
             ) : (
               <div className="space-y-2.5 pt-1">
-                {searches.slice(0, 6).map((row, i) => (
+                {searches.slice(0, 8).map((row, i) => (
                   <div key={row.query} className="flex items-center gap-2">
                     <span className="text-[10px] font-bold text-slate-300 w-4 shrink-0">{i + 1}</span>
                     <span className="text-xs text-slate-600 flex-1 truncate">{row.query}</span>
@@ -631,11 +851,13 @@ export default function AdminDashboard() {
               </div>
             ) : (
               <div className="space-y-2.5 pt-1">
-                {views.slice(0, 6).map((row, i) => (
+                {views.slice(0, 6).map((row, i) => {
+                  const name = productNames[String(row.product_id)] ?? `Product #${row.product_id}`;
+                  return (
                   <div key={row.product_id} className="flex items-center gap-2">
                     <span className="text-[10px] font-bold text-slate-300 w-4 shrink-0">{i + 1}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[10px] font-mono text-slate-500 truncate">{row.product_id}</p>
+                      <p className="text-xs font-semibold text-slate-700 truncate">{name}</p>
                       <p className="text-[9px] text-slate-400">{row.category}</p>
                     </div>
                     <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden shrink-0">
@@ -643,7 +865,8 @@ export default function AdminDashboard() {
                     </div>
                     <span className="text-xs font-bold text-slate-500 shrink-0 w-5 text-right">{row.total_views}</span>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </ChartCard>

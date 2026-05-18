@@ -394,16 +394,16 @@ function LoginCard({
 
       <form onSubmit={onSubmit} className="space-y-6">
         <div>
-          <label htmlFor={loginFieldIds.email} className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Email Address</label>
+          <label htmlFor={loginFieldIds.email} className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-4">Username or Email</label>
           <div className="relative">
             <Mail className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
             <input
               id={loginFieldIds.email}
-              type="email"
+              type="text"
               required
               value={formData.email}
               onChange={(e) => onEmailChange(e.target.value)}
-              placeholder="name@example.com"
+              placeholder="username or email@example.com"
               className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
             />
           </div>
@@ -517,7 +517,11 @@ function useLoginForm({
         }
         if (data.isAdmin === true) {
           localStorage.setItem('is_admin', 'true');
-          window.location.replace('/admin');
+          if (data.isOnboarded === false) {
+            window.location.replace('/onboarding');
+          } else {
+            window.location.replace('/admin');
+          }
           return;
         }
         localStorage.removeItem('is_admin');
@@ -710,11 +714,18 @@ export default function Login() {
   const { setView, setLoggedIn, setUser } = useAppContext();
   const loginForm = useLoginForm({ setView, setLoggedIn, setUser });
   const forgotPasswordFlow = useForgotPasswordFlow();
+  const sessionExpired = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('session') === 'expired';
 
   useBodyScrollLock(forgotPasswordFlow.isForgotModalOpen);
 
   return (
     <main className="flex-1 flex flex-col items-center justify-center p-8 bg-slate-50 py-24">
+      {sessionExpired && (
+        <div className="mb-4 flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-2xl text-amber-700 text-sm font-bold w-full max-w-xl">
+          <AlertCircle className="w-5 h-5 shrink-0" />
+          Your session expired due to inactivity. Please sign in again.
+        </div>
+      )}
       <LoginCard
         formData={loginForm.formData}
         rememberMe={loginForm.rememberMe}

@@ -171,7 +171,7 @@ export class OrderController {
   @Patch('admin/status')
   async adminUpdateOrderStatus(
     @Headers('authorization') authorization?: string,
-    @Body() body?: { receiptNumber?: string; status?: string },
+    @Body() body?: { receiptNumber?: string; status?: string; reason?: string },
   ) {
     this.requireAdminToken(authorization);
     const receiptNumber = body?.receiptNumber?.trim();
@@ -181,9 +181,15 @@ export class OrderController {
       throw new HttpException({ error: 'Invalid status value' }, 400);
     }
     try {
-      const result = await this.orderService.adminUpdateOrderStatus(receiptNumber, newStatus!);
+      const result = await this.orderService.adminUpdateOrderStatus(receiptNumber, newStatus!, body?.reason);
       if (!result.success) throw new HttpException({ error: result.error ?? 'Failed to update order' }, 400);
-      return { success: true };
+      return {
+        success: true,
+        receiptNumber: result.receiptNumber,
+        previousStatus: result.previousStatus,
+        newStatus: result.newStatus,
+        reason: body?.reason?.trim() || null,
+      };
     } catch (error) {
       if (error instanceof HttpException) throw error;
       throw new InternalServerErrorException();
@@ -239,6 +245,13 @@ export class OrderController {
       throw new HttpException({ error: 'Invalid status. Use: approved, rejected, reviewing, resolved' }, 400);
     }
     try {
+      const { data: currentReturn, error: fetchError } = await this.supabaseService.supabaseAdmin
+        .from('return_requests')
+        .select('id, receipt_number, status')
+        .eq('id', id ?? '')
+        .single();
+      if (fetchError || !currentReturn) throw new HttpException({ error: 'Return request not found' }, 404);
+      const previousStatus = String(currentReturn.status ?? '');
       const updateData: Record<string, unknown> = { status: newStatus };
       if (body?.adminNote?.trim()) updateData.admin_note = body.adminNote.trim();
       const { error } = await this.supabaseService.supabaseAdmin
@@ -246,7 +259,14 @@ export class OrderController {
         .update(updateData)
         .eq('id', id ?? '');
       if (error) throw new HttpException({ error: 'Failed to update return request' }, 400);
-      return { success: true };
+      return {
+        success: true,
+        id: currentReturn.id,
+        receiptNumber: currentReturn.receipt_number,
+        previousStatus,
+        newStatus,
+        adminNote: body?.adminNote?.trim() || null,
+      };
     } catch (error) {
       if (error instanceof HttpException) throw error;
       throw new InternalServerErrorException();

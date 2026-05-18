@@ -2,7 +2,7 @@ import { buildApiUrl } from '@/lib/api';
 
 type ProxyOptions = {
   path: string;
-  method?: 'GET' | 'POST' | 'PUT';
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   preserveQuery?: boolean;
 };
 

@@ -7,6 +7,7 @@ export const REFRESH_TOKEN_COOKIE_NAME = 'refresh_token';
 type AuthPayload = {
   userId: string;
   email: string;
+  isAdmin?: boolean;
 };
 
 @Injectable()

@@ -3,6 +3,8 @@ import {
   Controller,
   Get,
   Headers,
+  Param,
+  Patch,
   Post,
   Query,
   Res,
@@ -115,6 +117,103 @@ export class OrdersGatewayController {
       baseUrl: SERVICE_URLS.orders,
       path: '/orders/cancel',
       method: 'POST',
+      headers: { authorization },
+      body,
+    });
+    response.status(result.status);
+    return result.data;
+  }
+
+  // ─── Admin endpoints ──────────────────────────────────────────────────────
+
+  @Get('admin/all')
+  async adminGetAllOrders(
+    @Headers('authorization') authorization: string | undefined,
+    @Query('status') status: string | undefined,
+    @Query('search') search: string | undefined,
+    @Query('limit') limit: string | undefined,
+    @Query('offset') offset: string | undefined,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const params = new URLSearchParams();
+    if (status) params.set('status', status);
+    if (search) params.set('search', search);
+    if (limit) params.set('limit', limit);
+    if (offset) params.set('offset', offset);
+    const suffix = params.size > 0 ? `?${params.toString()}` : '';
+    const result = await requestDownstream<unknown>({
+      baseUrl: SERVICE_URLS.orders,
+      path: `/orders/admin/all${suffix}`,
+      headers: { authorization },
+    });
+    response.status(result.status);
+    return result.data;
+  }
+
+  @Patch('admin/status')
+  async adminUpdateOrderStatus(
+    @Headers('authorization') authorization: string | undefined,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await requestDownstream<unknown>({
+      baseUrl: SERVICE_URLS.orders,
+      path: '/orders/admin/status',
+      method: 'PATCH',
+      headers: { authorization },
+      body,
+    });
+    response.status(result.status);
+    return result.data;
+  }
+
+  @Get('admin/stats')
+  async adminGetOrderStats(
+    @Headers('authorization') authorization: string | undefined,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await requestDownstream<unknown>({
+      baseUrl: SERVICE_URLS.orders,
+      path: '/orders/admin/stats',
+      headers: { authorization },
+    });
+    response.status(result.status);
+    return result.data;
+  }
+
+  @Get('admin/returns')
+  async adminGetAllReturns(
+    @Headers('authorization') authorization: string | undefined,
+    @Query('status') status: string | undefined,
+    @Query('limit') limit: string | undefined,
+    @Query('offset') offset: string | undefined,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const params = new URLSearchParams();
+    if (status) params.set('status', status);
+    if (limit) params.set('limit', limit);
+    if (offset) params.set('offset', offset);
+    const suffix = params.size > 0 ? `?${params.toString()}` : '';
+    const result = await requestDownstream<unknown>({
+      baseUrl: SERVICE_URLS.orders,
+      path: `/orders/admin/returns${suffix}`,
+      headers: { authorization },
+    });
+    response.status(result.status);
+    return result.data;
+  }
+
+  @Patch('admin/returns/:id')
+  async adminUpdateReturnStatus(
+    @Headers('authorization') authorization: string | undefined,
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await requestDownstream<unknown>({
+      baseUrl: SERVICE_URLS.orders,
+      path: `/orders/admin/returns/${encodeURIComponent(id)}`,
+      method: 'PATCH',
       headers: { authorization },
       body,
     });

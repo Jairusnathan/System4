@@ -515,6 +515,12 @@ function useLoginForm({
         } else {
           localStorage.removeItem('remember_me');
         }
+        if (data.isAdmin === true) {
+          localStorage.setItem('is_admin', 'true');
+          window.location.replace('/admin');
+          return;
+        }
+        localStorage.removeItem('is_admin');
         setLoggedIn();
         setUser(data.user);
         setView('home');

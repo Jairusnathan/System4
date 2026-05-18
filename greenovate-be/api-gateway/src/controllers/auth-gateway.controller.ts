@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Headers, Param, Post, Put, Query, Req, Res } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { SERVICE_URLS } from '../shared/http/service-urls';
 import { requestDownstream } from '../shared/http/request-downstream';
@@ -229,6 +229,169 @@ export class AuthGatewayController {
       body,
     });
 
+    response.status(result.status);
+    return result.data;
+  }
+
+  // ─── Admin endpoints ──────────────────────────────────────────────────────
+
+  @Get('admin/customers')
+  async adminGetCustomers(
+    @Headers('authorization') authorization: string | undefined,
+    @Query('search') search: string | undefined,
+    @Query('limit') limit: string | undefined,
+    @Query('offset') offset: string | undefined,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    if (limit) params.set('limit', limit);
+    if (offset) params.set('offset', offset);
+    const suffix = params.size > 0 ? `?${params.toString()}` : '';
+    const result = await requestDownstream<unknown>({
+      baseUrl: SERVICE_URLS.auth,
+      path: `/auth/admin/customers${suffix}`,
+      headers: { authorization },
+    });
+    response.status(result.status);
+    return result.data;
+  }
+
+  @Get('admin/customers/:id')
+  async adminGetCustomer(
+    @Headers('authorization') authorization: string | undefined,
+    @Param('id') id: string,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await requestDownstream<unknown>({
+      baseUrl: SERVICE_URLS.auth,
+      path: `/auth/admin/customers/${encodeURIComponent(id)}`,
+      headers: { authorization },
+    });
+    response.status(result.status);
+    return result.data;
+  }
+
+  @Get('admin/accounts')
+  async adminGetAccounts(
+    @Headers('authorization') authorization: string | undefined,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await requestDownstream<unknown>({
+      baseUrl: SERVICE_URLS.auth,
+      path: '/auth/admin/accounts',
+      headers: { authorization },
+    });
+    response.status(result.status);
+    return result.data;
+  }
+
+  @Post('admin/accounts')
+  async adminCreateAccount(
+    @Headers('authorization') authorization: string | undefined,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await requestDownstream<unknown>({
+      baseUrl: SERVICE_URLS.auth,
+      path: '/auth/admin/accounts',
+      method: 'POST',
+      headers: { authorization },
+      body,
+    });
+    response.status(result.status);
+    return result.data;
+  }
+
+  @Delete('admin/accounts/:id')
+  async adminDeleteAccount(
+    @Headers('authorization') authorization: string | undefined,
+    @Param('id') id: string,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await requestDownstream<unknown>({
+      baseUrl: SERVICE_URLS.auth,
+      path: `/auth/admin/accounts/${encodeURIComponent(id)}`,
+      method: 'DELETE',
+      headers: { authorization },
+    });
+    response.status(result.status);
+    return result.data;
+  }
+
+  @Get('admin/settings')
+  async adminGetSettings(
+    @Headers('authorization') authorization: string | undefined,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await requestDownstream<unknown>({
+      baseUrl: SERVICE_URLS.auth,
+      path: '/auth/admin/settings',
+      headers: { authorization },
+    });
+    response.status(result.status);
+    return result.data;
+  }
+
+  @Put('admin/settings')
+  async adminUpdateSettings(
+    @Headers('authorization') authorization: string | undefined,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await requestDownstream<unknown>({
+      baseUrl: SERVICE_URLS.auth,
+      path: '/auth/admin/settings',
+      method: 'PUT',
+      headers: { authorization },
+      body,
+    });
+    response.status(result.status);
+    return result.data;
+  }
+
+  @Get('admin/stats')
+  async adminGetAuthStats(
+    @Headers('authorization') authorization: string | undefined,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await requestDownstream<unknown>({
+      baseUrl: SERVICE_URLS.auth,
+      path: '/auth/admin/stats',
+      headers: { authorization },
+    });
+    response.status(result.status);
+    return result.data;
+  }
+
+  @Get('admin/analytics/searches')
+  async adminGetSearchAnalytics(
+    @Headers('authorization') authorization: string | undefined,
+    @Query('limit') limit: string | undefined,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const suffix = limit ? `?limit=${limit}` : '';
+    const result = await requestDownstream<unknown>({
+      baseUrl: SERVICE_URLS.auth,
+      path: `/auth/admin/analytics/searches${suffix}`,
+      headers: { authorization },
+    });
+    response.status(result.status);
+    return result.data;
+  }
+
+  @Get('admin/analytics/product-views')
+  async adminGetProductViewAnalytics(
+    @Headers('authorization') authorization: string | undefined,
+    @Query('limit') limit: string | undefined,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const suffix = limit ? `?limit=${limit}` : '';
+    const result = await requestDownstream<unknown>({
+      baseUrl: SERVICE_URLS.auth,
+      path: `/auth/admin/analytics/product-views${suffix}`,
+      headers: { authorization },
+    });
     response.status(result.status);
     return result.data;
   }

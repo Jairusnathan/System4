@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, HttpException, InternalServerErrorException, Post, Query, UnauthorizedException } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpException, InternalServerErrorException, Param, Patch, Post, Query, UnauthorizedException } from '@nestjs/common';
 import { SupabaseService } from './supabase.service';
 import { AppAuthService } from './auth.service';
 import { OrderService } from './order.service';
@@ -131,6 +131,124 @@ export class OrderController {
       return { success: true };
     } catch (error) {
       if (error instanceof UnauthorizedException || error instanceof HttpException) throw error;
+      throw new InternalServerErrorException();
+    }
+  }
+
+  private requireAdminToken(authorization?: string) {
+    const token = this.authService.extractBearerToken(authorization);
+    const decoded = token ? this.authService.verifyAccessToken(token) : null;
+    if (!decoded?.userId || !(decoded as any).isAdmin) {
+      throw new UnauthorizedException('Admin access required');
+    }
+    return decoded;
+  }
+
+  // ─── Admin: All Orders ───────────────────────────────────────────────────────
+
+  @Get('admin/all')
+  async adminGetAllOrders(
+    @Headers('authorization') authorization?: string,
+    @Query('status') status?: string,
+    @Query('search') search?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    this.requireAdminToken(authorization);
+    try {
+      const data = await this.orderService.adminListAllOrders(
+        status?.trim(),
+        search?.trim(),
+        Math.min(Number(limit ?? 50), 100),
+        Number(offset ?? 0),
+      );
+      return data;
+    } catch {
+      throw new InternalServerErrorException();
+    }
+  }
+
+  @Patch('admin/status')
+  async adminUpdateOrderStatus(
+    @Headers('authorization') authorization?: string,
+    @Body() body?: { receiptNumber?: string; status?: string },
+  ) {
+    this.requireAdminToken(authorization);
+    const receiptNumber = body?.receiptNumber?.trim();
+    const newStatus = body?.status?.trim();
+    if (!receiptNumber) throw new HttpException({ error: 'receiptNumber is required' }, 400);
+    if (!['Processing', 'In Transit', 'Delivered', 'Cancelled'].includes(newStatus ?? '')) {
+      throw new HttpException({ error: 'Invalid status value' }, 400);
+    }
+    try {
+      const result = await this.orderService.adminUpdateOrderStatus(receiptNumber, newStatus!);
+      if (!result.success) throw new HttpException({ error: result.error ?? 'Failed to update order' }, 400);
+      return { success: true };
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      throw new InternalServerErrorException();
+    }
+  }
+
+  @Get('admin/stats')
+  async adminGetOrderStats(@Headers('authorization') authorization?: string) {
+    this.requireAdminToken(authorization);
+    try {
+      return await this.orderService.adminGetStats();
+    } catch {
+      throw new InternalServerErrorException();
+    }
+  }
+
+  // ─── Admin: Return Requests ──────────────────────────────────────────────────
+
+  @Get('admin/returns')
+  async adminGetAllReturns(
+    @Headers('authorization') authorization?: string,
+    @Query('status') status?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    this.requireAdminToken(authorization);
+    try {
+      const pageLimit = Math.min(Number(limit ?? 50), 100);
+      const pageOffset = Number(offset ?? 0);
+      let query = this.supabaseService.supabaseAdmin
+        .from('return_requests')
+        .select('id, receipt_number, customer_id, reason, description, items, status, created_at', { count: 'exact' })
+        .order('created_at', { ascending: false });
+      if (status?.trim()) query = (query as any).eq('status', status.trim());
+      query = (query as any).range(pageOffset, pageOffset + pageLimit - 1);
+      const { data: rows, error: err, count } = await query;
+      if (err) return { data: [], total: 0 };
+      return { data: rows ?? [], total: count ?? 0 };
+    } catch {
+      throw new InternalServerErrorException();
+    }
+  }
+
+  @Patch('admin/returns/:id')
+  async adminUpdateReturnStatus(
+    @Headers('authorization') authorization?: string,
+    @Param('id') id?: string,
+    @Body() body?: { status?: string; adminNote?: string },
+  ) {
+    this.requireAdminToken(authorization);
+    const newStatus = body?.status?.trim();
+    if (!['approved', 'rejected', 'reviewing', 'resolved'].includes(newStatus ?? '')) {
+      throw new HttpException({ error: 'Invalid status. Use: approved, rejected, reviewing, resolved' }, 400);
+    }
+    try {
+      const updateData: Record<string, unknown> = { status: newStatus };
+      if (body?.adminNote?.trim()) updateData.admin_note = body.adminNote.trim();
+      const { error } = await this.supabaseService.supabaseAdmin
+        .from('return_requests')
+        .update(updateData)
+        .eq('id', id ?? '');
+      if (error) throw new HttpException({ error: 'Failed to update return request' }, 400);
+      return { success: true };
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
       throw new InternalServerErrorException();
     }
   }

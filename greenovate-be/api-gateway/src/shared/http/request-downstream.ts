@@ -27,7 +27,7 @@ const parseBody = async (response: Response) => {
 export const requestDownstream = async <T>(input: {
   baseUrl: string;
   path: string;
-  method?: 'GET' | 'POST' | 'PUT';
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   headers?: Record<string, string | undefined>;
   body?: unknown;
   timeoutMs?: number;

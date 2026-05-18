@@ -1,7 +1,7 @@
 import {
-  BadRequestException, Body, Controller, Get, Headers,
-  InternalServerErrorException, NotFoundException, Post,
-  Req, Res, UnauthorizedException,
+  BadRequestException, Body, Controller, Delete, Get, Headers,
+  InternalServerErrorException, NotFoundException, Param, Post,
+  Put, Query, Req, Res, UnauthorizedException,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
@@ -52,7 +52,8 @@ export class AuthController {
         throw new UnauthorizedException('Invalid credentials');
       }
       void (async () => { try { await this.supabaseService.supabase.from('customers').update({ failed_login_attempts: 0, account_locked_until: null }).eq('id', user.id); } catch { /* ignore */ } })();
-      const payload = { userId: user.id, email: user.email };
+      const isAdmin = user.is_admin === true;
+      const payload = { userId: user.id, email: user.email, ...(isAdmin ? { isAdmin: true } : {}) };
       const token = this.authService.signAccessToken(payload);
       const refreshToken = this.authService.signRefreshToken(payload);
       const admin = this.tryGetAdmin();
@@ -65,7 +66,7 @@ export class AuthController {
       const userWithoutPassword = { ...user };
       delete userWithoutPassword.password;
       this.authService.setRefreshTokenCookie(response, refreshToken, rememberMe);
-      return { token, rememberMe, user: userWithoutPassword };
+      return { token, rememberMe, isAdmin, user: userWithoutPassword };
     } catch (error) {
       if (error instanceof UnauthorizedException) throw error;
       console.error('Login error:', error);
@@ -346,6 +347,218 @@ export class AuthController {
       if (error instanceof UnauthorizedException) throw error;
       return { data: [] };
     }
+  }
+
+  private requireAdmin(authorization?: string | null) {
+    const decoded = this.authService.verifyAccessToken(
+      this.authService.extractBearerToken(authorization) ?? '',
+    );
+    if (!decoded?.userId || !(decoded as any).isAdmin) {
+      throw new UnauthorizedException('Admin access required');
+    }
+    return decoded;
+  }
+
+  // ─── Admin: Customers ───────────────────────────────────────────────────────
+
+  @Get('admin/customers')
+  async adminGetCustomers(
+    @Headers('authorization') authorization?: string,
+    @Query('search') search?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    this.requireAdmin(authorization);
+    const admin = this.tryGetAdmin();
+    if (!admin) return { data: [], total: 0 };
+    const pageLimit = Math.min(Number(limit ?? 50), 100);
+    const pageOffset = Number(offset ?? 0);
+    let query = admin
+      .from('customers')
+      .select('id, full_name, email, phone, birthday, gender, is_admin, created_at', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(pageOffset, pageOffset + pageLimit - 1);
+    if (search?.trim()) {
+      query = query.or(`full_name.ilike.%${search.trim()}%,email.ilike.%${search.trim()}%`);
+    }
+    const { data, error, count } = await query;
+    if (error) return { data: [], total: 0 };
+    return { data: data ?? [], total: count ?? 0 };
+  }
+
+  @Get('admin/customers/:id')
+  async adminGetCustomer(
+    @Headers('authorization') authorization?: string,
+    @Param('id') id?: string,
+  ) {
+    this.requireAdmin(authorization);
+    const admin = this.tryGetAdmin();
+    if (!admin) throw new NotFoundException('Customer not found');
+    const { data, error } = await admin
+      .from('customers')
+      .select('id, full_name, email, phone, birthday, gender, is_admin, created_at')
+      .eq('id', id ?? '')
+      .single();
+    if (error || !data) throw new NotFoundException('Customer not found');
+    return data;
+  }
+
+  // ─── Admin: Accounts ────────────────────────────────────────────────────────
+
+  @Get('admin/accounts')
+  async adminGetAccounts(@Headers('authorization') authorization?: string) {
+    this.requireAdmin(authorization);
+    const admin = this.tryGetAdmin();
+    if (!admin) return { data: [] };
+    const { data, error } = await admin
+      .from('customers')
+      .select('id, full_name, email, is_admin, created_at')
+      .eq('is_admin', true)
+      .order('created_at', { ascending: true });
+    if (error) return { data: [] };
+    return { data: data ?? [] };
+  }
+
+  @Post('admin/accounts')
+  async adminCreateAccount(
+    @Headers('authorization') authorization?: string,
+    @Body() body?: any,
+  ) {
+    this.requireAdmin(authorization);
+    const email = body?.email?.toLowerCase()?.trim();
+    const fullName = body?.full_name?.trim();
+    const password = body?.password;
+    if (!email || !fullName || !password) throw new BadRequestException('email, full_name, and password are required');
+    const bcrypt = await import('bcrypt');
+    const hashed = await bcrypt.hash(password, 10);
+    const admin = this.tryGetAdmin();
+    if (!admin) throw new InternalServerErrorException();
+    const { data, error } = await admin
+      .from('customers')
+      .insert([{ full_name: fullName, email, phone: '+639000000000', birthday: '1990-01-01', gender: 'Other', password: hashed, is_admin: true }])
+      .select('id, full_name, email, is_admin, created_at')
+      .single();
+    if (error) throw new BadRequestException(error.message);
+    return data;
+  }
+
+  @Delete('admin/accounts/:id')
+  async adminDeleteAccount(
+    @Headers('authorization') authorization?: string,
+    @Param('id') id?: string,
+  ) {
+    const me = this.requireAdmin(authorization);
+    if (me.userId === id) throw new BadRequestException('Cannot remove your own admin account');
+    const admin = this.tryGetAdmin();
+    if (!admin) throw new InternalServerErrorException();
+    const { error } = await admin
+      .from('customers')
+      .update({ is_admin: false })
+      .eq('id', id ?? '')
+      .eq('is_admin', true);
+    if (error) throw new InternalServerErrorException();
+    return { success: true };
+  }
+
+  // ─── Admin: OOS Settings ────────────────────────────────────────────────────
+
+  @Get('admin/settings')
+  async adminGetSettings(@Headers('authorization') authorization?: string) {
+    this.requireAdmin(authorization);
+    const admin = this.tryGetAdmin();
+    if (!admin) return { data: {} };
+    const { data, error } = await admin.from('oos_settings').select('key, value');
+    if (error) return { data: {} };
+    const obj: Record<string, string> = {};
+    for (const row of (data ?? []) as { key: string; value: string }[]) {
+      obj[row.key] = row.value;
+    }
+    return { data: obj };
+  }
+
+  @Put('admin/settings')
+  async adminUpdateSettings(
+    @Headers('authorization') authorization?: string,
+    @Body() body?: Record<string, string>,
+  ) {
+    this.requireAdmin(authorization);
+    const admin = this.tryGetAdmin();
+    if (!admin) throw new InternalServerErrorException();
+    const entries = Object.entries(body ?? {});
+    if (entries.length === 0) return { success: true };
+    for (const [key, value] of entries) {
+      await admin
+        .from('oos_settings')
+        .upsert({ key, value: String(value), updated_at: new Date().toISOString() }, { onConflict: 'key' });
+    }
+    return { success: true };
+  }
+
+  // ─── Admin: Analytics ───────────────────────────────────────────────────────
+
+  @Get('admin/analytics/searches')
+  async adminGetSearchAnalytics(
+    @Headers('authorization') authorization?: string,
+    @Query('limit') limit?: string,
+  ) {
+    this.requireAdmin(authorization);
+    const admin = this.tryGetAdmin();
+    if (!admin) return { data: [] };
+    const pageLimit = Math.min(Number(limit ?? 50), 200);
+    const { data, error } = await admin
+      .from('search_analytics')
+      .select('query, count, last_searched_at')
+      .order('count', { ascending: false })
+      .limit(pageLimit);
+    if (error) return { data: [] };
+    return { data: data ?? [] };
+  }
+
+  @Get('admin/analytics/product-views')
+  async adminGetProductViewAnalytics(
+    @Headers('authorization') authorization?: string,
+    @Query('limit') limit?: string,
+  ) {
+    this.requireAdmin(authorization);
+    const admin = this.tryGetAdmin();
+    if (!admin) return { data: [] };
+    const pageLimit = Math.min(Number(limit ?? 50), 200);
+    const { data, error } = await admin
+      .from('browsing_history')
+      .select('product_id, category, view_count')
+      .order('view_count', { ascending: false })
+      .limit(pageLimit);
+    if (error) return { data: [] };
+    // Aggregate by product_id
+    const map = new Map<string, { product_id: string; category: string; total_views: number }>();
+    for (const row of (data ?? []) as { product_id: string; category: string; view_count: number }[]) {
+      const existing = map.get(row.product_id);
+      if (existing) {
+        existing.total_views += Number(row.view_count) || 0;
+      } else {
+        map.set(row.product_id, { product_id: row.product_id, category: row.category, total_views: Number(row.view_count) || 0 });
+      }
+    }
+    return {
+      data: [...map.values()].sort((a, b) => b.total_views - a.total_views).slice(0, pageLimit),
+    };
+  }
+
+  @Get('admin/stats')
+  async adminGetStats(@Headers('authorization') authorization?: string) {
+    this.requireAdmin(authorization);
+    const admin = this.tryGetAdmin();
+    if (!admin) return { totalCustomers: 0, newToday: 0 };
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const [totalResult, todayResult] = await Promise.all([
+      admin.from('customers').select('id', { count: 'exact', head: true }).eq('is_admin', false),
+      admin.from('customers').select('id', { count: 'exact', head: true }).eq('is_admin', false).gte('created_at', today.toISOString()),
+    ]);
+    return {
+      totalCustomers: totalResult.count ?? 0,
+      newToday: todayResult.count ?? 0,
+    };
   }
 
   @Get('category-interests')

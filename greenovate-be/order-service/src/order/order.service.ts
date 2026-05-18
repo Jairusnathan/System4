@@ -21,6 +21,94 @@ export class OrderService {
     return (data ?? []).map((row: any) => ({ id: row.id, receiptNumber: row.receipt_number ?? undefined, orderNumber: row.order_number ?? undefined, txNo: row.tx_no ?? undefined, date: row.created_at, items: ((row.online_order_items ?? []) as any[]).map((item) => ({ id: item.product_id, name: item.product_name, description: '', price: Number(item.unit_price ?? 0), category: item.category ?? 'Uncategorized', image: `${this.fallbackProductImage}&sig=${encodeURIComponent(item.product_id)}`, quantity: Number(item.quantity ?? 0) })), subtotal: Number(row.subtotal ?? 0), deliveryFee: Number(row.delivery_fee ?? 0), discountAmount: Number(row.discount_amount ?? 0), promoCode: row.promo_code ?? undefined, total: Number(row.total ?? 0), status: row.fulfillment_status, shippingAddress: row.shipping_address, paymentMethod: row.payment_method }));
   }
 
+  async adminListAllOrders(status?: string, search?: string, limit = 50, offset = 0) {
+    let query = this.supabaseService.supabaseAdmin
+      .from('online_orders')
+      .select(
+        'id, receipt_number, order_number, tx_no, created_at, subtotal, delivery_fee, discount_amount, total, promo_code, fulfillment_status, shipping_address, payment_method, customer_id, online_order_items ( product_id, product_name, category, unit_price, quantity )',
+        { count: 'exact' },
+      )
+      .order('created_at', { ascending: false });
+    if (status) query = (query as any).eq('fulfillment_status', status);
+    if (search) query = (query as any).or(`receipt_number.ilike.%${search}%,order_number.ilike.%${search}%`);
+    query = (query as any).range(offset, offset + limit - 1);
+    const { data, error, count } = await query;
+    if (error) return { data: [], total: 0 };
+    const rows = (data ?? []).map((row: any) => ({
+      id: row.id,
+      receiptNumber: row.receipt_number ?? undefined,
+      orderNumber: row.order_number ?? undefined,
+      txNo: row.tx_no ?? undefined,
+      date: row.created_at,
+      customerId: row.customer_id,
+      items: ((row.online_order_items ?? []) as any[]).map((item) => ({
+        id: item.product_id,
+        name: item.product_name,
+        price: Number(item.unit_price ?? 0),
+        category: item.category ?? 'Uncategorized',
+        quantity: Number(item.quantity ?? 0),
+      })),
+      subtotal: Number(row.subtotal ?? 0),
+      deliveryFee: Number(row.delivery_fee ?? 0),
+      discountAmount: Number(row.discount_amount ?? 0),
+      promoCode: row.promo_code ?? undefined,
+      total: Number(row.total ?? 0),
+      status: row.fulfillment_status,
+      shippingAddress: row.shipping_address,
+      paymentMethod: row.payment_method,
+    }));
+    return { data: rows, total: count ?? 0 };
+  }
+
+  async adminUpdateOrderStatus(receiptNumber: string, newStatus: string) {
+    const db = this.supabaseService.supabaseAdmin;
+    const { data: order, error: fetchError } = await db
+      .from('online_orders')
+      .select('id, fulfillment_status')
+      .eq('receipt_number', receiptNumber)
+      .single();
+    if (fetchError || !order) return { success: false, error: 'Order not found' };
+    const updateData: Record<string, unknown> = { fulfillment_status: newStatus };
+    if (newStatus === 'Cancelled') {
+      updateData.cancellation_reason = 'Cancelled by admin';
+      updateData.cancelled_at = new Date().toISOString();
+    }
+    const { error: updateError } = await db.from('online_orders').update(updateData).eq('id', order.id);
+    if (updateError) return { success: false, error: 'Failed to update order status' };
+    return { success: true };
+  }
+
+  async adminGetStats() {
+    const db = this.supabaseService.supabaseAdmin;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const [totalResult, todayResult, pendingResult, revenueResult] = await Promise.all([
+      db.from('online_orders').select('id', { count: 'exact', head: true }),
+      db.from('online_orders').select('id', { count: 'exact', head: true }).gte('created_at', today.toISOString()),
+      db.from('online_orders').select('id', { count: 'exact', head: true }).eq('fulfillment_status', 'Processing'),
+      db.from('online_orders').select('total').gte('created_at', today.toISOString()).neq('fulfillment_status', 'Cancelled'),
+    ]);
+    const todayRevenue = ((revenueResult.data ?? []) as { total: number }[]).reduce((sum, r) => sum + Number(r.total ?? 0), 0);
+    const [pendingReturns, processingOrders, inTransitOrders, deliveredOrders, cancelledOrders] = await Promise.all([
+      db.from('return_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+      db.from('online_orders').select('id', { count: 'exact', head: true }).eq('fulfillment_status', 'Processing'),
+      db.from('online_orders').select('id', { count: 'exact', head: true }).eq('fulfillment_status', 'In Transit'),
+      db.from('online_orders').select('id', { count: 'exact', head: true }).eq('fulfillment_status', 'Delivered'),
+      db.from('online_orders').select('id', { count: 'exact', head: true }).eq('fulfillment_status', 'Cancelled'),
+    ]);
+    return {
+      totalOrders: totalResult.count ?? 0,
+      ordersToday: todayResult.count ?? 0,
+      pendingOrders: pendingResult.count ?? 0,
+      todayRevenue,
+      pendingReturns: pendingReturns.count ?? 0,
+      processingOrders: processingOrders.count ?? 0,
+      inTransitOrders: inTransitOrders.count ?? 0,
+      deliveredOrders: deliveredOrders.count ?? 0,
+      cancelledOrders: cancelledOrders.count ?? 0,
+    };
+  }
+
   async search(orderNumber?: string, status?: string, limit = 20) {
     let query = this.supabaseService.supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(limit);
     if (status) query = query.eq('status', status);

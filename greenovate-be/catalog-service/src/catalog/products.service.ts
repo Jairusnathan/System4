@@ -13,6 +13,22 @@ type ProductRow = { id: number | string; name: string | null; price: number | st
 
 const PRODUCT_CACHE_TTL_MS = Number(process.env.PRODUCT_CACHE_TTL_MS || 30_000);
 
+// Categories completely excluded from the OOS — never shown, never searchable, never orderable
+const PRESCRIPTION_CATEGORIES = new Set([
+  'prescription',
+  'rx',
+  'rx only',
+  'prescription only',
+  'controlled substance',
+  'controlled',
+  'dangerous drug',
+  'dangerous drugs',
+  'schedule ii',
+  'schedule iii',
+  'schedule iv',
+  'schedule v',
+]);
+
 @Injectable()
 export class ProductsService {
   private catalogCache: { expiresAt: number; products: Product[] } | null = null;
@@ -74,7 +90,13 @@ export class ProductsService {
 
     if (error) { console.error('Product fetch failed:', error); return []; }
 
-    const productRows = (data ?? []) as ProductRow[];
+    // Strip out prescription/controlled categories before caching — they never enter the OOS
+    const allRows = (data ?? []) as ProductRow[];
+    const productRows = allRows.filter((row) => {
+      const cat = (row.category ?? '').trim().toLowerCase();
+      return !PRESCRIPTION_CATEGORIES.has(cat);
+    });
+
     const soldByProductId = await this.loadSoldCounts(productRows.map((row) => String(row.id)));
 
     return productRows.map((row) => this.mapProduct(row, soldByProductId.get(String(row.id)) ?? 0));

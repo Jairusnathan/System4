@@ -20,6 +20,7 @@ import { Product } from '../types';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 const SORT_OPTIONS = [
+  { label: 'Top Sold', value: 'top-sold' },
   { label: '✨ For You', value: 'for-you' },
   { label: 'Price: Low to High', value: 'price-asc' },
   { label: 'Price: High to Low', value: 'price-desc' },
@@ -76,6 +77,9 @@ const getProductRenderKey = (product: Product, idx: number) =>
     product.category?.trim() || 'missing-category',
     idx,
   ].join('|');
+
+const getApiSortByValue = (sortBy: SortOption) =>
+  sortBy === 'for-you' || sortBy === 'top-sold' ? 'popularity' : sortBy;
 
 export default function Shop() {
   const {
@@ -143,8 +147,9 @@ export default function Shop() {
         if (priceRange.max.trim()) params.set('maxPrice', priceRange.max.trim());
         if (inStockOnly) params.set('inStockOnly', 'true');
         if (selectedBranch) params.set('branchId', String(selectedBranch.id));
-        // For 'for-you' fetch popularity from API, then reorder client-side
-        params.set('sortBy', sortBy === 'for-you' ? 'popularity' : sortBy);
+        // Fetch best-selling products for both "For You" and "Top Sold".
+        // "For You" is then re-ranked client-side using browsing interests.
+        params.set('sortBy', getApiSortByValue(sortBy));
 
         const payload = await fetchJsonWithRetry<{ data?: Product[] }>(
           `/api/products?${params.toString()}`,
@@ -256,7 +261,7 @@ export default function Shop() {
   );
 
   const selectedSortLabel =
-    SORT_OPTIONS.find((option) => option.value === sortBy)?.label ?? 'Price: Low to High';
+    SORT_OPTIONS.find((option) => option.value === sortBy)?.label ?? 'For You';
 
   function handlePageChange(page: number) {
     setCurrentPage(page);

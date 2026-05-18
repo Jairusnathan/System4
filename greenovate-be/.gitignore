@@ -52,6 +52,12 @@ apps/**/.env.*
 !.env.example
 !apps/**/.env.example
 
+# Never commit real npm auth config files
+.npmrc
+**/.npmrc
+!.npmrc.example
+!**/.npmrc.example
+
 # temp directory
 .temp
 .tmp

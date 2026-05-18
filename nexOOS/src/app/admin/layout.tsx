@@ -8,7 +8,7 @@ import {
   MapPin, Settings, Shield, Pill, LogOut, Menu,
   X, Bell, ChevronRight, Clock, ScrollText,
 } from 'lucide-react';
-import { getAccessToken, clearAccessToken } from '@/lib/auth-client';
+import { getAccessToken, clearAccessToken, getAdminDisplayName, clearAdminDisplayName } from '@/lib/auth-client';
 
 // ─── Nav ─────────────────────────────────────────────────────────────────────
 
@@ -131,8 +131,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           } catch { /* non-fatal */ }
         }
         clearAccessToken();
-        localStorage.removeItem('is_admin');
-        localStorage.removeItem('admin_display_name');
+        clearAdminDisplayName();
         fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
         window.location.replace('/?session=expired');
       }, TIMEOUT_MS);
@@ -176,7 +175,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const token = getAccessToken();
     if (!token) { router.replace('/'); return; }
     const payload = decodeJwtPayload(token);
-    if (!payload?.isAdmin && localStorage.getItem('is_admin') !== 'true') {
+    if (!payload?.isAdmin) {
       router.replace('/');
       return;
     }
@@ -189,8 +188,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const rawRole = (payload?.staffRole as string) ?? 'staff';
     const role: 'super_admin' | 'admin' | 'staff' = rawRole === 'super_admin' ? 'super_admin' : rawRole === 'admin' ? 'admin' : 'staff';
     setAdminEmail(email);
-    // Use stored display name if available (updated by profile page)
-    const storedName = localStorage.getItem('admin_display_name');
+    const storedName = getAdminDisplayName();
     setAdminName(storedName || formatName(email));
     setStaffRole(role);
     setChecked(true);
@@ -213,8 +211,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const handleLogout = () => {
     clearAccessToken();
-    localStorage.removeItem('is_admin');
-    localStorage.removeItem('admin_display_name');
+    clearAdminDisplayName();
     fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
     window.location.href = '/';
   };
@@ -398,11 +395,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <div className="relative">
               <button
                 onClick={() => setBellOpen(v => !v)}
-                className="relative p-2 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+                className="relative p-2 rounded-xl hover:bg-slate-100 transition-colors"
               >
-                <Bell className="w-4 h-4" />
+                <Bell className={`w-5 h-5 ${(pendingOrders + pendingReturns) > 0 ? 'text-slate-700' : 'text-slate-400'}`} />
                 {(pendingOrders + pendingReturns) > 0 && (
-                  <span className="absolute top-1 right-1 min-w-[16px] h-4 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center px-0.5 ring-2 ring-white">
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center px-1 ring-2 ring-white">
                     {pendingOrders + pendingReturns}
                   </span>
                 )}

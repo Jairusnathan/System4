@@ -277,6 +277,25 @@ export class AuthController {
     }
   }
 
+  @Post('verify-password-reset-code')
+  async verifyPasswordResetCode(@Body() body: any) {
+    try {
+      const { email: rawEmail, verificationCode, resetToken } = body;
+      if (!rawEmail || !verificationCode || !resetToken) throw new BadRequestException('Missing required fields');
+      const email = rawEmail.toLowerCase().trim();
+      let decoded: any;
+      try { decoded = jwt.verify(resetToken, process.env.JWT_SECRET || 'your-secret-key'); } catch { throw new UnauthorizedException('Verification code expired.'); }
+      if (decoded.purpose !== 'password-reset' || decoded.email !== email || decoded.code !== verificationCode) throw new UnauthorizedException('Invalid verification code');
+      const { data: user, error } = await this.supabaseService.supabase.from('customers').select('id').eq('email', email).single();
+      if (error || !user) throw new NotFoundException('No account found with that email address');
+      return { message: 'Code verified successfully' };
+    } catch (error) {
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException || error instanceof NotFoundException) throw error;
+      console.error('Verify password reset code error:', error);
+      throw new InternalServerErrorException();
+    }
+  }
+
   @Post('update-password')
   async updatePassword(@Body() body: any) {
     try {

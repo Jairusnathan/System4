@@ -1,31 +1,49 @@
 import { buildApiUrl } from './api';
 
-const ACCESS_TOKEN_KEY = 'token';
+const ACCESS_TOKEN_KEY = 'access_token';
+const DISPLAY_NAME_KEY = 'admin_display_name';
 
 const isBrowser = globalThis.window !== undefined;
 
-export function getAccessToken() {
-  if (!isBrowser) {
-    return null;
-  }
+function getCookie(name: string): string | null {
+  if (!isBrowser) return null;
+  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+  return match ? decodeURIComponent(match[2]) : null;
+}
 
-  return localStorage.getItem(ACCESS_TOKEN_KEY);
+function setCookie(name: string, value: string, days = 7) {
+  if (!isBrowser) return;
+  const expires = new Date(Date.now() + days * 864e5).toUTCString();
+  document.cookie = `${name}=${encodeURIComponent(value)};expires=${expires};path=/;SameSite=Lax`;
+}
+
+function deleteCookie(name: string) {
+  if (!isBrowser) return;
+  document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;SameSite=Lax`;
+}
+
+export function getAccessToken() {
+  return getCookie(ACCESS_TOKEN_KEY);
 }
 
 export function storeAccessToken(token: string) {
-  if (!isBrowser) {
-    return;
-  }
-
-  localStorage.setItem(ACCESS_TOKEN_KEY, token);
+  setCookie(ACCESS_TOKEN_KEY, token, 7);
 }
 
 export function clearAccessToken() {
-  if (!isBrowser) {
-    return;
-  }
+  deleteCookie(ACCESS_TOKEN_KEY);
+}
 
-  localStorage.removeItem(ACCESS_TOKEN_KEY);
+export function getAdminDisplayName(): string | null {
+  return getCookie(DISPLAY_NAME_KEY);
+}
+
+export function storeAdminDisplayName(name: string) {
+  setCookie(DISPLAY_NAME_KEY, name, 7);
+}
+
+export function clearAdminDisplayName() {
+  deleteCookie(DISPLAY_NAME_KEY);
 }
 
 export async function refreshAccessToken() {
@@ -48,6 +66,7 @@ export async function refreshAccessToken() {
 
   storeAccessToken(payload.token);
   return payload.token as string;
+
 }
 
 export async function ensureAccessToken() {

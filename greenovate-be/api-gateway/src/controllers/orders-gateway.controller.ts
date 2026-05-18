@@ -245,4 +245,63 @@ export class OrdersGatewayController {
     response.status(result.status);
     return result.data;
   }
+
+  // ─── Payment endpoints ────────────────────────────────────────────────────
+
+  @Post('payment/initiate')
+  async initiatePayment(
+    @Headers('authorization') authorization: string | undefined,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Headers(CORRELATION_ID_HEADER) correlationId: string | undefined,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await requestDownstream<unknown>({
+      baseUrl: SERVICE_URLS.orders,
+      path: '/orders/payment/initiate',
+      method: 'POST',
+      headers: {
+        authorization,
+        'idempotency-key': idempotencyKey,
+        [CORRELATION_ID_HEADER]: correlationId,
+      },
+      body,
+      timeoutMs: 30_000,
+    });
+    response.status(result.status);
+    return result.data;
+  }
+
+  @Get('payment/status')
+  async getPaymentStatus(
+    @Query('receipt') receipt: string | undefined,
+    @Headers(CORRELATION_ID_HEADER) correlationId: string | undefined,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const suffix = receipt ? `?receipt=${encodeURIComponent(receipt)}` : '';
+    const result = await requestDownstream<unknown>({
+      baseUrl: SERVICE_URLS.orders,
+      path: `/orders/payment/status${suffix}`,
+      headers: { [CORRELATION_ID_HEADER]: correlationId },
+    });
+    response.status(result.status);
+    return result.data;
+  }
+
+  @Post('payment/cancel')
+  async cancelPendingPayment(
+    @Headers('authorization') authorization: string | undefined,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await requestDownstream<unknown>({
+      baseUrl: SERVICE_URLS.orders,
+      path: '/orders/payment/cancel',
+      method: 'POST',
+      headers: { authorization },
+      body,
+    });
+    response.status(result.status);
+    return result.data;
+  }
 }

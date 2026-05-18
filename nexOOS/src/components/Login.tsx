@@ -516,7 +516,6 @@ function useLoginForm({
           localStorage.removeItem('remember_me');
         }
         if (data.isAdmin === true) {
-          localStorage.setItem('is_admin', 'true');
           if (data.isOnboarded === false) {
             window.location.replace('/onboarding');
           } else {
@@ -524,7 +523,6 @@ function useLoginForm({
           }
           return;
         }
-        localStorage.removeItem('is_admin');
         setLoggedIn();
         setUser(data.user);
         setView('home');

@@ -134,19 +134,6 @@ const getPaymentMethodIcon = (paymentMethod: string) => {
   return <CreditCard className="w-5 h-5 text-blue-600" />;
 };
 
-const isPaymentStepIncomplete = ({
-  paymentMethod,
-  cardInfo,
-}: {
-  paymentMethod: string;
-  cardInfo: { number: string; name: string; expiry: string; cvv: string };
-}) => {
-  if (paymentMethod === 'card') {
-    return !cardInfo.number || !cardInfo.name || !cardInfo.expiry || !cardInfo.cvv;
-  }
-
-  return false;
-};
 
 const getDiscountTextClass = (discountAmount: number) => (discountAmount > 0 ? 'text-blue-600' : '');
 
@@ -190,6 +177,8 @@ export default function Checkout() {
   const [suggestions, setSuggestions] = useState<import('../types').Product[]>([]);
   const [addedSuggestion, setAddedSuggestion] = useState('');
   const carouselRef = React.useRef<HTMLDivElement>(null);
+  const [canScrollSuggestionsLeft, setCanScrollSuggestionsLeft] = useState(false);
+  const [canScrollSuggestionsRight, setCanScrollSuggestionsRight] = useState(false);
   const [shippingInfo, setShippingInfo] = useState({
     fullName: '',
     phone: '',
@@ -213,20 +202,6 @@ export default function Checkout() {
   const [promoMessage, setPromoMessage] = useState('');
   const [appliedPromo, setAppliedPromo] = useState<AppliedPromo | null>(null);
   const [paymentMethod, setPaymentMethod] = useState('cod');
-  const [gcashInfo, setGcashInfo] = useState({
-    number: '',
-    reference: ''
-  });
-  const [mayaInfo, setMayaInfo] = useState({
-    number: '',
-    reference: ''
-  });
-  const [cardInfo, setCardInfo] = useState({
-    number: '',
-    name: '',
-    expiry: '',
-    cvv: ''
-  });
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const idempotencyKeyRef = useRef(crypto.randomUUID());
   const [selectedSavedAddressIndex, setSelectedSavedAddressIndex] = useState<number | null>(null);
@@ -265,10 +240,6 @@ export default function Checkout() {
   const savedAddressCountMessage = getSavedAddressCountMessage(savedAddresses.length);
   const promoInputClassName = getPromoInputClassName(promoStatus);
   const paymentMethodLabel = getPaymentMethodLabel(paymentMethod, deliveryMethod);
-  const paymentStepIncomplete = isPaymentStepIncomplete({
-    paymentMethod,
-    cardInfo,
-  });
 
   const applySavedAddress = React.useCallback((address: SavedAddress) => {
     setShippingInfo({
@@ -350,48 +321,66 @@ export default function Checkout() {
     setShippingError('');
   };
 
-  // Fetch suggestions based on first cart item's co-purchases
+  // Fetch suggestions: try co-purchase recommendations first, fall back to category search
   React.useEffect(() => {
     if (cart.length === 0) return;
     const cartIds = new Set(cart.map((i) => i.id));
-    const firstId = cart[0].id;
-    fetch(`/api/products/${encodeURIComponent(firstId)}/recommendations?limit=15`)
+    const firstItem = cart[0];
+
+    fetch(`/api/products/${encodeURIComponent(firstItem.id)}/recommendations?limit=15`)
       .then((res) => res.ok ? res.json() : { data: [] })
-      .then((payload) => {
+      .then(async (payload) => {
         const recs = (payload?.data ?? []) as import('../types').Product[];
-        setSuggestions(recs.filter((p) => !cartIds.has(p.id)));
+        const filtered = recs.filter((p) => !cartIds.has(p.id));
+        if (filtered.length > 0) {
+          setSuggestions(filtered);
+          return;
+        }
+        // Fallback: fetch products from the same category as the first cart item
+        const category = (firstItem as any).category ?? '';
+        const qs = category ? `category=${encodeURIComponent(category)}&limit=15` : `limit=15`;
+        const fallback = await fetch(`/api/products?${qs}`)
+          .then((r) => r.ok ? r.json() : [])
+          .catch(() => []);
+        const fallbackRecs = (Array.isArray(fallback) ? fallback : fallback?.data ?? []) as import('../types').Product[];
+        setSuggestions(fallbackRecs.filter((p) => !cartIds.has(p.id)));
       })
       .catch(() => {});
   }, [cart.length]);
 
   const CARD_W = 176; // card width 160 + gap 16
 
-  // Set initial scroll to middle copy when suggestions load
   React.useEffect(() => {
     const el = carouselRef.current;
-    if (!el || suggestions.length === 0) return;
-    el.scrollLeft = suggestions.length * CARD_W;
+    if (!el) return;
+
+    const updateArrowState = () => {
+      const maxScrollLeft = Math.max(0, el.scrollWidth - el.clientWidth);
+      setCanScrollSuggestionsLeft(el.scrollLeft > 8);
+      setCanScrollSuggestionsRight(el.scrollLeft < maxScrollLeft - 8);
+    };
+
+    el.style.scrollBehavior = 'auto';
+    el.scrollLeft = 0;
+    updateArrowState();
+
+    el.addEventListener('scroll', updateArrowState, { passive: true });
+    window.addEventListener('resize', updateArrowState);
+
+    return () => {
+      el.removeEventListener('scroll', updateArrowState);
+      window.removeEventListener('resize', updateArrowState);
+    };
   }, [suggestions]);
 
   const scrollCarousel = (direction: 'left' | 'right') => {
     const el = carouselRef.current;
     if (!el || suggestions.length === 0) return;
-    const singleSetWidth = suggestions.length * CARD_W;
-    const step = CARD_W * 3;
-
-    if (direction === 'right') {
-      // If scrolling right would enter the third copy, jump back to middle first
-      if (el.scrollLeft + step >= singleSetWidth * 2) {
-        el.scrollLeft -= singleSetWidth;
-      }
-      el.scrollBy({ left: step, behavior: 'smooth' });
-    } else {
-      // If scrolling left would enter the first copy, jump forward to middle first
-      if (el.scrollLeft - step <= singleSetWidth * 0.5) {
-        el.scrollLeft += singleSetWidth;
-      }
-      el.scrollBy({ left: -step, behavior: 'smooth' });
-    }
+    const step = Math.max(CARD_W * 2, Math.floor(el.clientWidth * 0.75));
+    el.scrollBy({
+      left: direction === 'right' ? step : -step,
+      behavior: 'smooth',
+    });
   };
 
   React.useEffect(() => {
@@ -561,6 +550,24 @@ export default function Checkout() {
     };
   }, [promoCodeInput, cartTotal]);
 
+  const isOnlinePayment = paymentMethod === 'gcash' || paymentMethod === 'maya' || paymentMethod === 'card';
+
+  const buildOrderPayload = (shippingAddress: string, paymentMethodLabel: string) => ({
+    shippingAddress,
+    deliveryFee,
+    deliveryMethod,
+    branchId: selectedBranch?.id,
+    promoCode: appliedPromo?.code || '',
+    paymentMethod: paymentMethodLabel,
+    items: cart.map((item) => ({
+      id: item.id,
+      name: item.name,
+      category: item.category,
+      price: item.price,
+      quantity: item.quantity,
+    })),
+  });
+
   const handlePlaceOrder = async () => {
     if (isPlacingOrder) return;
     setIsPlacingOrder(true);
@@ -570,27 +577,41 @@ export default function Checkout() {
         ? `Pickup at ${selectedBranch.name}, ${selectedBranch.address}`
         : formatDeliveryAddress(shippingInfo);
 
+      const orderPayload = buildOrderPayload(shippingAddress, paymentMethodLabel);
+
+      // ── Online payment (GCash / Maya / Card) ────────────────────────────────
+      if (isOnlinePayment) {
+        const res = await fetchWithAuth('/api/orders/payment/initiate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Idempotency-Key': idempotencyKeyRef.current,
+          },
+          body: JSON.stringify(orderPayload),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.error || 'Failed to initiate payment');
+        }
+
+        // Reset idempotency key so a retry gets a fresh key
+        idempotencyKeyRef.current = crypto.randomUUID();
+
+        // Redirect browser to PayMongo hosted checkout — page will navigate away
+        window.location.href = data.checkoutUrl;
+        return;
+      }
+
+      // ── Cash on Delivery ─────────────────────────────────────────────────────
       const res = await fetchWithAuth('/api/orders/place', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Idempotency-Key': idempotencyKeyRef.current,
         },
-        body: JSON.stringify({
-          shippingAddress,
-          deliveryFee,
-          deliveryMethod,
-          branchId: selectedBranch?.id,
-          promoCode: appliedPromo?.code || '',
-          paymentMethod: paymentMethodLabel,
-          items: cart.map((item) => ({
-            id: item.id,
-            name: item.name,
-            category: item.category,
-            price: item.price,
-            quantity: item.quantity,
-          })),
-        }),
+        body: JSON.stringify(orderPayload),
       });
 
       const data = await res.json();
@@ -740,26 +761,30 @@ export default function Checkout() {
                         <h3 className="text-lg font-black text-slate-900 tracking-tight">You Might Also Need</h3>
                         <div className="flex items-center gap-3">
                           <span className="text-xs text-slate-400 font-medium">{suggestions.length} items</span>
-                          <div className="flex gap-1">
+                          <div className="flex items-center gap-2">
                             <button
                               onClick={() => scrollCarousel('left')}
-                              className="w-8 h-8 rounded-full border border-slate-200 bg-white flex items-center justify-center text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors shadow-sm"
+                              aria-label="Scroll suggestions left"
+                              disabled={!canScrollSuggestionsLeft}
+                              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:-translate-y-px hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 disabled:translate-y-0 disabled:cursor-not-allowed disabled:border-slate-100 disabled:text-slate-300 disabled:shadow-none disabled:hover:bg-white"
                             >
-                              <ChevronLeft className="w-4 h-4" />
+                              <ChevronLeft className="h-4 w-4 shrink-0" />
                             </button>
                             <button
                               onClick={() => scrollCarousel('right')}
-                              className="w-8 h-8 rounded-full border border-slate-200 bg-white flex items-center justify-center text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors shadow-sm"
+                              aria-label="Scroll suggestions right"
+                              disabled={!canScrollSuggestionsRight}
+                              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:-translate-y-px hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 disabled:translate-y-0 disabled:cursor-not-allowed disabled:border-slate-100 disabled:text-slate-300 disabled:shadow-none disabled:hover:bg-white"
                             >
-                              <ChevronRight className="w-4 h-4" />
+                              <ChevronRight className="h-4 w-4 shrink-0" />
                             </button>
                           </div>
                         </div>
                       </div>
                       <p className="text-sm text-slate-500 mb-5">Customers who bought your items also bought these.</p>
                       <div ref={carouselRef} className="flex gap-3 overflow-x-auto pb-3 hide-scrollbar">
-                        {[...suggestions, ...suggestions, ...suggestions].map((product, idx) => (
-                          <div key={`${product.id}-${idx}`} className="shrink-0 w-40 border border-slate-100 rounded-2xl overflow-hidden bg-slate-50 flex flex-col">
+                        {suggestions.map((product) => (
+                          <div key={product.id} className="shrink-0 w-40 border border-slate-100 rounded-2xl overflow-hidden bg-slate-50 flex flex-col">
                             <img src={product.image} alt={product.name} className="w-full h-36 object-cover" referrerPolicy="no-referrer" />
                             <div className="p-3 flex flex-col flex-1">
                               <p className="text-xs font-bold text-slate-900 line-clamp-2 flex-1">{product.name}</p>
@@ -944,6 +969,13 @@ export default function Checkout() {
 
                   <div className="flex gap-4">
                   <button
+                    type="button"
+                    onClick={() => setCheckoutStep(1)}
+                    className="flex-1 mt-10 py-4 bg-slate-100 text-slate-700 rounded-2xl font-black text-lg hover:bg-slate-200 transition-all"
+                  >
+                    ← Back to Cart
+                  </button>
+                  <button
                     onClick={() => {
                       const normalizedPhone = normalizePhilippinePhone(shippingInfo.phone);
 
@@ -966,13 +998,6 @@ export default function Checkout() {
                   >
                     Continue to Payment
                     <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCheckoutStep(1)}
-                    className="flex-1 mt-10 py-4 bg-slate-100 text-slate-700 rounded-2xl font-black text-lg hover:bg-slate-200 transition-all"
-                  >
-                    ← Back to Cart
                   </button>
                   </div>
 
@@ -1439,67 +1464,16 @@ export default function Checkout() {
                     ))}
                   </div>
 
-                  {paymentMethod === 'card' && (
+                  {isOnlinePayment && (
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
-                      className="space-y-4 overflow-hidden mt-6"
+                      className="mt-6 overflow-hidden"
                     >
-                      <div>
-                        <label htmlFor="checkout-card-number" className="block text-sm font-bold text-slate-700 mb-1.5">Card Number *</label>
-                        <input 
-                          id="checkout-card-number"
-                          type="text"
-                          placeholder="0000 0000 0000 0000"
-                          value={cardInfo.number}
-                          onChange={(e) => setCardInfo({...cardInfo, number: e.target.value})}
-                          className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="checkout-cardholder-name" className="block text-sm font-bold text-slate-700 mb-1.5">Cardholder Name *</label>
-                        <input 
-                          id="checkout-cardholder-name"
-                          type="text"
-                          placeholder="JUAN DELA CRUZ"
-                          value={cardInfo.name}
-                          onChange={(e) => setCardInfo({...cardInfo, name: e.target.value})}
-                          className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label htmlFor="checkout-card-expiry" className="block text-sm font-bold text-slate-700 mb-1.5">Expiry Date *</label>
-                          <input 
-                            id="checkout-card-expiry"
-                            type="text"
-                            placeholder="MM/YY"
-                            value={cardInfo.expiry}
-                            onChange={(e) => setCardInfo({...cardInfo, expiry: e.target.value})}
-                            className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="checkout-card-cvv" className="block text-sm font-bold text-slate-700 mb-1.5">CVV *</label>
-                          <input 
-                            id="checkout-card-cvv"
-                            type="text"
-                            placeholder="123"
-                            value={cardInfo.cvv}
-                            onChange={(e) => setCardInfo({...cardInfo, cvv: e.target.value})}
-                            className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                          />
-                        </div>
-                      </div>
+                      <p className="text-sm text-slate-500 text-center">
+                        You will be redirected to a secure payment page to complete your payment.
+                      </p>
                     </motion.div>
-                  )}
-
-                  {paymentMethod === 'gcash' && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      className="space-y-6 overflow-hidden mt-6"
-                    />
                   )}
 
                   {paymentMethod === 'maya' && (
@@ -1519,7 +1493,7 @@ export default function Checkout() {
                     </button>
                     <button
                       onClick={() => setCheckoutStep(4)}
-                      disabled={paymentStepIncomplete}
+                      disabled={false}
                       className="flex-[2] py-3.5 bg-blue-600 text-white rounded-xl font-bold text-base hover:bg-blue-700 transition-all shadow-md shadow-blue-200 flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Review Order
@@ -1638,7 +1612,11 @@ export default function Checkout() {
                       disabled={isPlacingOrder || isBelowMinOrder || isAboveMaxItems}
                       className="flex-[2] py-4 bg-blue-600 text-white rounded-2xl font-black text-lg hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                      {isPlacingOrder ? 'Placing Order...' : `Place Order (₱${orderTotal.toFixed(2)})`}
+                      {isPlacingOrder
+                        ? (isOnlinePayment ? 'Redirecting to payment…' : 'Placing Order…')
+                        : isOnlinePayment
+                          ? `Pay ₱${orderTotal.toFixed(2)} Online`
+                          : `Place Order (₱${orderTotal.toFixed(2)})`}
                     </button>
                   </div>
                 </motion.div>

@@ -5,7 +5,7 @@ import {
   Loader2, Save, CheckCircle2, AlertCircle,
   Eye, EyeOff, Shield, User, Mail, Hash, Calendar, Lock,
 } from 'lucide-react';
-import { getAccessToken } from '@/lib/auth-client';
+import { getAccessToken, storeAdminDisplayName } from '@/lib/auth-client';
 
 type AdminProfile = {
   id: string;
@@ -68,7 +68,7 @@ export default function AdminProfilePage() {
         setLastName(data.last_name ?? '');
         // Sync name to sidebar
         const fullName = `${data.first_name ?? ''} ${data.last_name ?? ''}`.trim() || data.full_name || '';
-        localStorage.setItem('admin_display_name', fullName);
+        storeAdminDisplayName(fullName);
         window.dispatchEvent(new CustomEvent('admin-name-updated', { detail: fullName }));
         showToast('success', 'Profile updated successfully.');
       }

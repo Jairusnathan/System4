@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Headers, HttpException, InternalServerErrorException, Param, Patch, Post, Query, UnauthorizedException } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpException, InternalServerErrorException, Logger, Param, Patch, Post, Query, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { SupabaseService } from './supabase.service';
 import { AppAuthService } from './auth.service';
 import { OrderService } from './order.service';
@@ -9,10 +10,13 @@ const IDEMPOTENCY_TTL_MS = 10 * 60 * 1000;
 
 @Controller('orders')
 export class OrderController {
+  private readonly logger = new Logger(OrderController.name);
+
   constructor(
     private readonly authService: AppAuthService,
     private readonly orderService: OrderService,
     private readonly supabaseService: SupabaseService,
+    private readonly configService: ConfigService,
   ) {}
 
   @Get('my')
@@ -346,6 +350,75 @@ export class OrderController {
       };
     } catch {
       return { data: [] };
+    }
+  }
+
+  // ─── Payment ─────────────────────────────────────────────────────────────────
+
+  @Post('payment/initiate')
+  async initiatePayment(
+    @Headers('authorization') authorization?: string,
+    @Headers('idempotency-key') idempotencyKey?: string,
+    @Body() body?: unknown,
+  ) {
+    try {
+      const user = this.authService.requireUser(authorization);
+
+      if (idempotencyKey) {
+        const cached = idempotencyCache.get(idempotencyKey);
+        if (cached && cached.expiresAt > Date.now()) return cached.result;
+        for (const [k, v] of idempotencyCache) { if (v.expiresAt <= Date.now()) idempotencyCache.delete(k); }
+      }
+
+      const appBaseUrl = this.configService.get<string>('APP_BASE_URL') || 'http://localhost:3000';
+      const result = await this.orderService.initiateOnlinePayment(user.userId, body, { email: user.email }, appBaseUrl);
+
+      if ('error' in result) throw new HttpException({ error: result.error }, result.status ?? 500);
+
+      if (idempotencyKey) idempotencyCache.set(idempotencyKey, { result, expiresAt: Date.now() + IDEMPOTENCY_TTL_MS });
+      return result;
+    } catch (error) {
+      if (error instanceof UnauthorizedException || error instanceof HttpException) throw error;
+      const message = (() => {
+        if (error instanceof Error) return error.message;
+        if (typeof error === 'object' && error !== null) {
+          const e = error as Record<string, unknown>;
+          return String(e.message ?? e.error ?? e.code ?? JSON.stringify(error));
+        }
+        return String(error);
+      })();
+      this.logger.error(`[payment/initiate] ${message}`, JSON.stringify(error));
+      throw new HttpException({ error: message }, 500);
+    }
+  }
+
+  @Get('payment/status')
+  async getPaymentStatus(@Query('receipt') receipt?: string) {
+    const receiptNumber = receipt?.trim();
+    if (!receiptNumber) throw new HttpException({ error: 'receipt query param is required' }, 400);
+    try {
+      return await this.orderService.getPaymentStatus(receiptNumber);
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      throw new InternalServerErrorException();
+    }
+  }
+
+  @Post('payment/cancel')
+  async cancelPendingPayment(
+    @Headers('authorization') authorization?: string,
+    @Body() body?: { receiptNumber?: string },
+  ) {
+    try {
+      const user = this.authService.requireUser(authorization);
+      const receiptNumber = body?.receiptNumber?.trim();
+      if (!receiptNumber) throw new HttpException({ error: 'receiptNumber is required' }, 400);
+      const result = await this.orderService.cancelPendingPayment(user.userId, receiptNumber);
+      if (!result.success) throw new HttpException({ error: result.error ?? 'Failed to cancel order' }, 400);
+      return { success: true };
+    } catch (error) {
+      if (error instanceof UnauthorizedException || error instanceof HttpException) throw error;
+      throw new InternalServerErrorException();
     }
   }
 }

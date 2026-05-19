@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import type { TribeClient as TribeClientType, EmailSendRequest } from '@implementsprint/sdk';
 
 export type PaymentLineItem = {
   name: string;
@@ -29,22 +30,16 @@ export type PaymentCheckoutStatus = {
   paidAt?: string;
 };
 
-type ApiCenterClient = {
-  authenticate(): Promise<void>;
-  paymentCreateCheckoutSession(payload: PaymentCheckoutPayload): Promise<PaymentCheckoutResult>;
-  paymentGetCheckoutStatus(checkoutId: string): Promise<PaymentCheckoutStatus>;
-};
-
 type TribeClientConstructor = new (config: {
   gatewayUrl: string;
   tribeId: string;
   secret: string;
-}) => ApiCenterClient;
+}) => TribeClientType;
 
 @Injectable()
 export class ApiCenterService implements OnModuleInit {
   private readonly logger = new Logger(ApiCenterService.name);
-  private client: ApiCenterClient | null = null;
+  private client: TribeClientType | null = null;
 
   constructor(private readonly configService: ConfigService) {}
 
@@ -65,11 +60,21 @@ export class ApiCenterService implements OnModuleInit {
       return;
     }
 
-    this.client = new TribeClient({
+    const clientInstance = new TribeClient({
       gatewayUrl: this.configService.getOrThrow<string>('APICENTER_URL'),
       tribeId: this.configService.getOrThrow<string>('APICENTER_TRIBE_ID'),
       secret: this.configService.getOrThrow<string>('APICENTER_TRIBE_SECRET'),
     });
+
+    try {
+      await clientInstance.authenticate();
+      this.client = clientInstance;
+      this.logger.log('APICenter order-service client authenticated — payment and email routing via API Center');
+    } catch (err) {
+      this.logger.warn(
+        `APICenter authentication failed: ${err instanceof Error ? err.message : JSON.stringify(err)}. Email will fall back to SMTP.`,
+      );
+    }
   }
 
   isConfigured(): boolean {
@@ -80,7 +85,11 @@ export class ApiCenterService implements OnModuleInit {
     );
   }
 
-  getClient(): ApiCenterClient {
+  isReady(): boolean {
+    return this.client !== null;
+  }
+
+  getClient(): TribeClientType {
     if (this.client) return this.client;
     throw new Error(
       'APICenter client is not ready. Set APICENTER_URL, APICENTER_TRIBE_ID, APICENTER_TRIBE_SECRET, and install @implementsprint/sdk.',
@@ -92,11 +101,17 @@ export class ApiCenterService implements OnModuleInit {
   }
 
   async paymentCreateCheckoutSession(payload: PaymentCheckoutPayload): Promise<PaymentCheckoutResult> {
-    return this.getClient().paymentCreateCheckoutSession(payload);
+    const result = await this.getClient().paymentCreateCheckoutSession(payload as any);
+    return result as unknown as PaymentCheckoutResult; // local type narrows SDK's full PaymentCheckoutSession
   }
 
   async paymentGetCheckoutStatus(checkoutId: string): Promise<PaymentCheckoutStatus> {
-    return this.getClient().paymentGetCheckoutStatus(checkoutId);
+    const result = await this.getClient().paymentGetCheckoutStatus(checkoutId);
+    return result as unknown as PaymentCheckoutStatus;
+  }
+
+  async emailSend(payload: EmailSendRequest): Promise<void> {
+    await this.getClient().emailSend(payload);
   }
 
   private async loadTribeClient(): Promise<TribeClientConstructor | null> {

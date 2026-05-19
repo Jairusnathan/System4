@@ -66,7 +66,8 @@ export class AuthController {
           }
           const staffRole = (adminUser.role ?? 'staff') as string;
           const isOnboarded = adminUser.is_onboarded !== false;
-          const payload = { userId: adminUser.id, email: adminUser.email ?? adminUser.username, isAdmin: true, staffRole, isOnboarded };
+          const fullName = (adminUser.full_name ?? `${adminUser.first_name ?? ''} ${adminUser.last_name ?? ''}`.trim()) || '';
+          const payload = { userId: adminUser.id, email: adminUser.email ?? adminUser.username, isAdmin: true, staffRole, isOnboarded, fullName };
           const token = this.authService.signAccessToken(payload);
           const refreshToken = this.authService.signRefreshToken(payload);
           this.authService.setRefreshTokenCookie(response, refreshToken, rememberMe);
@@ -264,10 +265,22 @@ export class AuthController {
       const email = body?.email?.toLowerCase()?.trim();
       if (!email) throw new BadRequestException('Email is required');
       if (!this.mailerService.isConfigured()) throw new InternalServerErrorException('Email sending is not configured yet.');
-      const { data: user, error } = await this.supabaseService.supabase.from('customers').select('id, email').eq('email', email).single();
-      if (error || !user) throw new NotFoundException('No account found with that email address');
+
+      let isStaff = false;
+      const { data: customer } = await this.supabaseService.supabase.from('customers').select('id').eq('email', email).maybeSingle();
+      if (!customer) {
+        const adminDb = this.tryGetAdmin();
+        if (adminDb) {
+          const { data: staff } = await adminDb.from('staff').select('id').eq('email', email).maybeSingle();
+          if (!staff) throw new NotFoundException('No account found with that email address');
+          isStaff = true;
+        } else {
+          throw new NotFoundException('No account found with that email address');
+        }
+      }
+
       const code = Math.floor(100000 + Math.random() * 900000).toString();
-      const resetToken = jwt.sign({ email, code, purpose: 'password-reset' }, process.env.JWT_SECRET || 'your-secret-key', { expiresIn: '10m' });
+      const resetToken = jwt.sign({ email, code, purpose: 'password-reset', isStaff }, process.env.JWT_SECRET || 'your-secret-key', { expiresIn: '10m' });
       await this.mailerService.sendPasswordResetCodeEmail(email, code);
       return { message: 'Verification code sent successfully', resetToken };
     } catch (error) {
@@ -286,8 +299,15 @@ export class AuthController {
       let decoded: any;
       try { decoded = jwt.verify(resetToken, process.env.JWT_SECRET || 'your-secret-key'); } catch { throw new UnauthorizedException('Verification code expired.'); }
       if (decoded.purpose !== 'password-reset' || decoded.email !== email || decoded.code !== verificationCode) throw new UnauthorizedException('Invalid verification code');
-      const { data: user, error } = await this.supabaseService.supabase.from('customers').select('id').eq('email', email).single();
-      if (error || !user) throw new NotFoundException('No account found with that email address');
+      if (decoded.isStaff) {
+        const adminDb = this.tryGetAdmin();
+        if (!adminDb) throw new NotFoundException('No account found with that email address');
+        const { data: staff } = await adminDb.from('staff').select('id').eq('email', email).maybeSingle();
+        if (!staff) throw new NotFoundException('No account found with that email address');
+      } else {
+        const { data: user, error } = await this.supabaseService.supabase.from('customers').select('id').eq('email', email).single();
+        if (error || !user) throw new NotFoundException('No account found with that email address');
+      }
       return { message: 'Code verified successfully' };
     } catch (error) {
       if (error instanceof BadRequestException || error instanceof UnauthorizedException || error instanceof NotFoundException) throw error;
@@ -311,6 +331,16 @@ export class AuthController {
         let decoded: any;
         try { decoded = jwt.verify(resetToken, process.env.JWT_SECRET || 'your-secret-key'); } catch { throw new UnauthorizedException('Verification code expired.'); }
         if (decoded.purpose !== 'password-reset' || decoded.email !== email || decoded.code !== verificationCode) throw new UnauthorizedException('Invalid verification code');
+        if (decoded.isStaff) {
+          const adminDb = this.tryGetAdmin();
+          if (!adminDb) throw new NotFoundException('User not found');
+          const { data: staff } = await adminDb.from('staff').select('id').eq('email', email).maybeSingle();
+          if (!staff) throw new NotFoundException('User not found');
+          const hashedPw = await bcrypt.hash(newPassword, 10);
+          const { error: updateErr } = await adminDb.from('staff').update({ password: hashedPw }).eq('id', staff.id);
+          if (updateErr) throw updateErr;
+          return { message: 'Password updated successfully' };
+        }
         const { data: user, error } = await this.supabaseService.supabase.from('customers').select('id').eq('email', email).single();
         if (error || !user) throw new NotFoundException('User not found');
         userId = user.id;

@@ -712,7 +712,17 @@ export default function Login() {
   const { setView, setLoggedIn, setUser } = useAppContext();
   const loginForm = useLoginForm({ setView, setLoggedIn, setUser });
   const forgotPasswordFlow = useForgotPasswordFlow();
-  const sessionExpired = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('session') === 'expired';
+  const [sessionExpired, setSessionExpired] = React.useState(false);
+
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('session') === 'expired') {
+      setSessionExpired(true);
+      params.delete('session');
+      const newUrl = [window.location.pathname, params.toString()].filter(Boolean).join('?');
+      history.replaceState(null, '', newUrl);
+    }
+  }, []);
 
   useBodyScrollLock(forgotPasswordFlow.isForgotModalOpen);
 

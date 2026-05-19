@@ -184,9 +184,10 @@ export default function Shop() {
         if ((err as Error).name === 'AbortError') {
           return;
         }
-        // Silently ignore 503/502 — services still starting up
+        // Silently ignore network errors and 502/503 — services still starting up
         const status = (err as { status?: number }).status;
-        if (status !== 503 && status !== 502) {
+        const isStartupError = err instanceof TypeError || status === 503 || status === 502;
+        if (!isStartupError) {
           console.error('Product fetch failed:', err);
           setError('Unable to load products right now.');
         }

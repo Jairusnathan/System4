@@ -162,6 +162,7 @@ export default function Checkout() {
   const {
     cart, setCart,
     cartTotal,
+    checkoutItemIds, setCheckoutItemIds,
     setView,
     logout,
     setOrders,
@@ -172,6 +173,12 @@ export default function Checkout() {
     addToCart,
     updateQuantity,
   } = useAppContext();
+
+  // Derive live from cart so quantity changes and removals reflect immediately
+  const effectiveCart = checkoutItemIds
+    ? cart.filter(i => checkoutItemIds.includes(i.id))
+    : cart;
+  const effectiveCartTotal = effectiveCart.reduce((sum, i) => sum + i.price * i.quantity, 0);
 
   const [checkoutStep, setCheckoutStep] = useState(1);
   const [suggestions, setSuggestions] = useState<import('../types').Product[]>([]);
@@ -225,13 +232,13 @@ export default function Checkout() {
   } = usePhilippineLocations(checkoutAddressForm.province, checkoutAddressForm.city);
   const { settings: oosSettings } = useOosSettings();
   const MIN_ORDER_AMOUNT = oosSettings.min_order_amount;
-  const isFreeDelivery = deliveryMethod !== 'claim_at_branch' && cartTotal >= oosSettings.free_delivery_min;
+  const isFreeDelivery = deliveryMethod !== 'claim_at_branch' && effectiveCartTotal >= oosSettings.free_delivery_min;
   const baseDeliveryFee = isFreeDelivery ? 0 : (deliveryEstimate?.fee ?? oosSettings.delivery_fee);
   const deliveryFee = deliveryMethod === 'claim_at_branch' ? 0 : baseDeliveryFee;
   const discountAmount = appliedPromo?.discountAmount ?? 0;
-  const orderTotal = Math.max(0, cartTotal + deliveryFee - discountAmount);
-  const isBelowMinOrder = cartTotal < MIN_ORDER_AMOUNT;
-  const isAboveMaxItems = cart.length > oosSettings.max_order_items;
+  const orderTotal = Math.max(0, effectiveCartTotal + deliveryFee - discountAmount);
+  const isBelowMinOrder = effectiveCartTotal < MIN_ORDER_AMOUNT;
+  const isAboveMaxItems = effectiveCart.length > oosSettings.max_order_items;
   const isPastOrderCutoff = isPastCutoff(oosSettings.order_cutoff_time);
   const savedAddressPrompt = getSavedAddressPrompt(savedAddresses.length);
   const emptySavedAddressTitle = getEmptySavedAddressTitle(savedAddresses.length);
@@ -321,31 +328,78 @@ export default function Checkout() {
     setShippingError('');
   };
 
-  // Fetch suggestions: try co-purchase recommendations first, fall back to category search
+  // Fetch suggestions: try co-purchase recommendations for ALL cart items first,
+  // then fall back to all unique categories across the cart
   React.useEffect(() => {
     if (cart.length === 0) return;
     const cartIds = new Set(cart.map((i) => i.id));
-    const firstItem = cart[0];
 
-    fetch(`/api/products/${encodeURIComponent(firstItem.id)}/recommendations?limit=15`)
-      .then((res) => res.ok ? res.json() : { data: [] })
-      .then(async (payload) => {
+    const fetchAll = async () => {
+      // Fetch recommendations for every cart item in parallel
+      const results = await Promise.all(
+        cart.map((item) =>
+          fetch(`/api/products/${encodeURIComponent(item.id)}/recommendations?limit=15`)
+            .then((res) => res.ok ? res.json() : { data: [] })
+            .catch(() => ({ data: [] }))
+        )
+      );
+
+      // Merge, deduplicate, and filter out items already in cart
+      const seen = new Set<string>();
+      const merged: import('../types').Product[] = [];
+      for (const payload of results) {
         const recs = (payload?.data ?? []) as import('../types').Product[];
-        const filtered = recs.filter((p) => !cartIds.has(p.id));
-        if (filtered.length > 0) {
-          setSuggestions(filtered);
-          return;
+        for (const p of recs) {
+          if (!cartIds.has(p.id) && !seen.has(p.id)) {
+            seen.add(p.id);
+            merged.push(p);
+          }
         }
-        // Fallback: fetch products from the same category as the first cart item
-        const category = (firstItem as any).category ?? '';
-        const qs = category ? `category=${encodeURIComponent(category)}&limit=15` : `limit=15`;
-        const fallback = await fetch(`/api/products?${qs}`)
-          .then((r) => r.ok ? r.json() : [])
-          .catch(() => []);
-        const fallbackRecs = (Array.isArray(fallback) ? fallback : fallback?.data ?? []) as import('../types').Product[];
-        setSuggestions(fallbackRecs.filter((p) => !cartIds.has(p.id)));
-      })
-      .catch(() => {});
+      }
+
+      if (merged.length > 0) {
+        setSuggestions(merged);
+        return;
+      }
+
+      // Fallback: fetch by ALL unique categories in the cart
+      const categories = [...new Set(cart.map((i) => (i as any).category).filter(Boolean))];
+      const qs = categories.length > 0
+        ? `category=${encodeURIComponent(categories[0])}&limit=15`
+        : 'limit=15';
+      const fallback = await fetch(`/api/products?${qs}`)
+        .then((r) => r.ok ? r.json() : [])
+        .catch(() => []);
+      const fallbackRecs = (Array.isArray(fallback) ? fallback : fallback?.data ?? []) as import('../types').Product[];
+
+      // If multiple categories, also fetch for the rest and merge
+      if (categories.length > 1) {
+        const extras = await Promise.all(
+          categories.slice(1).map((cat) =>
+            fetch(`/api/products?category=${encodeURIComponent(cat)}&limit=15`)
+              .then((r) => r.ok ? r.json() : [])
+              .catch(() => [])
+          )
+        );
+        const allFallback = [...fallbackRecs];
+        for (const res of extras) {
+          const items = (Array.isArray(res) ? res : res?.data ?? []) as import('../types').Product[];
+          allFallback.push(...items);
+        }
+        const seenFallback = new Set<string>();
+        const dedupedFallback = allFallback.filter((p) => {
+          if (cartIds.has(p.id) || seenFallback.has(p.id)) return false;
+          seenFallback.add(p.id);
+          return true;
+        });
+        setSuggestions(dedupedFallback);
+        return;
+      }
+
+      setSuggestions(fallbackRecs.filter((p) => !cartIds.has(p.id)));
+    };
+
+    fetchAll().catch(() => {});
   }, [cart.length]);
 
   const CARD_W = 176; // card width 160 + gap 16
@@ -548,7 +602,7 @@ export default function Checkout() {
       cancelled = true;
       globalThis.clearTimeout(timeoutId);
     };
-  }, [promoCodeInput, cartTotal]);
+  }, [promoCodeInput, effectiveCartTotal]);
 
   const isOnlinePayment = paymentMethod === 'gcash' || paymentMethod === 'maya' || paymentMethod === 'card';
 
@@ -559,7 +613,7 @@ export default function Checkout() {
     branchId: selectedBranch?.id,
     promoCode: appliedPromo?.code || '',
     paymentMethod: paymentMethodLabel,
-    items: cart.map((item) => ({
+    items: effectiveCart.map((item) => ({
       id: item.id,
       name: item.name,
       category: item.category,
@@ -599,6 +653,13 @@ export default function Checkout() {
         // Reset idempotency key so a retry gets a fresh key
         idempotencyKeyRef.current = crypto.randomUUID();
 
+        // Clear ordered items synchronously before navigating away. The localStorage
+        // effect is async and won't flush before the page redirect, so we write directly.
+        const remainingItems = cart.filter(i => !effectiveCart.some(e => e.id === i.id));
+        setCart(remainingItems);
+        setCheckoutItemIds(null);
+        localStorage.setItem('cart', JSON.stringify(remainingItems));
+
         // Redirect browser to PayMongo hosted checkout — page will navigate away
         window.location.href = data.checkoutUrl;
         return;
@@ -626,8 +687,8 @@ export default function Checkout() {
         orderNumber: data.order.orderNumber,
         txNo: data.order.txNo,
         date: data.order.date,
-        items: cart.map((item) => ({ ...item })),
-        subtotal: Number(data.order.subtotal ?? cartTotal),
+        items: effectiveCart.map((item) => ({ ...item })),
+        subtotal: Number(data.order.subtotal ?? effectiveCartTotal),
         deliveryFee: Number(data.order.deliveryFee ?? deliveryFee),
         discountAmount: Number(data.order.discountAmount ?? discountAmount),
         promoCode: data.order.promoCode || appliedPromo?.code,
@@ -638,7 +699,8 @@ export default function Checkout() {
       };
 
       setOrders((prev) => [newOrder, ...prev]);
-      setCart([]);
+      setCart(cart.filter(i => !effectiveCart.some(e => e.id === i.id)));
+      setCheckoutItemIds(null);
       idempotencyKeyRef.current = crypto.randomUUID();
       setView('success');
     } catch (error) {
@@ -726,7 +788,7 @@ export default function Checkout() {
                   <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
                     <h2 className="text-2xl font-black text-slate-900 tracking-tight mb-6">Your Cart</h2>
                     <div className="space-y-4">
-                      {cart.map((item) => (
+                      {effectiveCart.map((item) => (
                         <div key={item.id} className="flex items-center gap-4 p-4 rounded-2xl border border-slate-100 bg-slate-50">
                           <img src={item.image} alt={item.name} className="w-16 h-16 rounded-xl object-cover shrink-0" referrerPolicy="no-referrer" />
                           <div className="flex-1 min-w-0">
@@ -750,7 +812,7 @@ export default function Checkout() {
                     </div>
                     <div className="mt-6 pt-4 border-t border-slate-100 flex justify-between items-center">
                       <span className="text-slate-500 font-medium">Subtotal</span>
-                      <span className="text-xl font-black text-slate-900">₱{cartTotal.toFixed(2)}</span>
+                      <span className="text-xl font-black text-slate-900">₱{effectiveCartTotal.toFixed(2)}</span>
                     </div>
                   </div>
 
@@ -1586,7 +1648,7 @@ export default function Checkout() {
                     <div>
                       <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Order Summary</h3>
                       <div className="space-y-4">
-                        {cart.map(item => (
+                        {effectiveCart.map(item => (
                           <div key={item.id} className="flex items-center gap-4 bg-white p-3 rounded-2xl border border-slate-100">
                             <img src={item.image} alt={item.name} className="w-16 h-16 object-cover rounded-xl" referrerPolicy="no-referrer" />
                             <div className="flex-1">
@@ -1684,7 +1746,7 @@ export default function Checkout() {
                 )}
                 {isAboveMaxItems && (
                   <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-bold text-red-700">
-                    ⚠️ Max {oosSettings.max_order_items} different products per order. Please remove {cart.length - oosSettings.max_order_items} item type(s).
+                    ⚠️ Max {oosSettings.max_order_items} different products per order. Please remove {effectiveCart.length - oosSettings.max_order_items} item type(s).
                   </div>
                 )}
                 {isPastOrderCutoff && (

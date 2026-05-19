@@ -23,7 +23,19 @@ type ViewRow    = { product_id: string; category: string; total_views: number };
 type OrderStats = { totalOrders: number; ordersToday: number; pendingOrders: number; todayRevenue: number; pendingReturns: number; processingOrders: number; inTransitOrders: number; deliveredOrders: number; cancelledOrders: number };
 type AuthStats  = { totalCustomers: number; newToday: number };
 type ViewType   = 'overall' | 'month' | 'year' | 'compare';
-type BasketPairRow = { pair: string; count: number; support: number; left: string; right: string };
+type BasketPairRow = {
+  pair: string;            // "Antecedent → Consequent" label for chart
+  count: number;           // support count (times both appear together)
+  support: number;         // P(A∩B) as percentage
+  confidence: number;      // P(B|A) as percentage
+  lift: number;            // confidence / P(B)
+  leverage: number;        // P(A∩B) - P(A)*P(B)
+  conviction: number;      // (1-P(B)) / (1-confidence)
+  antecedentItems: string[];
+  consequentItems: string[];
+  left: string;            // formatted antecedent e.g. "{Coffee, Milk}"
+  right: string;           // formatted consequent e.g. "{Sugar}"
+};
 
 // ─── Colour palette — accent-restrained ──────────────────────────────────────
 // One blue, one green, one amber, one red — all slightly muted
@@ -136,48 +148,162 @@ function buildCategory(orders: Order[], n = 6) {
   return Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, n).map(([name, value]) => ({ name, value: Math.round(value) }));
 }
 
-function buildMarketBasket(orders: Order[], n = 8) {
-  const pairCounts = new Map<string, { left: string; right: string; count: number }>();
-  let eligibleOrders = 0;
+// ─── Apriori algorithm (mirrors Python mlxtend basis) ─────────────────────────
+// Equivalent to: apriori(df, min_support=minsup, use_colnames=True)
+// Returns all frequent itemsets with their support counts.
+type FreqItemset = { items: string[]; support: number; count: number };
 
-  for (const order of orders) {
-    if (order.status === 'Cancelled') continue;
+function aprioriMine(transactions: string[][], minSupport: number, maxLen = 4): FreqItemset[] {
+  const N = transactions.length;
+  if (N === 0) return [];
+  const minCount = Math.ceil(minSupport * N);
+  const txSets = transactions.map(t => new Set(t));
+  const result: FreqItemset[] = [];
 
-    const uniqueItems = new Map<string, string>();
-    for (const item of order.items ?? []) {
-      const rawName = String(item.name ?? '').trim();
-      const rawId = String(item.id ?? '').trim();
-      const identity = rawId || rawName.toLowerCase();
-      if (!identity || !rawName) continue;
-      if (!uniqueItems.has(identity)) uniqueItems.set(identity, rawName);
-    }
+  // Count how many transactions contain all items in the itemset
+  const countItemset = (items: string[]) => txSets.filter(tx => items.every(i => tx.has(i))).length;
 
-    const names = [...uniqueItems.values()].sort((a, b) => a.localeCompare(b));
-    if (names.length < 2) continue;
-    eligibleOrders += 1;
+  // ── Level 1: frequent single items ───────────────────────────────────────────
+  const itemCounts = new Map<string, number>();
+  for (const tx of transactions) for (const item of new Set(tx))
+    itemCounts.set(item, (itemCounts.get(item) ?? 0) + 1);
 
-    for (let i = 0; i < names.length - 1; i += 1) {
-      for (let j = i + 1; j < names.length; j += 1) {
-        const left = names[i];
-        const right = names[j];
-        const key = `${left}||${right}`;
-        const current = pairCounts.get(key);
-        if (current) current.count += 1;
-        else pairCounts.set(key, { left, right, count: 1 });
-      }
+  let currentLevel: string[][] = [];
+  for (const [item, cnt] of itemCounts) {
+    if (cnt >= minCount) {
+      currentLevel.push([item]);
+      result.push({ items: [item], support: cnt / N, count: cnt });
     }
   }
+  // Sort for consistent candidate generation (required by Apriori join step)
+  currentLevel.sort((a, b) => a[0].localeCompare(b[0]));
 
-  const rows: BasketPairRow[] = [...pairCounts.values()]
-    .sort((a, b) => b.count - a.count || a.left.localeCompare(b.left) || a.right.localeCompare(b.right))
-    .slice(0, n)
-    .map(({ left, right, count }) => ({
-      pair: `${left.length > 18 ? `${left.slice(0, 16)}...` : left} + ${right.length > 18 ? `${right.slice(0, 16)}...` : right}`,
-      count,
-      support: eligibleOrders ? Number(((count / eligibleOrders) * 100).toFixed(1)) : 0,
-      left,
-      right,
-    }));
+  // ── Levels k = 2..maxLen ─────────────────────────────────────────────────────
+  for (let k = 2; k <= maxLen && currentLevel.length >= 2; k++) {
+    const candidates: string[][] = [];
+    // Join step: merge two (k-1)-itemsets that share the same (k-2) prefix
+    for (let i = 0; i < currentLevel.length; i++) {
+      for (let j = i + 1; j < currentLevel.length; j++) {
+        const a = currentLevel[i], b = currentLevel[j];
+        let match = true;
+        for (let x = 0; x < k - 2; x++) { if (a[x] !== b[x]) { match = false; break; } }
+        if (match && a[k - 2] < b[k - 2]) candidates.push([...a, b[k - 2]]);
+      }
+    }
+    const nextLevel: string[][] = [];
+    for (const c of candidates) {
+      const cnt = countItemset(c);
+      if (cnt >= minCount) {
+        nextLevel.push(c);
+        result.push({ items: c, support: cnt / N, count: cnt });
+      }
+    }
+    currentLevel = nextLevel;
+  }
+  return result;
+}
+
+// Equivalent to: association_rules(frequent_itemsets, metric="confidence", min_threshold=minconf)
+type RawRule = { antecedent: string[]; consequent: string[]; support: number; count: number; confidence: number; lift: number; leverage: number; conviction: number };
+
+function generateRules(frequentItemsets: FreqItemset[], minConfidence: number): RawRule[] {
+  const supportMap = new Map<string, { support: number; count: number }>();
+  for (const fi of frequentItemsets)
+    supportMap.set([...fi.items].sort().join('||'), { support: fi.support, count: fi.count });
+
+  const getSupport = (items: string[]) => supportMap.get([...items].sort().join('||'))?.support ?? 0;
+
+  // All non-empty proper subsets of an array (used for antecedent candidates)
+  const properSubsets = (arr: string[]): string[][] => {
+    const n = arr.length, subs: string[][] = [];
+    for (let mask = 1; mask < (1 << n) - 1; mask++) {
+      const sub: string[] = [];
+      for (let i = 0; i < n; i++) if (mask & (1 << i)) sub.push(arr[i]);
+      subs.push(sub);
+    }
+    return subs;
+  };
+
+  const rules: RawRule[] = [];
+  for (const { items, support: supAB, count } of frequentItemsets) {
+    if (items.length < 2) continue;
+    for (const ant of properSubsets(items)) {
+      const con = items.filter(x => !ant.includes(x));
+      if (con.length === 0) continue;
+      const supA = getSupport(ant), supB = getSupport(con);
+      if (supA === 0 || supB === 0) continue;
+      const confidence = supAB / supA;
+      if (confidence < minConfidence) continue;
+      const lift       = confidence / supB;
+      const leverage   = supAB - supA * supB;
+      const rawConv    = (1 - supB) / Math.max(1e-9, 1 - confidence);
+      const conviction = Number.isFinite(rawConv) ? rawConv : 999;
+      rules.push({ antecedent: [...ant].sort(), consequent: [...con].sort(), support: supAB, count, confidence, lift, leverage, conviction });
+    }
+  }
+  // Sort: lift desc → confidence desc → support desc (same as Python basis)
+  return rules.sort((a, b) => b.lift - a.lift || b.confidence - a.confidence || b.support - a.support);
+}
+
+// minsup=0.3 and minconf=0.5 mirrors the Python basis code defaults
+const MBA_MIN_SUP  = 0.3;
+const MBA_MIN_CONF = 0.5;
+
+function buildMarketBasket(orders: Order[], n = 8) {
+  // ── 1) Build transactions (one list of product names per non-cancelled order)
+  const transactions: string[][] = [];
+  for (const order of orders) {
+    if (order.status === 'Cancelled') continue;
+    const seen = new Map<string, string>();
+    for (const item of order.items ?? []) {
+      const rawName = String(item.name ?? '').trim();
+      const rawId   = String(item.id   ?? '').trim();
+      const identity = rawId || rawName.toLowerCase();
+      if (!identity || !rawName) continue;
+      if (!seen.has(identity)) seen.set(identity, rawName);
+    }
+    const names = [...seen.values()];
+    if (names.length > 0) transactions.push(names);
+  }
+  const eligibleOrders = transactions.length;
+  if (eligibleOrders === 0) return { rows: [], eligibleOrders: 0 };
+
+  // ── 2) Apriori: find all frequent itemsets
+  const frequentItemsets = aprioriMine(transactions, MBA_MIN_SUP, 4);
+
+  // ── 3) Generate association rules filtered by min confidence
+  const rules = generateRules(frequentItemsets, MBA_MIN_CONF);
+
+  // ── 4) Deduplicate symmetric rules: A→B and B→A are the same product pair.
+  //       Keep the version with the highest confidence (most actionable insight).
+  const pairBest = new Map<string, RawRule>();
+  for (const rule of rules) {
+    const key = [...rule.antecedent, ...rule.consequent].sort().join('||');
+    const existing = pairBest.get(key);
+    if (!existing || rule.confidence > existing.confidence) pairBest.set(key, rule);
+  }
+  const deduped = [...pairBest.values()]
+    .sort((a, b) => b.lift - a.lift || b.confidence - a.confidence || b.count - a.count)
+    .slice(0, n);
+
+  // ── 5) Format for display — use plain-English labels, no technical jargon
+  const shorten = (items: string[]) =>
+    items.length === 1 ? items[0] : `{${items.join(' + ')}}`;
+
+  const rows: BasketPairRow[] = deduped.map(r => ({
+    // Chart label: just "A + B" (no arrow, no technical notation)
+    pair:            `${shorten(r.antecedent)} + ${shorten(r.consequent)}`,
+    count:           r.count,
+    support:         Number((r.support    * 100).toFixed(1)),
+    confidence:      Number((r.confidence * 100).toFixed(1)),
+    lift:            Number(r.lift.toFixed(2)),
+    leverage:        Number(r.leverage.toFixed(3)),
+    conviction:      Number(Math.min(r.conviction, 99).toFixed(2)),
+    antecedentItems: r.antecedent,
+    consequentItems: r.consequent,
+    left:            shorten(r.antecedent),
+    right:           shorten(r.consequent),
+  }));
 
   return { rows, eligibleOrders };
 }
@@ -730,34 +856,35 @@ export default function AdminDashboard() {
         </div>
 
         <div className="grid items-start lg:grid-cols-[minmax(0,1.5fr)_minmax(280px,0.9fr)] gap-4 mb-4">
-          <ChartCard title={`Market Basket Analysis - ${periodLabel}`}>
-            {basketAnalysis.rows.length === 0 ? <EmptyChart label="Need at least two-item non-cancelled orders for basket analysis" /> : (
+          <ChartCard title={`Products Bought Together — ${periodLabel}`}>
+            {basketAnalysis.rows.length === 0 ? <EmptyChart label="Not enough data yet. Need more orders with 2+ different products." /> : (
               <>
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <p className="text-xs text-slate-400">
-                    Based on {basketAnalysis.eligibleOrders.toLocaleString()} non-cancelled orders with at least 2 distinct products.
+                    How many times each product pair was purchased in the same order — from {basketAnalysis.eligibleOrders.toLocaleString()} orders.
                   </p>
                   {topBasketPair && (
-                    <span className="shrink-0 rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold text-blue-600">
-                      Top pair: {topBasketPair.count} orders
+                    <span className="shrink-0 rounded-full bg-green-50 px-2.5 py-1 text-[10px] font-bold text-green-700">
+                      🏆 Top pair: {topBasketPair.count} {topBasketPair.count === 1 ? 'order' : 'orders'}
                     </span>
                   )}
                 </div>
-                <ResponsiveContainer width="100%" height={240}>
-                  <BarChart data={basketAnalysis.rows.slice(0, 6)} layout="vertical" margin={{ top: 4, right: 16, left: 10, bottom: 0 }}>
+                <ResponsiveContainer width="100%" height={Math.max(120, basketAnalysis.rows.slice(0,6).length * 52)}>
+                  <BarChart data={basketAnalysis.rows.slice(0, 6)} layout="vertical" margin={{ top: 4, right: 40, left: 10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
-                    <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: '#94a3b8' }} />
-                    <YAxis type="category" dataKey="pair" tick={{ fontSize: 10, fill: '#64748b' }} width={180} />
+                    <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: '#94a3b8' }} label={{ value: 'Times bought together', position: 'insideBottomRight', offset: -4, fontSize: 10, fill: '#94a3b8' }} />
+                    <YAxis type="category" dataKey="pair" tick={{ fontSize: 10, fill: '#64748b' }} width={190} />
                     <Tooltip
                       {...TT}
-                      formatter={(value: number, key: string) => key === 'count' ? [value, 'Orders together'] : [`${value}%`, 'Support']}
+                      formatter={(value: number) => [value, 'Times bought together']}
                       labelFormatter={(_, payload) => {
                         const row = payload?.[0]?.payload as BasketPairRow | undefined;
-                        return row ? `${row.left} + ${row.right}` : '';
+                        if (!row) return '';
+                        return `${row.confidence}% of buyers purchased both`;
                       }}
                     />
-                    <Bar dataKey="count" radius={[0, 5, 5, 0]}>
-                      {basketAnalysis.rows.map((_, i) => (
+                    <Bar dataKey="count" barSize={28} radius={[0, 6, 6, 0]}>
+                      {basketAnalysis.rows.slice(0,6).map((_, i) => (
                         <Cell key={i} fill={i === 0 ? C_BLUE : i < 3 ? '#60a5fa' : '#bfdbfe'} />
                       ))}
                     </Bar>
@@ -767,33 +894,46 @@ export default function AdminDashboard() {
             )}
           </ChartCard>
 
-          <ChartCard title="Pair Strength">
-            {basketAnalysis.rows.length === 0 ? <EmptyChart label="No repeated product pairings yet" /> : (
+          <ChartCard title="Product Pairing Insights">
+            {basketAnalysis.rows.length === 0 ? <EmptyChart label="No strong product pairings found yet" /> : (
               <div className="max-h-[340px] space-y-3 overflow-y-auto pr-1 pt-1">
-                {basketAnalysis.rows.slice(0, 6).map((row, i) => (
-                  <div key={`${row.left}-${row.right}`} className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-black text-slate-300">{i + 1}</p>
-                        <p className="text-xs font-bold text-slate-800">{row.left}</p>
-                        <p className="text-xs text-slate-500">{row.right}</p>
+                {basketAnalysis.rows.slice(0, 6).map((row, i) => {
+                  const strength = row.lift >= 3 ? { label: 'Very Strong', color: 'bg-green-500' }
+                                 : row.lift >= 2 ? { label: 'Strong',      color: 'bg-blue-500'  }
+                                 :                 { label: 'Moderate',    color: 'bg-amber-400' };
+                  return (
+                    <div key={`${row.left}-${row.right}-${i}`} className="rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
+                      {/* Product names */}
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-xs font-bold text-slate-800 bg-blue-50 px-2 py-0.5 rounded-lg">{row.left}</span>
+                            <span className="text-slate-400 text-xs font-bold">+</span>
+                            <span className="text-xs font-bold text-slate-800 bg-green-50 px-2 py-0.5 rounded-lg">{row.right}</span>
+                          </div>
+                        </div>
+                        <span className={`shrink-0 px-2 py-0.5 rounded-full text-white text-[10px] font-bold ${strength.color}`}>
+                          {strength.label}
+                        </span>
                       </div>
-                      <div className="shrink-0 text-right">
-                        <p className="text-sm font-black text-slate-900">{row.count}</p>
-                        <p className="text-[10px] text-slate-400">orders</p>
+                      {/* Plain-English stats */}
+                      <div className="space-y-1.5 text-[11px]">
+                        <div className="flex items-center justify-between text-slate-600">
+                          <span>🛒 Bought together</span>
+                          <span className="font-bold text-slate-900">{row.count} {row.count === 1 ? 'time' : 'times'} ({row.support}% of orders)</span>
+                        </div>
+                        <div className="flex items-center justify-between text-slate-600">
+                          <span>👥 Buyers who add both</span>
+                          <span className="font-bold text-slate-900">{row.confidence}% of the time</span>
+                        </div>
+                        <div className="flex items-center justify-between text-slate-500">
+                          <span>📈 Connection strength</span>
+                          <span className="font-bold text-slate-700">{row.lift}× more likely than by chance</span>
+                        </div>
                       </div>
                     </div>
-                    <div className="mt-2">
-                      <div className="mb-1 flex items-center justify-between text-[10px] font-bold text-slate-400">
-                        <span>Support</span>
-                        <span>{row.support}%</span>
-                      </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-slate-200">
-                        <div className="h-full rounded-full bg-blue-500" style={{ width: `${Math.min(row.support, 100)}%` }} />
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </ChartCard>

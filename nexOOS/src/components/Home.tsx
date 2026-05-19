@@ -94,9 +94,11 @@ export default function Home() {
         }
       } catch (error) {
         if ((error as Error).name === 'AbortError') return;
-        // Silently ignore 503 — services still starting up
+        // Silently ignore network errors (TypeError: Failed to fetch) and 502/503
+        // — these all mean the backend services are still starting up.
         const status = (error as { status?: number }).status;
-        if (status !== 503 && status !== 502) {
+        const isStartupError = error instanceof TypeError || status === 503 || status === 502;
+        if (!isStartupError) {
           console.error('Featured products fetch failed:', error);
           setFeaturedError('Unable to load featured products right now.');
         }

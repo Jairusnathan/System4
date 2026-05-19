@@ -282,41 +282,114 @@ export class OrderController {
     try {
       const productId = String(body?.productId ?? '').trim();
       if (!productId) return { data: [] };
-
       const limit = Number(body?.limit ?? 4);
 
-      // Step 1: find all orders that contain this product
-      const { data: orderRows } = await this.supabaseService.supabaseAdmin
+      // Fetch all order items — needed to build the full transaction set for Apriori
+      const { data: allItems } = await this.supabaseService.supabaseAdmin
         .from('online_order_items')
-        .select('online_order_id')
-        .eq('product_id', productId);
+        .select('online_order_id, product_id');
+      if (!allItems?.length) return { data: [] };
 
-      if (!orderRows?.length) return { data: [] };
+      // Build transactions: Map<orderId, Set<productId>>
+      const orderMap = new Map<string, Set<string>>();
+      for (const row of allItems as { online_order_id: string; product_id: string }[]) {
+        const oid = String(row.online_order_id);
+        if (!orderMap.has(oid)) orderMap.set(oid, new Set());
+        orderMap.get(oid)!.add(String(row.product_id));
+      }
+      const transactions = [...orderMap.values()].map(s => [...s]);
+      const N = transactions.length;
+      if (N === 0) return { data: [] };
 
-      const orderIds = [...new Set((orderRows as { online_order_id: string }[]).map((r) => r.online_order_id))];
+      // ── Apriori algorithm ────────────────────────────────────────────────────
+      // min_support scales with dataset size: at least 5% or min 2 absolute occurrences
+      const minSupport = Math.max(2 / N, 0.05);
+      const minConfidence = 0.3;
 
-      // Step 2: find all OTHER products in those same orders
-      const { data: coItems } = await this.supabaseService.supabaseAdmin
-        .from('online_order_items')
-        .select('product_id')
-        .in('online_order_id', orderIds)
-        .neq('product_id', productId);
+      // Count itemset occurrences
+      const txSets = transactions.map(t => new Set(t));
+      const countItemset = (items: string[]) =>
+        txSets.filter(tx => items.every(i => tx.has(i))).length;
 
-      if (!coItems?.length) return { data: [] };
+      // Level 1: frequent single items
+      const itemCounts = new Map<string, number>();
+      for (const tx of transactions) for (const item of new Set(tx))
+        itemCounts.set(item, (itemCounts.get(item) ?? 0) + 1);
 
-      // Step 3: count frequency and return top N
-      const freq = new Map<string, number>();
-      for (const row of coItems as { product_id: string }[]) {
-        const id = String(row.product_id);
-        freq.set(id, (freq.get(id) ?? 0) + 1);
+      const minCount = Math.ceil(minSupport * N);
+      type FI = { items: string[]; support: number; count: number };
+      const frequentItemsets: FI[] = [];
+      let currentLevel: string[][] = [];
+
+      for (const [item, cnt] of itemCounts) {
+        if (cnt >= minCount) {
+          currentLevel.push([item]);
+          frequentItemsets.push({ items: [item], support: cnt / N, count: cnt });
+        }
+      }
+      currentLevel.sort((a, b) => a[0].localeCompare(b[0]));
+
+      // Levels k = 2..3 (3-itemsets are enough for product recommendations)
+      for (let k = 2; k <= 3 && currentLevel.length >= 2; k++) {
+        const nextLevel: string[][] = [];
+        for (let i = 0; i < currentLevel.length; i++) {
+          for (let j = i + 1; j < currentLevel.length; j++) {
+            const a = currentLevel[i], b = currentLevel[j];
+            let match = true;
+            for (let x = 0; x < k - 2; x++) { if (a[x] !== b[x]) { match = false; break; } }
+            if (match && a[k - 2] < b[k - 2]) {
+              const c = [...a, b[k - 2]];
+              const cnt = countItemset(c);
+              if (cnt >= minCount) {
+                nextLevel.push(c);
+                frequentItemsets.push({ items: c, support: cnt / N, count: cnt });
+              }
+            }
+          }
+        }
+        currentLevel = nextLevel;
       }
 
-      const topIds = [...freq.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, limit)
-        .map(([id]) => id);
+      // ── Generate association rules and filter for productId in antecedent ────
+      const supportMap = new Map<string, number>();
+      for (const fi of frequentItemsets)
+        supportMap.set([...fi.items].sort().join('||'), fi.support);
+      const getSupport = (items: string[]) => supportMap.get([...items].sort().join('||')) ?? 0;
 
-      return { data: topIds };
+      const properSubsets = (arr: string[]): string[][] => {
+        const subs: string[][] = [];
+        for (let mask = 1; mask < (1 << arr.length) - 1; mask++) {
+          const sub: string[] = [];
+          for (let i = 0; i < arr.length; i++) if (mask & (1 << i)) sub.push(arr[i]);
+          subs.push(sub);
+        }
+        return subs;
+      };
+
+      const recommendations: { id: string; lift: number; confidence: number }[] = [];
+      const seen = new Set<string>();
+
+      for (const { items, support: supAB } of frequentItemsets) {
+        if (items.length < 2 || !items.includes(productId)) continue;
+        for (const ant of properSubsets(items)) {
+          if (!ant.includes(productId)) continue;
+          const con = items.filter(x => !ant.includes(x));
+          if (con.length !== 1) continue; // only single-product recommendations
+          const [recId] = con;
+          if (seen.has(recId)) continue;
+          const supA = getSupport(ant), supB = getSupport(con);
+          if (supA === 0 || supB === 0) continue;
+          const confidence = supAB / supA;
+          if (confidence < minConfidence) continue;
+          const lift = confidence / supB;
+          if (lift <= 1) continue;
+          seen.add(recId);
+          recommendations.push({ id: recId, lift, confidence });
+        }
+      }
+
+      recommendations.sort((a, b) => b.lift - a.lift || b.confidence - a.confidence);
+      return { data: recommendations.slice(0, limit).map(r => r.id) };
     } catch {
       return { data: [] };
     }

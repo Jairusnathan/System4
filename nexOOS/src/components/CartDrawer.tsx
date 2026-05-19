@@ -1,26 +1,69 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ShoppingCart, X, Minus, Plus } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 export default function CartDrawer() {
-  const { 
+  const {
     isLoggedIn,
     setView,
     cart, setCart,
     isCartOpen, setIsCartOpen,
     updateQuantity,
-    cartTotal
+    setCheckoutItemIds,
   } = useAppContext();
 
   const [isClearCartModalOpen, setIsClearCartModalOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Keep selectedIds in sync: add new items, remove deleted ones
+  useEffect(() => {
+    setSelectedIds(prev => {
+      const cartIds = new Set(cart.map(i => i.id));
+      const next = new Set<string>();
+      // Keep existing selections that are still in cart
+      for (const id of prev) {
+        if (cartIds.has(id)) next.add(id);
+      }
+      // Auto-select newly added items
+      for (const id of cartIds) {
+        if (!prev.has(id)) next.add(id);
+      }
+      return next;
+    });
+  }, [cart]);
 
   useBodyScrollLock(isCartOpen || isClearCartModalOpen);
 
+  const allSelected = cart.length > 0 && selectedIds.size === cart.length;
+  const noneSelected = selectedIds.size === 0;
+
+  const toggleAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(cart.map(i => i.id)));
+    }
+  };
+
+  const toggleItem = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const selectedSubtotal = cart
+    .filter(i => selectedIds.has(i.id))
+    .reduce((sum, i) => sum + i.price * i.quantity, 0);
+
   const handleProceedToCheckout = () => {
+    // Store selected IDs (null = all items selected, so checkout uses full cart live)
+    setCheckoutItemIds(selectedIds.size < cart.length ? [...selectedIds] : null);
     setIsCartOpen(false);
     setView('checkout');
   };
@@ -34,14 +77,14 @@ export default function CartDrawer() {
       <AnimatePresence>
         {isCartOpen && (
           <>
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsCartOpen(false)}
               className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50"
             />
-            <motion.div 
+            <motion.div
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
@@ -55,14 +98,14 @@ export default function CartDrawer() {
                 </h2>
                 <div className="flex items-center gap-2">
                   {cart.length > 0 && (
-                    <button 
+                    <button
                       onClick={() => setIsClearCartModalOpen(true)}
                       className="text-sm font-medium text-red-500 hover:text-red-600 transition-colors px-2 py-1"
                     >
                       Clear
                     </button>
                   )}
-                  <button 
+                  <button
                     onClick={() => setIsCartOpen(false)}
                     className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors"
                   >
@@ -78,7 +121,7 @@ export default function CartDrawer() {
                   </div>
                   <h3 className="text-lg font-medium text-slate-900 mb-1">Your cart is empty</h3>
                   <p className="text-slate-500 mb-6">Looks like you haven&apos;t added anything yet.</p>
-                  <button 
+                  <button
                     onClick={() => setIsCartOpen(false)}
                     className="px-6 py-2 bg-blue-600 text-white rounded-full font-medium hover:bg-blue-700 transition-colors"
                   >
@@ -87,68 +130,104 @@ export default function CartDrawer() {
                 </div>
               ) : (
                 <>
-                  <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                    {cart.map(item => (
-                      <div key={item.id} className="flex gap-4 bg-white border border-slate-100 p-3 rounded-xl shadow-sm">
-                        <img 
-                          src={item.image} 
-                          alt={item.name} 
-                          className="w-20 h-20 object-cover rounded-lg bg-slate-100"
-                          referrerPolicy="no-referrer"
-                        />
-                        <div className="flex-1 flex flex-col justify-between">
-                          <div>
-                            <h4 className="font-medium text-slate-900 line-clamp-1">{item.name}</h4>
-                            <p className="text-slate-900 font-semibold">₱{item.price.toFixed(2)}</p>
-                          </div>
-                          {typeof item.stock === 'number' && item.stock > 0 && (
-                            <p className="mt-1 text-xs text-slate-500">
-                              {item.stock} left in stock
-                            </p>
-                          )}
-                          <div className="flex items-center gap-3 mt-2">
-                            <button 
-                              onClick={() => updateQuantity(item.id, -1)}
-                              className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
-                            >
-                              <Minus className="w-3 h-3" />
-                            </button>
-                            <span className="text-sm font-medium w-4 text-center">{item.quantity}</span>
-                            <button 
-                              onClick={() => updateQuantity(item.id, 1)}
-                              disabled={typeof item.stock === 'number' && item.stock > 0 && item.quantity >= item.stock}
-                              className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                              <Plus className="w-3 h-3" />
-                            </button>
-                          </div>
-                        </div>
-                        <div className="text-right flex flex-col justify-between">
-                          <button 
-                            onClick={() => updateQuantity(item.id, -item.quantity)}
-                            className="text-slate-400 hover:text-red-500 transition-colors p-1"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                          <span className="font-medium text-slate-900">
-                            ₱{(item.price * item.quantity).toFixed(2)}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
+                  {/* Select all row */}
+                  <div className="flex items-center gap-3 px-4 py-2.5 border-b border-slate-100 bg-slate-50">
+                    <input
+                      type="checkbox"
+                      id="select-all"
+                      checked={allSelected}
+                      onChange={toggleAll}
+                      className="w-4 h-4 rounded accent-blue-600 cursor-pointer"
+                    />
+                    <label htmlFor="select-all" className="text-sm font-medium text-slate-600 cursor-pointer select-none flex-1">
+                      Select all
+                    </label>
+                    {selectedIds.size > 0 && (
+                      <span className="text-xs text-slate-400">{selectedIds.size} of {cart.length} selected</span>
+                    )}
                   </div>
-                  
+
+                  <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                    {cart.map(item => {
+                      const isSelected = selectedIds.has(item.id);
+                      return (
+                        <div
+                          key={item.id}
+                          className={`flex gap-3 bg-white border p-3 rounded-xl shadow-sm transition-colors ${
+                            isSelected ? 'border-blue-200' : 'border-slate-100 opacity-60'
+                          }`}
+                        >
+                          {/* Checkbox */}
+                          <div className="flex items-start pt-1 shrink-0">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleItem(item.id)}
+                              className="w-4 h-4 rounded accent-blue-600 cursor-pointer"
+                            />
+                          </div>
+
+                          <img
+                            src={item.image}
+                            alt={item.name}
+                            className="w-20 h-20 object-cover rounded-lg bg-slate-100 shrink-0"
+                            referrerPolicy="no-referrer"
+                          />
+                          <div className="flex-1 flex flex-col justify-between min-w-0">
+                            <div>
+                              <h4 className="font-medium text-slate-900 line-clamp-1">{item.name}</h4>
+                              <p className="text-slate-900 font-semibold">₱{item.price.toFixed(2)}</p>
+                            </div>
+                            {typeof item.stock === 'number' && item.stock > 0 && (
+                              <p className="mt-1 text-xs text-slate-500">
+                                {item.stock} left in stock
+                              </p>
+                            )}
+                            <div className="flex items-center gap-3 mt-2">
+                              <button
+                                onClick={() => updateQuantity(item.id, -1)}
+                                className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+                              >
+                                <Minus className="w-3 h-3" />
+                              </button>
+                              <span className="text-sm font-medium w-4 text-center">{item.quantity}</span>
+                              <button
+                                onClick={() => updateQuantity(item.id, 1)}
+                                disabled={typeof item.stock === 'number' && item.stock > 0 && item.quantity >= item.stock}
+                                className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                <Plus className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </div>
+                          <div className="text-right flex flex-col justify-between shrink-0">
+                            <button
+                              onClick={() => updateQuantity(item.id, -item.quantity)}
+                              className="text-slate-400 hover:text-red-500 transition-colors p-1"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                            <span className="font-medium text-slate-900">
+                              ₱{(item.price * item.quantity).toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
                   <div className="p-4 border-t border-slate-100 bg-slate-50">
                     <div className="space-y-2 mb-4">
                       <div className="flex justify-between text-slate-500">
-                        <span>Subtotal</span>
-                        <span>₱{cartTotal.toFixed(2)}</span>
+                        <span>{noneSelected ? 'Subtotal' : `Subtotal (${selectedIds.size} item${selectedIds.size !== 1 ? 's' : ''})`}</span>
+                        <span>₱{selectedSubtotal.toFixed(2)}</span>
                       </div>
                     </div>
-                    
-                    <button 
+
+                    <button
                       onClick={handleProceedToCheckout}
-                      className="w-full py-3.5 bg-blue-600 text-white rounded-xl font-bold text-lg hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                      disabled={noneSelected}
+                      className="w-full py-3.5 bg-blue-600 text-white rounded-xl font-bold text-lg hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Proceed to Checkout
                     </button>
@@ -164,14 +243,14 @@ export default function CartDrawer() {
       <AnimatePresence>
         {isClearCartModalOpen && (
           <>
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsClearCartModalOpen(false)}
               className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60]"
             />
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -184,13 +263,13 @@ export default function CartDrawer() {
                 <h3 className="text-xl font-bold text-slate-900 mb-2">Clear Cart?</h3>
                 <p className="text-slate-500 mb-6">Are you sure you want to remove all items from your cart? This action cannot be undone.</p>
                 <div className="flex gap-3">
-                  <button 
+                  <button
                     onClick={() => setIsClearCartModalOpen(false)}
                     className="flex-1 px-4 py-2 bg-slate-100 text-slate-700 rounded-full font-medium hover:bg-slate-200 transition-colors"
                   >
                     Cancel
                   </button>
-                  <button 
+                  <button
                     onClick={() => {
                       setCart([]);
                       setIsClearCartModalOpen(false);

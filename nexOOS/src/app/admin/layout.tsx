@@ -38,7 +38,7 @@ const NAV_GROUPS = [
     label: 'System',
     items: [
       { href: '/admin/settings',     label: 'OOS Settings',   icon: Settings },
-      { href: '/admin/accounts',     label: 'Admin Accounts', icon: Shield },
+      { href: '/admin/accounts',     label: 'User Accounts',  icon: Shield },
       { href: '/admin/audit-logs',   label: 'Audit Trail',    icon: ScrollText },
     ],
   },
@@ -103,6 +103,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [checked,       setChecked]       = useState(false);
   const [dateStr,       setDateStr]       = useState('');
   const [bellOpen,      setBellOpen]      = useState(false);
+  const [logoutModalOpen, setLogoutModalOpen] = useState(false);
   const [pendingOrders, setPendingOrders] = useState(0);
   const [pendingReturns,setPendingReturns]= useState(0);
   const [recentPending, setRecentPending] = useState<{id:string;receiptNumber?:string;date:string}[]>([]);
@@ -189,7 +190,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const role: 'super_admin' | 'admin' | 'staff' = rawRole === 'super_admin' ? 'super_admin' : rawRole === 'admin' ? 'admin' : 'staff';
     setAdminEmail(email);
     const storedName = getAdminDisplayName();
-    setAdminName(storedName || formatName(email));
+    const jwtFullName = (payload?.fullName as string) ?? '';
+    setAdminName(storedName || jwtFullName || formatName(email));
     setStaffRole(role);
     setChecked(true);
 
@@ -347,13 +349,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </div>
           </Link>
 
-          {/* Sign out */}
+          {/* Log out */}
           <button
-            onClick={handleLogout}
+            onClick={() => setLogoutModalOpen(true)}
             className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-[13px] font-semibold text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-all"
           >
             <LogOut className="w-4 h-4 shrink-0" />
-            Sign Out
+            Log Out
           </button>
         </div>
       </aside>
@@ -525,6 +527,40 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         </main>
       </div>
+
+      {logoutModalOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-slate-950/50 backdrop-blur-sm"
+            onClick={() => setLogoutModalOpen(false)}
+          />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50">
+                <LogOut className="h-5 w-5 text-red-500" />
+              </div>
+              <h2 className="text-xl font-black text-slate-900">Log Out</h2>
+              <p className="mt-2 text-sm text-slate-500">Are you sure you want to log out?</p>
+              <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setLogoutModalOpen(false)}
+                  className="rounded-2xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="rounded-2xl bg-red-500 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-600"
+                >
+                  Log Out
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

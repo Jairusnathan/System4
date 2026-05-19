@@ -29,6 +29,8 @@ interface AppContextType {
   fetchUserProfile: () => Promise<void>;
   cart: CartItem[];
   setCart: React.Dispatch<React.SetStateAction<CartItem[]>>;
+  checkoutItemIds: string[] | null;
+  setCheckoutItemIds: (ids: string[] | null) => void;
   selectedBranch: Branch | null;
   setSelectedBranch: (branch: Branch | null) => void;
   branches: Branch[];
@@ -225,6 +227,7 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [checkoutItemIds, setCheckoutItemIds] = useState<string[] | null>(null);
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [branchInventory, setBranchInventory] = useState<BranchInventory[]>([]);
@@ -699,6 +702,7 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     user, setUser,
     fetchUserProfile,
     cart, setCart,
+    checkoutItemIds, setCheckoutItemIds,
     selectedBranch, setSelectedBranch,
     branches,
     branchInventory,
@@ -725,6 +729,7 @@ export function AppProvider({ children }: Readonly<{ children: ReactNode }>) {
     user,
     fetchUserProfile,
     cart,
+    checkoutItemIds,
     selectedBranch,
     branches,
     branchInventory,

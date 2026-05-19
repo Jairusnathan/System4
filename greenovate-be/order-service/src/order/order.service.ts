@@ -22,7 +22,7 @@ export class OrderService {
   ) {}
 
   async listCustomerOrders(userId: string, limit = 50) {
-    const { data, error } = await this.supabaseService.supabaseAdmin.from('online_orders').select('id, receipt_number, order_number, tx_no, created_at, subtotal, delivery_fee, discount_amount, total, promo_code, fulfillment_status, shipping_address, payment_method, online_order_items ( product_id, product_name, category, unit_price, quantity, line_total )').eq('customer_id', userId).order('created_at', { ascending: false }).limit(limit);
+    const { data, error } = await this.supabaseService.supabaseAdmin.from('online_orders').select('id, receipt_number, order_number, tx_no, created_at, subtotal, delivery_fee, discount_amount, total, promo_code, fulfillment_status, shipping_address, payment_method, online_order_items ( product_id, product_name, category, unit_price, quantity, line_total )').eq('customer_id', userId).neq('payment_status', 'pending').order('created_at', { ascending: false }).limit(limit);
     if (error) throw error;
     return (data ?? []).map((row: any) => ({ id: row.id, receiptNumber: row.receipt_number ?? undefined, orderNumber: row.order_number ?? undefined, txNo: row.tx_no ?? undefined, date: row.created_at, items: ((row.online_order_items ?? []) as any[]).map((item) => ({ id: item.product_id, name: item.product_name, description: '', price: Number(item.unit_price ?? 0), category: item.category ?? 'Uncategorized', image: `${this.fallbackProductImage}&sig=${encodeURIComponent(item.product_id)}`, quantity: Number(item.quantity ?? 0) })), subtotal: Number(row.subtotal ?? 0), deliveryFee: Number(row.delivery_fee ?? 0), discountAmount: Number(row.discount_amount ?? 0), promoCode: row.promo_code ?? undefined, total: Number(row.total ?? 0), status: row.fulfillment_status, shippingAddress: row.shipping_address, paymentMethod: row.payment_method }));
   }
@@ -34,7 +34,9 @@ export class OrderService {
         'id, receipt_number, order_number, tx_no, created_at, subtotal, delivery_fee, discount_amount, total, promo_code, fulfillment_status, shipping_address, payment_method, customer_id, cancellation_reason, cancelled_at, online_order_items ( product_id, product_name, category, unit_price, quantity )',
         { count: 'exact' },
       )
+      .neq('payment_status', 'pending')
       .order('created_at', { ascending: false });
+
     if (status) query = (query as any).eq('fulfillment_status', status);
     if (search) query = (query as any).or(`receipt_number.ilike.%${search}%,order_number.ilike.%${search}%`);
     query = (query as any).range(offset, offset + limit - 1);
@@ -92,18 +94,18 @@ export class OrderService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const [totalResult, todayResult, pendingResult, revenueResult] = await Promise.all([
-      db.from('online_orders').select('id', { count: 'exact', head: true }),
-      db.from('online_orders').select('id', { count: 'exact', head: true }).gte('created_at', today.toISOString()),
-      db.from('online_orders').select('id', { count: 'exact', head: true }).eq('fulfillment_status', 'Processing'),
-      db.from('online_orders').select('total').gte('created_at', today.toISOString()).neq('fulfillment_status', 'Cancelled'),
+      db.from('online_orders').select('id', { count: 'exact', head: true }).neq('payment_status', 'pending'),
+      db.from('online_orders').select('id', { count: 'exact', head: true }).gte('created_at', today.toISOString()).neq('payment_status', 'pending'),
+      db.from('online_orders').select('id', { count: 'exact', head: true }).eq('fulfillment_status', 'Processing').neq('payment_status', 'pending'),
+      db.from('online_orders').select('total').gte('created_at', today.toISOString()).neq('fulfillment_status', 'Cancelled').neq('payment_status', 'pending'),
     ]);
     const todayRevenue = ((revenueResult.data ?? []) as { total: number }[]).reduce((sum, r) => sum + Number(r.total ?? 0), 0);
     const [pendingReturns, processingOrders, inTransitOrders, deliveredOrders, cancelledOrders] = await Promise.all([
       db.from('return_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-      db.from('online_orders').select('id', { count: 'exact', head: true }).eq('fulfillment_status', 'Processing'),
-      db.from('online_orders').select('id', { count: 'exact', head: true }).eq('fulfillment_status', 'In Transit'),
-      db.from('online_orders').select('id', { count: 'exact', head: true }).eq('fulfillment_status', 'Delivered'),
-      db.from('online_orders').select('id', { count: 'exact', head: true }).eq('fulfillment_status', 'Cancelled'),
+      db.from('online_orders').select('id', { count: 'exact', head: true }).eq('fulfillment_status', 'Processing').neq('payment_status', 'pending'),
+      db.from('online_orders').select('id', { count: 'exact', head: true }).eq('fulfillment_status', 'In Transit').neq('payment_status', 'pending'),
+      db.from('online_orders').select('id', { count: 'exact', head: true }).eq('fulfillment_status', 'Delivered').neq('payment_status', 'pending'),
+      db.from('online_orders').select('id', { count: 'exact', head: true }).eq('fulfillment_status', 'Cancelled').neq('payment_status', 'pending'),
     ]);
     return {
       totalOrders: totalResult.count ?? 0,

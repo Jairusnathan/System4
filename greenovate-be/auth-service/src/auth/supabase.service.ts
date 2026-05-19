@@ -75,19 +75,18 @@ export class SupabaseService implements OnModuleInit {
   }
 
   private initializeDefaultClient(): void {
-    const url = this.configService.get<string>('SUPABASE_URL')?.trim();
-    const key = this.configService.get<string>('SUPABASE_SERVICE_ROLE_KEY')?.trim();
-    const anonKey = this.configService.get<string>('SUPABASE_ANON_KEY')?.trim() ?? this.configService.get<string>('NEXT_PUBLIC_SUPABASE_ANON_KEY')?.trim();
-    const publicUrl = url ?? this.configService.get<string>('NEXT_PUBLIC_SUPABASE_URL')?.trim();
-    if (publicUrl && anonKey) this.publicClient = this.buildClient(publicUrl, anonKey, false);
-    if (!url || !key) { this.logger.warn('SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not set.'); return; }
+    const url = this.configService.get<string>('OOS_AUTH_SUPABASE_URL')?.trim();
+    const key = this.configService.get<string>('OOS_AUTH_SUPABASE_SERVICE_ROLE_KEY')?.trim();
+    const anonKey = this.configService.get<string>('OOS_AUTH_SUPABASE_ANON_KEY')?.trim();
+    if (url && anonKey) this.publicClient = this.buildClient(url, anonKey, false);
+    if (!url || !key) { this.logger.warn('OOS_AUTH_SUPABASE_URL or OOS_AUTH_SUPABASE_SERVICE_ROLE_KEY is not set.'); return; }
     this.client = this.buildClient(url, key);
   }
 
   private initializeLegacyClients(): void {
-    const secondUrl = this.configService.get<string>('SECOND_SUPABASE_URL')?.trim() ?? this.configService.get<string>('NEXT_PUBLIC_SECOND_SUPABASE_URL')?.trim();
-    const secondAnonKey = this.configService.get<string>('SECOND_SUPABASE_ANON_KEY')?.trim() ?? this.configService.get<string>('NEXT_PUBLIC_SECOND_SUPABASE_ANON_KEY')?.trim();
-    const secondServiceRoleKey = this.configService.get<string>('SECOND_SUPABASE_SERVICE_ROLE_KEY')?.trim() ?? secondAnonKey;
+    const secondUrl = this.configService.get<string>('OOS_AUTH_SECOND_SUPABASE_URL')?.trim();
+    const secondAnonKey = this.configService.get<string>('OOS_AUTH_SECOND_SUPABASE_ANON_KEY')?.trim();
+    const secondServiceRoleKey = this.configService.get<string>('OOS_AUTH_SECOND_SUPABASE_SERVICE_ROLE_KEY')?.trim() ?? secondAnonKey;
     if (secondUrl && secondAnonKey) this.secondClient = this.buildClient(secondUrl, secondAnonKey, false);
     if (secondUrl && secondServiceRoleKey) this.secondAdminClient = this.buildClient(secondUrl, secondServiceRoleKey);
   }

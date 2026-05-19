@@ -14,7 +14,7 @@ export class MailerService {
   isConfigured(): boolean {
     return (
       (this.apiCenter?.isReady() ?? false) ||
-      Boolean(this.getSmtpEnv('SMTP_HOST') && this.getSmtpEnv('SMTP_USER') && this.getSmtpEnv('SMTP_PASS'))
+      Boolean(this.getSmtpEnv('OOS_AUTH_SMTP_HOST') && this.getSmtpEnv('OOS_AUTH_SMTP_USER') && this.getSmtpEnv('OOS_AUTH_SMTP_PASS'))
     );
   }
 
@@ -141,19 +141,19 @@ export class MailerService {
   }
 
   private get smtpFrom(): string {
-    return this.getSmtpEnv('SMTP_FROM') || this.getSmtpEnv('SMTP_USER') || 'no-reply@example.com';
+    return this.getSmtpEnv('OOS_AUTH_SMTP_FROM') || this.getSmtpEnv('OOS_AUTH_SMTP_USER') || 'no-reply@example.com';
   }
 
   private getSmtpTransporter() {
-    if (!this.getSmtpEnv('SMTP_HOST') || !this.getSmtpEnv('SMTP_USER') || !this.getSmtpEnv('SMTP_PASS')) {
+    if (!this.getSmtpEnv('OOS_AUTH_SMTP_HOST') || !this.getSmtpEnv('OOS_AUTH_SMTP_USER') || !this.getSmtpEnv('OOS_AUTH_SMTP_PASS')) {
       throw new Error('SMTP credentials are not configured and APICenter is not available.');
     }
-    const port = Number(this.getSmtpEnv('SMTP_PORT') || 587);
+    const port = Number(this.getSmtpEnv('OOS_AUTH_SMTP_PORT') || 587);
     return nodemailer.createTransport({
-      host: this.getSmtpEnv('SMTP_HOST'),
+      host: this.getSmtpEnv('OOS_AUTH_SMTP_HOST'),
       port,
       secure: port === 465,
-      auth: { user: this.getSmtpEnv('SMTP_USER'), pass: this.getSmtpEnv('SMTP_PASS') },
+      auth: { user: this.getSmtpEnv('OOS_AUTH_SMTP_USER'), pass: this.getSmtpEnv('OOS_AUTH_SMTP_PASS') },
     });
   }
 
@@ -174,7 +174,7 @@ export class MailerService {
       const sep = line.indexOf('=');
       if (sep <= 0) continue;
       const k = line.slice(0, sep).trim();
-      if (!k.startsWith('SMTP_')) continue;
+      if (!k.startsWith('OOS_AUTH_SMTP_')) continue;
       const v = line.slice(sep + 1).trim().replace(/^"(.*)"$/, '$1').replace(/^'(.*)'$/, '$1');
       if (v) parsed[k] = v;
     }

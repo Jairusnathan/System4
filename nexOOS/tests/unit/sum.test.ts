@@ -7,10 +7,10 @@ import {
 describe("frontend utility helpers", () => {
   it("builds API urls from relative paths with the default base url", () => {
     expect(buildApiUrl("/api/products")).toBe(
-      "http://localhost:4000/api/products",
+      "http://localhost:3001/api/products",
     );
     expect(buildApiUrl("api/orders")).toBe(
-      "http://localhost:4000/api/orders",
+      "http://localhost:3001/api/orders",
     );
   });
 

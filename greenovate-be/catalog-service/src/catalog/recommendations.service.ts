@@ -21,7 +21,7 @@ export class RecommendationsService {
 
   private async compute(productId: string, limit: number): Promise<Product[]> {
     try {
-      const orderServiceUrl = process.env.ORDER_SERVICE_URL?.trim() || 'http://127.0.0.1:4105';
+      const orderServiceUrl = process.env.OOS_CATALOG_ORDER_SERVICE_URL?.trim() || 'http://127.0.0.1:3003';
       const res = await fetch(`${orderServiceUrl}/orders/internal/co-purchases`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

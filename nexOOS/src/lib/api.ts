@@ -1,5 +1,5 @@
 const rawApiBaseUrl =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.trim() || 'http://localhost:4000';
+  process.env.NEXT_PUBLIC_OOS_FRONTEND_API_BASE_URL?.trim() || 'http://localhost:3001';
 
 const normalizedApiBaseUrl = rawApiBaseUrl.replace(/\/$/, '');
 

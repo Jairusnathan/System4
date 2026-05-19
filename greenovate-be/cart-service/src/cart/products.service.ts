@@ -8,7 +8,7 @@ export class ProductsService {
     if (uniqueIds.length === 0) return [];
 
     try {
-      const catalogUrl = process.env.CATALOG_SERVICE_URL?.trim() || 'http://127.0.0.1:4102';
+      const catalogUrl = process.env.OOS_CART_CATALOG_SERVICE_URL?.trim() || 'http://127.0.0.1:3005';
       const res = await fetch(`${catalogUrl}/internal/products/by-ids`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

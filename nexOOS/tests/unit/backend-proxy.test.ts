@@ -32,7 +32,7 @@ describe('proxyToBackend', () => {
     const response = await proxyToBackend(request, { path: '/api/cart' });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'http://localhost:4000/api/cart?branch=1',
+      'http://localhost:3001/api/cart?branch=1',
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ quantity: 2 }),

@@ -11,7 +11,7 @@ export interface ProductQueryOptions {
 
 type ProductRow = { id: number | string; name: string | null; price: number | string | null; stock: number | string | null; category: string | null; low_stock_threshold?: number | string | null; };
 
-const PRODUCT_CACHE_TTL_MS = Number(process.env.PRODUCT_CACHE_TTL_MS || 30_000);
+const PRODUCT_CACHE_TTL_MS = Number(process.env.OOS_CATALOG_PRODUCT_CACHE_TTL_MS || 30_000);
 
 // Categories completely excluded from the OOS — never shown, never searchable, never orderable
 const PRESCRIPTION_CATEGORIES = new Set([
@@ -107,7 +107,7 @@ export class ProductsService {
     if (uniqueIds.length === 0) return new Map();
 
     try {
-      const orderServiceUrl = process.env.ORDER_SERVICE_URL?.trim() || 'http://127.0.0.1:4105';
+      const orderServiceUrl = process.env.OOS_CATALOG_ORDER_SERVICE_URL?.trim() || 'http://127.0.0.1:3003';
       const res = await fetch(`${orderServiceUrl}/orders/internal/sold-counts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

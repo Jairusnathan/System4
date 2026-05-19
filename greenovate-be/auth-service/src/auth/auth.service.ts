@@ -13,7 +13,7 @@ type AuthPayload = {
 @Injectable()
 export class AppAuthService {
   private readonly secret =
-    process.env.JWT_SECRET || 'super-secret-key-for-dev';
+    process.env.OOS_AUTH_JWT_SECRET || 'super-secret-key-for-dev';
 
   signAccessToken(payload: AuthPayload) {
     return jwt.sign({ ...payload, tokenType: 'access' }, this.secret, {

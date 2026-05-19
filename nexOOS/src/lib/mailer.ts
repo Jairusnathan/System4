@@ -1,10 +1,10 @@
 import nodemailer from 'nodemailer';
 
-const smtpHost = process.env.SMTP_HOST;
-const smtpPort = Number(process.env.SMTP_PORT || 587);
-const smtpUser = process.env.SMTP_USER;
-const smtpPass = process.env.SMTP_PASS;
-const smtpFrom = process.env.SMTP_FROM || smtpUser || 'no-reply@example.com';
+const smtpHost = process.env.OOS_FRONTEND_SMTP_HOST;
+const smtpPort = Number(process.env.OOS_FRONTEND_SMTP_PORT || 587);
+const smtpUser = process.env.OOS_FRONTEND_SMTP_USER;
+const smtpPass = process.env.OOS_FRONTEND_SMTP_PASS;
+const smtpFrom = process.env.OOS_FRONTEND_SMTP_FROM || smtpUser || 'no-reply@example.com';
 
 export function isMailerConfigured() {
   return Boolean(smtpHost && smtpUser && smtpPass);

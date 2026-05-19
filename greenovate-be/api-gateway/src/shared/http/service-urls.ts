@@ -14,45 +14,45 @@ const resolveServiceUrl = (envName: string, fallbackPort: number) => {
 
 export const SERVICE_PORTS = {
   get gateway() {
-    return resolveServicePort('API_GATEWAY_PORT', 4000);
+    return resolveServicePort('OOS_GATEWAY_PORT', 3001);
   },
   get auth() {
-    return resolveServicePort('AUTH_SERVICE_PORT', 4101);
+    return resolveServicePort('OOS_GATEWAY_AUTH_SERVICE_PORT', 3002);
   },
   get catalog() {
-    return resolveServicePort('CATALOG_SERVICE_PORT', 4102);
+    return resolveServicePort('OOS_GATEWAY_CATALOG_SERVICE_PORT', 3005);
   },
   get cart() {
-    return resolveServicePort('CART_SERVICE_PORT', 4103);
+    return resolveServicePort('OOS_GATEWAY_CART_SERVICE_PORT', 3004);
   },
   get promo() {
-    return resolveServicePort('PROMO_SERVICE_PORT', 4104);
+    return resolveServicePort('OOS_GATEWAY_PROMO_SERVICE_PORT', 3006);
   },
   get orders() {
-    return resolveServicePort('ORDER_SERVICE_PORT', 4105);
+    return resolveServicePort('OOS_GATEWAY_ORDER_SERVICE_PORT', 3003);
   },
   get delivery() {
-    return resolveServicePort('DELIVERY_SERVICE_PORT', 4106);
+    return resolveServicePort('OOS_GATEWAY_DELIVERY_SERVICE_PORT', 3007);
   },
 };
 
 export const SERVICE_URLS = {
   get auth() {
-    return resolveServiceUrl('AUTH_SERVICE_URL', SERVICE_PORTS.auth);
+    return resolveServiceUrl('OOS_GATEWAY_AUTH_SERVICE_URL', SERVICE_PORTS.auth);
   },
   get catalog() {
-    return resolveServiceUrl('CATALOG_SERVICE_URL', SERVICE_PORTS.catalog);
+    return resolveServiceUrl('OOS_GATEWAY_CATALOG_SERVICE_URL', SERVICE_PORTS.catalog);
   },
   get cart() {
-    return resolveServiceUrl('CART_SERVICE_URL', SERVICE_PORTS.cart);
+    return resolveServiceUrl('OOS_GATEWAY_CART_SERVICE_URL', SERVICE_PORTS.cart);
   },
   get promo() {
-    return resolveServiceUrl('PROMO_SERVICE_URL', SERVICE_PORTS.promo);
+    return resolveServiceUrl('OOS_GATEWAY_PROMO_SERVICE_URL', SERVICE_PORTS.promo);
   },
   get orders() {
-    return resolveServiceUrl('ORDER_SERVICE_URL', SERVICE_PORTS.orders);
+    return resolveServiceUrl('OOS_GATEWAY_ORDER_SERVICE_URL', SERVICE_PORTS.orders);
   },
   get delivery() {
-    return resolveServiceUrl('DELIVERY_SERVICE_URL', SERVICE_PORTS.delivery);
+    return resolveServiceUrl('OOS_GATEWAY_DELIVERY_SERVICE_URL', SERVICE_PORTS.delivery);
   },
 };

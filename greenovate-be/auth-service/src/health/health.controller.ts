@@ -4,6 +4,6 @@
 export class HealthController {
   @Get()
   check() {
-    return { service: 'auth-service', status: 'ok', port: process.env.AUTH_SERVICE_PORT || 4101 };
+    return { service: 'auth-service', status: 'ok', port: process.env.OOS_AUTH_PORT || 3002 };
   }
 }

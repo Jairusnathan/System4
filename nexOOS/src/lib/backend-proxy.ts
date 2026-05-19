@@ -50,7 +50,7 @@ export async function proxyToBackend(request: Request, options: ProxyOptions) {
   const targetPath = options.preserveQuery === false
     ? options.path
     : `${options.path}${incomingUrl.search}`;
-  const backendBaseUrl = process.env.BACKEND_PROXY_BASE_URL?.trim() || undefined;
+  const backendBaseUrl = process.env.OOS_FRONTEND_BACKEND_PROXY_BASE_URL?.trim() || undefined;
   const targetUrl = backendBaseUrl
     ? `${backendBaseUrl.replace(/\/$/, '')}${targetPath}`
     : buildApiUrl(targetPath);

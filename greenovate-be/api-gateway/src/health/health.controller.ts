@@ -4,6 +4,6 @@
 export class HealthController {
   @Get()
   check() {
-    return { service: 'api-gateway', status: 'ok', port: process.env.API_GATEWAY_PORT || 4000 };
+    return { service: 'api-gateway', status: 'ok', port: process.env.OOS_GATEWAY_PORT || 3001 };
   }
 }

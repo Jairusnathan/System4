@@ -1,7 +1,7 @@
 ﻿import { Injectable } from '@nestjs/common';
 import { SupabaseService } from './supabase.service';
 
-const BRANCH_CACHE_TTL_MS = Number(process.env.BRANCH_CACHE_TTL_MS || 60_000);
+const BRANCH_CACHE_TTL_MS = Number(process.env.OOS_CATALOG_BRANCH_CACHE_TTL_MS || 60_000);
 
 @Injectable()
 export class BranchesService {

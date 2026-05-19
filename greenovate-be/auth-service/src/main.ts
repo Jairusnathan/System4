@@ -11,7 +11,7 @@ async function bootstrap() {
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
   });
-  const port = process.env.AUTH_SERVICE_PORT || process.env.PORT || 4101;
+  const port = process.env.OOS_AUTH_PORT || process.env.PORT || 3002;
   await app.listen(port);
   console.log(`auth-service running on port ${port}`);
 }

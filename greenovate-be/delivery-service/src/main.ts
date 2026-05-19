@@ -11,7 +11,7 @@ async function bootstrap() {
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
   });
-  const port = process.env.DELIVERY_SERVICE_PORT || process.env.PORT || 4105;
+  const port = process.env.OOS_DELIVERY_PORT || process.env.PORT || 3007;
   await app.listen(port);
   console.log(`delivery-service running on port ${port}`);
 }

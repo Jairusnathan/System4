@@ -11,7 +11,7 @@ async function bootstrap() {
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
   });
-  const port = process.env.PROMO_SERVICE_PORT || process.env.PORT || 4106;
+  const port = process.env.OOS_PROMO_PORT || process.env.PORT || 3006;
   await app.listen(port);
   console.log(`promo-service running on port ${port}`);
 }

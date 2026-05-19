@@ -15,7 +15,7 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization', 'idempotency-key', 'x-correlation-id', 'Cookie'],
   });
   app.setGlobalPrefix('api');
-  const port = process.env.API_GATEWAY_PORT || process.env.PORT || 4000;
+  const port = process.env.OOS_GATEWAY_PORT || process.env.PORT || 3001;
   await app.listen(port);
   console.log(`api-gateway running on port ${port}`);
 }

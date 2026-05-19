@@ -55,7 +55,7 @@ describe('auth-client helpers', () => {
     expect(response.status).toBe(200);
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      'http://localhost:4000/api/cart',
+      'http://localhost:3001/api/cart',
       expect.objectContaining({
         credentials: 'include',
         method: 'PUT',

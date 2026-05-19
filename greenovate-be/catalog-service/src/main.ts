@@ -11,7 +11,7 @@ async function bootstrap() {
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
   });
-  const port = process.env.CATALOG_SERVICE_PORT || process.env.PORT || 4103;
+  const port = process.env.OOS_CATALOG_PORT || process.env.PORT || 3005;
   await app.listen(port);
   console.log(`catalog-service running on port ${port}`);
 }

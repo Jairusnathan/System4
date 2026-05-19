@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { NextResponse } from 'next/server';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-for-dev';
+const JWT_SECRET = process.env.OOS_FRONTEND_JWT_SECRET || 'super-secret-key-for-dev';
 export const REFRESH_TOKEN_COOKIE_NAME = 'refresh_token';
 const ACCESS_TOKEN_EXPIRES_IN = '15m';
 const REFRESH_TOKEN_EXPIRES_IN = '7d';

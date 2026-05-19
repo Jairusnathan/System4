@@ -4,6 +4,6 @@
 export class HealthController {
   @Get()
   check() {
-    return { service: 'order-service', status: 'ok', port: process.env.ORDER_SERVICE_PORT || 4104 };
+    return { service: 'order-service', status: 'ok', port: process.env.OOS_ORDER_PORT || 3003 };
   }
 }

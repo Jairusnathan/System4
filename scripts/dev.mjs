@@ -38,7 +38,7 @@ const sleep = (ms) =>
 
 async function isBackendReady() {
   try {
-    const response = await fetch("http://127.0.0.1:4000/api/health");
+    const response = await fetch("http://127.0.0.1:3001/api/health");
     return response.ok;
   } catch {
     return false;
@@ -96,7 +96,7 @@ async function main() {
   }
 
   startService(backendService);
-  console.log("[dev] Waiting for backend health at http://127.0.0.1:4000/api/health ...");
+  console.log("[dev] Waiting for backend health at http://127.0.0.1:3001/api/health ...");
 
   const backendReady = await waitForBackendReady();
   if (!backendReady) {

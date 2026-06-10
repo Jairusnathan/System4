@@ -30,9 +30,9 @@ export class ApiCenterService implements OnModuleInit {
     }
 
     const clientInstance = new TribeClient({
-      gatewayUrl: this.configService.getOrThrow<string>('APICENTER_URL'),
-      tribeId: this.configService.getOrThrow<string>('APICENTER_TRIBE_ID'),
-      secret: this.configService.getOrThrow<string>('APICENTER_TRIBE_SECRET'),
+      gatewayUrl: this.getApiCenterUrl(),
+      tribeId: this.getApiCenterTribeId(),
+      secret: this.getApiCenterSecret(),
     });
 
     try {
@@ -48,9 +48,30 @@ export class ApiCenterService implements OnModuleInit {
 
   isConfigured(): boolean {
     return Boolean(
-      this.configService.get<string>('APICENTER_URL')?.trim() &&
-        this.configService.get<string>('APICENTER_TRIBE_ID')?.trim() &&
-        this.configService.get<string>('APICENTER_TRIBE_SECRET')?.trim(),
+      this.getApiCenterUrl()?.trim() &&
+        this.getApiCenterTribeId()?.trim() &&
+        this.getApiCenterSecret()?.trim(),
+    );
+  }
+
+  private getApiCenterUrl(): string | undefined {
+    return (
+      this.configService.get<string>('APICENTER_URL') ??
+      this.configService.get<string>('OOS_AUTH_APICENTER_URL')
+    );
+  }
+
+  private getApiCenterTribeId(): string | undefined {
+    return (
+      this.configService.get<string>('APICENTER_TRIBE_ID') ??
+      this.configService.get<string>('OOS_AUTH_APICENTER_TRIBE_ID')
+    );
+  }
+
+  private getApiCenterSecret(): string | undefined {
+    return (
+      this.configService.get<string>('APICENTER_TRIBE_SECRET') ??
+      this.configService.get<string>('OOS_AUTH_APICENTER_TRIBE_SECRET')
     );
   }
 
@@ -61,6 +82,34 @@ export class ApiCenterService implements OnModuleInit {
   async emailSend(payload: EmailSendRequest): Promise<void> {
     if (!this.client) throw new Error('APICenter client is not ready');
     await this.client.emailSend(payload);
+  }
+
+  async kafkaPublish(
+    topic: string,
+    eventType: string,
+    payload: Record<string, unknown>,
+    key?: string,
+  ): Promise<void> {
+    if (!this.client) return;
+    try {
+      await this.client.kafkaPublish({ topic, eventType, payload, ...(key ? { key } : {}) });
+    } catch (error) {
+      this.logger.warn(`Kafka publish failed [${topic}/${eventType}]: ${error instanceof Error ? error.message : JSON.stringify(error)}`);
+    }
+  }
+
+  buildTopic(suffix: string): string {
+    const tribeId = this.getApiCenterTribeId() ?? 'unknown';
+    const normalizedId = tribeId.toLowerCase().replace(/[^a-z0-9._-]/g, '-');
+    const topicMap: Record<string, string> = {
+      orders  : 'events',
+      users   : 'events',
+      products: 'events',
+      returns : 'events',
+      admin   : 'audit',
+    };
+    const s = suffix.trim().toLowerCase();
+    return `tribe.${normalizedId}.${topicMap[s] ?? s}`;
   }
 
   private async loadTribeClient(): Promise<TribeClientConstructor | null> {

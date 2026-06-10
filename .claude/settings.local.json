@@ -13,7 +13,16 @@
       "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\user\\\\Downloads\\\\NEXOOS\" -Recurse -Directory | Select-Object -First 50 | ForEach-Object { $_.FullName })",
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\user\\\\Downloads\\\\NEXOOS\\\\greenovate-be\" -Recurse -Directory)",
       "Bash(Select-Object FullName)",
-      "Bash(Head -30)"
+      "Bash(Head -30)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\user\\\\Downloads\\\\nexoos backup\\\\System4\\(2\\)\\\\System4\" -Directory)",
+      "Bash(Find \"C:\\\\Users\\\\user\\\\Downloads\\\\nexoos backup\\\\System4\\(2\\)\\\\System4\" -type f -name \"*order*.ts\" -path \"*/api/*\")",
+      "Bash(Find \"C:\\\\Users\\\\user\\\\Downloads\\\\nexoos backup\\\\System4\\(2\\)\\\\System4\" -type f -name \"*controller.ts\")",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\user\\\\Downloads\\\\nexoos backup\\\\System4\\(2\\)\\\\System4\" -Force)",
+      "Bash(Select-Object Name, PSIsContainer)",
+      "Bash(Select-Object Name, Mode)",
+      "Bash(Format-Table)",
+      "Bash(dir nexOOS\\\\src\\\\app /b /s)",
+      "Bash(findstr -i \"order\\\\|cart\\\\|pay\\\\|check\")"
     ]
   }
 }

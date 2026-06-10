@@ -2,10 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { appendFile } from 'node:fs/promises';
 import path from 'node:path';
 import { SupabaseService } from '../auth/supabase.service';
+import { ApiCenterService } from '../auth/api-center.service';
 
 @Injectable()
 export class AnalyticsService {
-  constructor(private readonly supabaseService: SupabaseService) {}
+  constructor(
+    private readonly supabaseService: SupabaseService,
+    private readonly apiCenterService: ApiCenterService,
+  ) {}
 
   async trackSearchQuery(query: string, source: string) {
     const trimmedQuery = query.trim();
@@ -19,6 +23,15 @@ export class AnalyticsService {
       await this.supabaseService.supabaseAdmin
         .from('search_analytics')
         .insert({ query: trimmedQuery, source });
+      void this.apiCenterService.kafkaPublish(
+        this.apiCenterService.buildTopic('products'),
+        'product_searched',
+        {
+          query: trimmedQuery,
+          source,
+          searched_at: new Date().toISOString(),
+        },
+      );
     } catch {
       // Non-critical — never block the search flow
     }

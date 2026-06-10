@@ -15,14 +15,14 @@ import {
 import { getAccessToken } from '@/lib/auth-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type OrderItem  = { id?: string; name: string; price: number; quantity: number; category: string };
-type Order      = { id: string; receiptNumber?: string; date: string; total: number; subtotal: number; deliveryFee: number; discountAmount: number; status: string; shippingAddress: string; paymentMethod: string; items: OrderItem[] };
-type ReturnReq  = { id: string; receipt_number: string; reason: string; created_at: string; status: string };
-type SearchRow  = { query: string; count: number };
-type ViewRow    = { product_id: string; category: string; total_views: number };
+type OrderItem = { id?: string; name: string; price: number; quantity: number; category: string };
+type Order = { id: string; receiptNumber?: string; date: string; total: number; subtotal: number; deliveryFee: number; discountAmount: number; status: string; shippingAddress: string; paymentMethod: string; items: OrderItem[] };
+type ReturnReq = { id: string; receipt_number: string; reason: string; created_at: string; status: string };
+type SearchRow = { query: string; count: number };
+type ViewRow = { product_id: string; category: string; total_views: number };
 type OrderStats = { totalOrders: number; ordersToday: number; pendingOrders: number; todayRevenue: number; pendingReturns: number; processingOrders: number; inTransitOrders: number; deliveredOrders: number; cancelledOrders: number };
-type AuthStats  = { totalCustomers: number; newToday: number };
-type ViewType   = 'overall' | 'month' | 'year' | 'compare';
+type AuthStats = { totalCustomers: number; newToday: number };
+type ViewType = 'overall' | 'month' | 'year' | 'compare';
 type BasketPairRow = {
   pair: string;            // "Antecedent → Consequent" label for chart
   count: number;           // support count (times both appear together)
@@ -39,23 +39,23 @@ type BasketPairRow = {
 
 // ─── Colour palette — accent-restrained ──────────────────────────────────────
 // One blue, one green, one amber, one red — all slightly muted
-const C_BLUE   = '#3b82f6';   // primary accent
-const C_GREEN  = '#16a34a';   // positive / delivered
-const C_AMBER  = '#d97706';   // warning / in-transit
-const C_RED    = '#dc2626';   // danger / cancelled
+const C_BLUE = '#3b82f6';   // primary accent
+const C_GREEN = '#16a34a';   // positive / delivered
+const C_AMBER = '#d97706';   // warning / in-transit
+const C_RED = '#dc2626';   // danger / cancelled
 const C_INDIGO = '#6366f1';   // secondary accent
-const C_SLATE  = '#64748b';   // neutral mid
+const C_SLATE = '#64748b';   // neutral mid
 
 // Chart palette — cohesive, not rainbow
 const CHART_PAL = [C_BLUE, C_INDIGO, C_SLATE, '#94a3b8', '#334155', '#0ea5e9', '#8b5cf6', '#475569'];
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
-const MONTHS_LONG  = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const NOW      = new Date();
+const MONTHS_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const NOW = new Date();
 const CUR_YEAR = NOW.getFullYear();
-const CUR_MON  = NOW.getMonth();
-const YEARS    = Array.from({ length: 5 }, (_, i) => CUR_YEAR - i);
+const CUR_MON = NOW.getMonth();
+const YEARS = Array.from({ length: 5 }, (_, i) => CUR_YEAR - i);
 
 const TT = {
   contentStyle: { borderRadius: 10, border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,.06)', fontSize: 12 },
@@ -63,7 +63,7 @@ const TT = {
 };
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
-const fmt  = (v: number) => `₱${v.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+const fmt = (v: number) => `₱${v.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 const fmt2 = (v: number) => `₱${v.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
 
 function timeAgo(iso: string) {
@@ -86,7 +86,7 @@ function buildDaily(orders: Order[], y: number, m: number) {
   for (const o of orders) {
     if (o.status === 'Cancelled') continue;
     const d = new Date(o.date);
-    if (d.getFullYear() === y && d.getMonth() === m) { rows[d.getDate()-1].revenue += o.total; rows[d.getDate()-1].orders += 1; }
+    if (d.getFullYear() === y && d.getMonth() === m) { rows[d.getDate() - 1].revenue += o.total; rows[d.getDate() - 1].orders += 1; }
   }
   return rows.map(r => ({ ...r, revenue: Math.round(r.revenue) }));
 }
@@ -112,7 +112,7 @@ function buildOverall(orders: Order[]) {
     if (!map.has(label)) map.set(label, { revenue: 0, orders: 0, sortKey });
     const row = map.get(label)!;
     row.revenue += o.total;
-    row.orders  += 1;
+    row.orders += 1;
   }
   return [...map.entries()]
     .sort((a, b) => a[1].sortKey - b[1].sortKey)
@@ -127,7 +127,7 @@ function buildCompare(orders: Order[], yA: number, yB: number) {
     const yr = d.getFullYear();
     if (yr === yA || yr === yB) (rows[d.getMonth()] as Record<string, number>)[yr] += o.total;
   }
-  return rows.map(r => ({ ...r, [yA]: Math.round((r as Record<string,number>)[yA]), [yB]: Math.round((r as Record<string,number>)[yB]) }));
+  return rows.map(r => ({ ...r, [yA]: Math.round((r as Record<string, number>)[yA]), [yB]: Math.round((r as Record<string, number>)[yB]) }));
 }
 
 function buildPayment(orders: Order[]) {
@@ -234,9 +234,9 @@ function generateRules(frequentItemsets: FreqItemset[], minConfidence: number): 
       if (supA === 0 || supB === 0) continue;
       const confidence = supAB / supA;
       if (confidence < minConfidence) continue;
-      const lift       = confidence / supB;
-      const leverage   = supAB - supA * supB;
-      const rawConv    = (1 - supB) / Math.max(1e-9, 1 - confidence);
+      const lift = confidence / supB;
+      const leverage = supAB - supA * supB;
+      const rawConv = (1 - supB) / Math.max(1e-9, 1 - confidence);
       const conviction = Number.isFinite(rawConv) ? rawConv : 999;
       rules.push({ antecedent: [...ant].sort(), consequent: [...con].sort(), support: supAB, count, confidence, lift, leverage, conviction });
     }
@@ -245,10 +245,8 @@ function generateRules(frequentItemsets: FreqItemset[], minConfidence: number): 
   return rules.sort((a, b) => b.lift - a.lift || b.confidence - a.confidence || b.support - a.support);
 }
 
-// minsup=0.3 and minconf=0.5 mirrors the Python basis code defaults
-const MBA_MIN_SUP  = 0.3;
-const MBA_MIN_CONF = 0.5;
-
+// Dynamic support and confidence thresholds mirroring the backend defaults
+// to ensure dashboard insights scale correctly for both small and large transaction volumes.
 function buildMarketBasket(orders: Order[], n = 8) {
   // ── 1) Build transactions (one list of product names per non-cancelled order)
   const transactions: string[][] = [];
@@ -257,7 +255,7 @@ function buildMarketBasket(orders: Order[], n = 8) {
     const seen = new Map<string, string>();
     for (const item of order.items ?? []) {
       const rawName = String(item.name ?? '').trim();
-      const rawId   = String(item.id   ?? '').trim();
+      const rawId = String(item.id ?? '').trim();
       const identity = rawId || rawName.toLowerCase();
       if (!identity || !rawName) continue;
       if (!seen.has(identity)) seen.set(identity, rawName);
@@ -268,22 +266,30 @@ function buildMarketBasket(orders: Order[], n = 8) {
   const eligibleOrders = transactions.length;
   if (eligibleOrders === 0) return { rows: [], eligibleOrders: 0 };
 
-  // ── 2) Apriori: find all frequent itemsets
-  const frequentItemsets = aprioriMine(transactions, MBA_MIN_SUP, 4);
+  // Dynamic support scales with dataset size: at least 5% support or minimum of 2 absolute occurrences
+  const minSupport = Math.max(2 / eligibleOrders, 0.05);
+  const minConfidence = 0.3;
+
+  // ── 2) Apriori: find all frequent itemsets (max length of 2 is perfect for product pairs)
+  const frequentItemsets = aprioriMine(transactions, minSupport, 2);
 
   // ── 3) Generate association rules filtered by min confidence
-  const rules = generateRules(frequentItemsets, MBA_MIN_CONF);
+  const rules = generateRules(frequentItemsets, minConfidence);
+
+  // Filter rules to only include simple, single-product pairings (A + B)
+  // this is much cleaner and 100% understandable for non-technical users
+  const simpleRules = rules.filter(r => r.antecedent.length === 1 && r.consequent.length === 1);
 
   // ── 4) Deduplicate symmetric rules: A→B and B→A are the same product pair.
   //       Keep the version with the highest confidence (most actionable insight).
   const pairBest = new Map<string, RawRule>();
-  for (const rule of rules) {
+  for (const rule of simpleRules) {
     const key = [...rule.antecedent, ...rule.consequent].sort().join('||');
     const existing = pairBest.get(key);
     if (!existing || rule.confidence > existing.confidence) pairBest.set(key, rule);
   }
   const deduped = [...pairBest.values()]
-    .sort((a, b) => b.lift - a.lift || b.confidence - a.confidence || b.count - a.count)
+    .sort((a, b) => b.count - a.count || b.lift - a.lift || b.confidence - a.confidence)
     .slice(0, n);
 
   // ── 5) Format for display — use plain-English labels, no technical jargon
@@ -292,17 +298,17 @@ function buildMarketBasket(orders: Order[], n = 8) {
 
   const rows: BasketPairRow[] = deduped.map(r => ({
     // Chart label: just "A + B" (no arrow, no technical notation)
-    pair:            `${shorten(r.antecedent)} + ${shorten(r.consequent)}`,
-    count:           r.count,
-    support:         Number((r.support    * 100).toFixed(1)),
-    confidence:      Number((r.confidence * 100).toFixed(1)),
-    lift:            Number(r.lift.toFixed(2)),
-    leverage:        Number(r.leverage.toFixed(3)),
-    conviction:      Number(Math.min(r.conviction, 99).toFixed(2)),
+    pair: `${shorten(r.antecedent)} + ${shorten(r.consequent)}`,
+    count: r.count,
+    support: Number((r.support * 100).toFixed(1)),
+    confidence: Number((r.confidence * 100).toFixed(1)),
+    lift: Number(r.lift.toFixed(2)),
+    leverage: Number(r.leverage.toFixed(3)),
+    conviction: Number(Math.min(r.conviction, 99).toFixed(2)),
     antecedentItems: r.antecedent,
     consequentItems: r.consequent,
-    left:            shorten(r.antecedent),
-    right:           shorten(r.consequent),
+    left: shorten(r.antecedent),
+    right: shorten(r.consequent),
   }));
 
   return { rows, eligibleOrders };
@@ -350,10 +356,10 @@ function EmptyChart({ label = 'No data for this period' }: { label?: string }) {
 
 function StatusBadge({ status }: { status: string }) {
   const m: Record<string, string> = {
-    Processing:   'bg-blue-50 text-blue-600 border border-blue-100',
+    Processing: 'bg-blue-50 text-blue-600 border border-blue-100',
     'In Transit': 'bg-amber-50 text-amber-600 border border-amber-100',
-    Delivered:    'bg-green-50 text-green-700 border border-green-100',
-    Cancelled:    'bg-red-50 text-red-500 border border-red-100',
+    Delivered: 'bg-green-50 text-green-700 border border-green-100',
+    Cancelled: 'bg-red-50 text-red-500 border border-red-100',
   };
   return (
     <span className={`px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 ${m[status] ?? 'bg-slate-100 text-slate-500'}`}>
@@ -380,18 +386,18 @@ function SectionCard({ title, href, linkLabel = 'View all', children }: {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function AdminDashboard() {
-  const [allOrders,  setAllOrders]  = useState<Order[]>([]);
-  const [recent,     setRecent]     = useState<Order[]>([]);
+  const [allOrders, setAllOrders] = useState<Order[]>([]);
+  const [recent, setRecent] = useState<Order[]>([]);
   const [allReturns, setAllReturns] = useState<ReturnReq[]>([]);
-  const [searches,    setSearches]    = useState<SearchRow[]>([]);
-  const [views,       setViews]       = useState<ViewRow[]>([]);
+  const [searches, setSearches] = useState<SearchRow[]>([]);
+  const [views, setViews] = useState<ViewRow[]>([]);
   const [orderStats, setOrderStats] = useState<OrderStats | null>(null);
-  const [authStats,  setAuthStats]  = useState<AuthStats | null>(null);
-  const [loading,    setLoading]    = useState(true);
+  const [authStats, setAuthStats] = useState<AuthStats | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const [viewType,    setViewType]    = useState<ViewType>('month');
-  const [year,        setYear]        = useState(CUR_YEAR);
-  const [month,       setMonth]       = useState(CUR_MON);
+  const [viewType, setViewType] = useState<ViewType>('month');
+  const [year, setYear] = useState(CUR_YEAR);
+  const [month, setMonth] = useState(CUR_MON);
   const [compareYear, setCompareYear] = useState(CUR_YEAR - 1);
 
   // Compute date range from filter
@@ -399,7 +405,7 @@ export default function AdminDashboard() {
     if (viewType === 'overall') return null;
     if (viewType === 'month') {
       const from = new Date(year, month, 1).toISOString();
-      const to   = new Date(year, month + 1, 0, 23, 59, 59).toISOString();
+      const to = new Date(year, month + 1, 0, 23, 59, 59).toISOString();
       return { from, to };
     }
     if (viewType === 'year') {
@@ -441,7 +447,7 @@ export default function AdminDashboard() {
     if (!token) return;
     const parts = ['limit=50'];
     if (dateRange?.from) parts.push(`from=${encodeURIComponent(dateRange.from)}`);
-    if (dateRange?.to)   parts.push(`to=${encodeURIComponent(dateRange.to)}`);
+    if (dateRange?.to) parts.push(`to=${encodeURIComponent(dateRange.to)}`);
     const qs = parts.join('&');
     Promise.all([
       safe(`/api/admin/analytics?type=searches&${qs}`, token),
@@ -449,25 +455,25 @@ export default function AdminDashboard() {
     ]).then(([srch, vw]) => {
       setSearches(srch?.data ?? []);
       setViews(vw?.data ?? []);
-    }).catch(() => {});
+    }).catch(() => { });
   }, [dateRange]);
 
   const filtered = useMemo(() => {
     if (viewType === 'overall') return allOrders;
-    if (viewType === 'month')   return filterMonth(allOrders, year, month);
-    if (viewType === 'year')    return filterYear(allOrders, year);
+    if (viewType === 'month') return filterMonth(allOrders, year, month);
+    if (viewType === 'year') return filterYear(allOrders, year);
     return allOrders.filter(o => { const y = new Date(o.date).getFullYear(); return y === year || y === compareYear; });
   }, [allOrders, viewType, year, month, compareYear]);
 
   const timeSeries = useMemo(() => {
     if (viewType === 'overall') return buildOverall(allOrders);
-    if (viewType === 'month')   return buildDaily(allOrders, year, month);
-    if (viewType === 'year')    return buildMonthly(allOrders, year);
+    if (viewType === 'month') return buildDaily(allOrders, year, month);
+    if (viewType === 'year') return buildMonthly(allOrders, year);
     return buildCompare(allOrders, year, compareYear);
   }, [allOrders, viewType, year, month, compareYear]);
-  const paymentData  = useMemo(() => buildPayment(filtered),       [filtered]);
-  const topProducts  = useMemo(() => buildTopProducts(filtered,7), [filtered]);
-  const categoryData = useMemo(() => buildCategory(filtered,6),    [filtered]);
+  const paymentData = useMemo(() => buildPayment(filtered), [filtered]);
+  const topProducts = useMemo(() => buildTopProducts(filtered, 7), [filtered]);
+  const categoryData = useMemo(() => buildCategory(filtered, 6), [filtered]);
   const basketAnalysis = useMemo(() => buildMarketBasket(filtered, 8), [filtered]);
 
   const statusData = useMemo(() => {
@@ -475,7 +481,7 @@ export default function AdminDashboard() {
     for (const o of filtered) c[o.status] = (c[o.status] ?? 0) + 1;
     return Object.entries(c).map(([name, value]) => ({
       name, value,
-      fill: name==='Processing' ? C_BLUE : name==='In Transit' ? C_AMBER : name==='Delivered' ? C_GREEN : C_RED,
+      fill: name === 'Processing' ? C_BLUE : name === 'In Transit' ? C_AMBER : name === 'Delivered' ? C_GREEN : C_RED,
     }));
   }, [filtered]);
 
@@ -501,22 +507,22 @@ export default function AdminDashboard() {
   const returnStatusData = useMemo(() => {
     const filtered = dateRange
       ? allReturns.filter(r => {
-          const d = new Date(r.created_at).getTime();
-          return d >= new Date(dateRange.from).getTime() && d <= new Date(dateRange.to).getTime();
-        })
+        const d = new Date(r.created_at).getTime();
+        return d >= new Date(dateRange.from).getTime() && d <= new Date(dateRange.to).getTime();
+      })
       : allReturns;
     const m: Record<string, number> = {};
     for (const r of filtered) m[r.status] = (m[r.status] ?? 0) + 1;
     return Object.entries(m).map(([name, value]) => ({ name, value }));
   }, [allReturns, dateRange]);
 
-  const periodOrders  = filtered.length;
+  const periodOrders = filtered.length;
   const periodRevenue = filtered.filter(o => o.status !== 'Cancelled').reduce((s, o) => s + o.total, 0);
-  const delivered     = filtered.filter(o => o.status === 'Delivered').length;
-  const fulfillment   = Math.round((delivered / (periodOrders || 1)) * 100);
-  const radialData    = [{ name: 'Fulfilled', value: fulfillment, fill: C_GREEN }, { name: 'Other', value: 100 - fulfillment, fill: '#f1f5f9' }];
+  const delivered = filtered.filter(o => o.status === 'Delivered').length;
+  const fulfillment = Math.round((delivered / (periodOrders || 1)) * 100);
+  const radialData = [{ name: 'Fulfilled', value: fulfillment, fill: C_GREEN }, { name: 'Other', value: 100 - fulfillment, fill: '#f1f5f9' }];
   const needsAttention = (orderStats?.pendingOrders ?? 0) + (orderStats?.pendingReturns ?? 0);
-  const periodLabel   = viewType==='overall' ? 'All Time' : viewType==='month' ? `${MONTHS_LONG[month]} ${year}` : viewType==='year' ? String(year) : `${year} vs ${compareYear}`;
+  const periodLabel = viewType === 'overall' ? 'All Time' : viewType === 'month' ? `${MONTHS_LONG[month]} ${year}` : viewType === 'year' ? String(year) : `${year} vs ${compareYear}`;
   const topBasketPair = basketAnalysis.rows[0];
 
   if (loading) {
@@ -549,10 +555,10 @@ export default function AdminDashboard() {
       <div>
         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Today</p>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <KpiCard label="Revenue Today"   value={fmt2(orderStats?.todayRevenue ?? 0)} sub="Non-cancelled"     icon={TrendingUp}  iconBg="bg-blue-50"   iconColor="text-blue-600"   />
-          <KpiCard label="Orders Today"    value={orderStats?.ordersToday ?? 0}          sub="All statuses"     icon={ShoppingBag} iconBg="bg-slate-100" iconColor="text-slate-600"  href="/admin/orders" />
-          <KpiCard label="New Customers"   value={authStats?.newToday ?? 0}              sub="Registered today" icon={Users}       iconBg="bg-slate-100" iconColor="text-slate-600"  href="/admin/customers" />
-          <KpiCard label="Pending Returns" value={orderStats?.pendingReturns ?? 0}       sub="Awaiting review"  icon={RotateCcw}   iconBg="bg-amber-50"  iconColor="text-amber-600" href="/admin/returns" />
+          <KpiCard label="Revenue Today" value={fmt2(orderStats?.todayRevenue ?? 0)} sub="Non-cancelled" icon={TrendingUp} iconBg="bg-blue-50" iconColor="text-blue-600" />
+          <KpiCard label="Orders Today" value={orderStats?.ordersToday ?? 0} sub="All statuses" icon={ShoppingBag} iconBg="bg-slate-100" iconColor="text-slate-600" href="/admin/orders" />
+          <KpiCard label="New Customers" value={authStats?.newToday ?? 0} sub="Registered today" icon={Users} iconBg="bg-slate-100" iconColor="text-slate-600" href="/admin/customers" />
+          <KpiCard label="Pending Returns" value={orderStats?.pendingReturns ?? 0} sub="Awaiting review" icon={RotateCcw} iconBg="bg-amber-50" iconColor="text-amber-600" href="/admin/returns" />
         </div>
       </div>
 
@@ -561,10 +567,10 @@ export default function AdminDashboard() {
         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Order Pipeline</p>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[
-            { label: 'Processing', value: orderStats?.processingOrders ?? 0, icon: Clock,        iconBg: 'bg-blue-50',  iconColor: 'text-blue-500',  border: 'border-blue-100' },
-            { label: 'In Transit', value: orderStats?.inTransitOrders ?? 0,  icon: Truck,        iconBg: 'bg-amber-50', iconColor: 'text-amber-500', border: 'border-amber-100' },
-            { label: 'Delivered',  value: orderStats?.deliveredOrders ?? 0,  icon: CheckCircle2, iconBg: 'bg-green-50', iconColor: 'text-green-600', border: 'border-green-100' },
-            { label: 'Cancelled',  value: orderStats?.cancelledOrders ?? 0,  icon: XCircle,      iconBg: 'bg-red-50',   iconColor: 'text-red-400',   border: 'border-red-100' },
+            { label: 'Processing', value: orderStats?.processingOrders ?? 0, icon: Clock, iconBg: 'bg-blue-50', iconColor: 'text-blue-500', border: 'border-blue-100' },
+            { label: 'In Transit', value: orderStats?.inTransitOrders ?? 0, icon: Truck, iconBg: 'bg-amber-50', iconColor: 'text-amber-500', border: 'border-amber-100' },
+            { label: 'Delivered', value: orderStats?.deliveredOrders ?? 0, icon: CheckCircle2, iconBg: 'bg-green-50', iconColor: 'text-green-600', border: 'border-green-100' },
+            { label: 'Cancelled', value: orderStats?.cancelledOrders ?? 0, icon: XCircle, iconBg: 'bg-red-50', iconColor: 'text-red-400', border: 'border-red-100' },
           ].map(({ label, value, icon: Icon, iconBg, iconColor, border }) => (
             <Link key={label} href="/admin/orders"
               className={`bg-white border ${border} rounded-2xl p-4 flex items-center gap-3 hover:shadow-sm transition-all group`}
@@ -644,16 +650,15 @@ export default function AdminDashboard() {
             <div className="flex gap-1.5">
               {([
                 { key: 'overall', label: 'Overall' },
-                { key: 'month',   label: 'Month'   },
-                { key: 'year',    label: 'Year'    },
+                { key: 'month', label: 'Month' },
+                { key: 'year', label: 'Year' },
                 { key: 'compare', label: 'Compare' },
               ] as { key: ViewType; label: string }[]).map(({ key, label }) => (
                 <button key={key} onClick={() => setViewType(key)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide transition-all border ${
-                    viewType === key
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide transition-all border ${viewType === key
                       ? 'bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-100'
                       : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700'
-                  }`}>
+                    }`}>
                   {label}
                 </button>
               ))}
@@ -703,10 +708,10 @@ export default function AdminDashboard() {
 
         {/* Period KPIs */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-          <KpiCard label="Period Revenue"  value={fmt(periodRevenue)}            sub={periodLabel}           icon={TrendingUp}  iconBg="bg-blue-50"   iconColor="text-blue-600"  />
-          <KpiCard label="Period Orders"   value={periodOrders}                   sub={`${delivered} delivered`} icon={ShoppingBag} iconBg="bg-slate-100" iconColor="text-slate-600" />
-          <KpiCard label="Fulfillment"     value={`${fulfillment}%`}              sub="Orders delivered"      icon={CheckCircle2} iconBg="bg-green-50"  iconColor="text-green-600" />
-          <KpiCard label="All Customers"   value={authStats?.totalCustomers ?? 0} sub="Total registered"      icon={Users}        iconBg="bg-slate-100" iconColor="text-slate-600" />
+          <KpiCard label="Period Revenue" value={fmt(periodRevenue)} sub={periodLabel} icon={TrendingUp} iconBg="bg-blue-50" iconColor="text-blue-600" />
+          <KpiCard label="Period Orders" value={periodOrders} sub={`${delivered} delivered`} icon={ShoppingBag} iconBg="bg-slate-100" iconColor="text-slate-600" />
+          <KpiCard label="Fulfillment" value={`${fulfillment}%`} sub="Orders delivered" icon={CheckCircle2} iconBg="bg-green-50" iconColor="text-green-600" />
+          <KpiCard label="All Customers" value={authStats?.totalCustomers ?? 0} sub="Total registered" icon={Users} iconBg="bg-slate-100" iconColor="text-slate-600" />
         </div>
 
         {/* Row 1 — Revenue + Orders */}
@@ -717,23 +722,23 @@ export default function AdminDashboard() {
                 <LineChart data={timeSeries} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                   <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#94a3b8' }} />
-                  <YAxis tickFormatter={v => `₱${v >= 1000 ? (v/1000).toFixed(1)+'k' : v}`} tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                  <YAxis tickFormatter={v => `₱${v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v}`} tick={{ fontSize: 11, fill: '#94a3b8' }} />
                   <Tooltip {...TT} formatter={(v: number, n: string) => [fmt(v), n]} />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Line type="monotone" dataKey={String(year)}        stroke={C_BLUE}  strokeWidth={2.5} dot={{ r: 3, fill: C_BLUE }}  activeDot={{ r: 5 }} />
-                  <Line type="monotone" dataKey={String(compareYear)} stroke={C_SLATE} strokeWidth={2}   dot={{ r: 3, fill: C_SLATE }} activeDot={{ r: 5 }} strokeDasharray="5 4" />
+                  <Line type="monotone" dataKey={String(year)} stroke={C_BLUE} strokeWidth={2.5} dot={{ r: 3, fill: C_BLUE }} activeDot={{ r: 5 }} />
+                  <Line type="monotone" dataKey={String(compareYear)} stroke={C_SLATE} strokeWidth={2} dot={{ r: 3, fill: C_SLATE }} activeDot={{ r: 5 }} strokeDasharray="5 4" />
                 </LineChart>
               ) : (
                 <AreaChart data={timeSeries} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
                   <defs>
                     <linearGradient id="rg" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor={C_BLUE} stopOpacity={0.15} />
+                      <stop offset="5%" stopColor={C_BLUE} stopOpacity={0.15} />
                       <stop offset="95%" stopColor={C_BLUE} stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="label" tick={{ fontSize: viewType==='month' ? 10 : 11, fill: '#94a3b8' }} interval={viewType==='month' ? 4 : 0} />
-                  <YAxis tickFormatter={v => `₱${v >= 1000 ? (v/1000).toFixed(1)+'k' : v}`} tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                  <XAxis dataKey="label" tick={{ fontSize: viewType === 'month' ? 10 : 11, fill: '#94a3b8' }} interval={viewType === 'month' ? 4 : 0} />
+                  <YAxis tickFormatter={v => `₱${v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v}`} tick={{ fontSize: 11, fill: '#94a3b8' }} />
                   <Tooltip {...TT} formatter={(v: number) => [fmt(v), 'Revenue']} />
                   <Area type="monotone" dataKey="revenue" stroke={C_BLUE} strokeWidth={2} fill="url(#rg)" dot={false} activeDot={{ r: 4, fill: C_BLUE }} />
                 </AreaChart>
@@ -750,13 +755,13 @@ export default function AdminDashboard() {
                   <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#94a3b8' }} />
                   <Tooltip {...TT} />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Bar dataKey={String(year)}        fill={C_BLUE}  radius={[4, 4, 0, 0]} />
+                  <Bar dataKey={String(year)} fill={C_BLUE} radius={[4, 4, 0, 0]} />
                   <Bar dataKey={String(compareYear)} fill="#cbd5e1" radius={[4, 4, 0, 0]} />
                 </BarChart>
               ) : (
                 <BarChart data={timeSeries} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="label" tick={{ fontSize: viewType==='month' ? 10 : 11, fill: '#94a3b8' }} interval={viewType==='month' ? 4 : 0} />
+                  <XAxis dataKey="label" tick={{ fontSize: viewType === 'month' ? 10 : 11, fill: '#94a3b8' }} interval={viewType === 'month' ? 4 : 0} />
                   <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#94a3b8' }} />
                   <Tooltip {...TT} formatter={(v: number) => [v, 'Orders']} />
                   <Bar dataKey="orders" fill={C_INDIGO} radius={[4, 4, 0, 0]}>
@@ -777,7 +782,7 @@ export default function AdminDashboard() {
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
                   <Pie data={statusData} cx="50%" cy="50%" innerRadius={50} outerRadius={76} paddingAngle={3} dataKey="value">
-                    {statusData.map((e, i) => <Cell key={i} fill={e.fill} />)}
+                    {statusData.map((e) => <Cell key={e.name} fill={e.fill} />)}
                   </Pie>
                   <Tooltip {...TT} />
                   <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
@@ -791,7 +796,7 @@ export default function AdminDashboard() {
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
                   <Pie data={paymentData} cx="50%" cy="50%" outerRadius={76} paddingAngle={3} dataKey="value">
-                    {paymentData.map((_, i) => <Cell key={i} fill={CHART_PAL[i % CHART_PAL.length]} />)}
+                    {paymentData.map((item) => <Cell key={item.name} fill={CHART_PAL[paymentData.indexOf(item) % CHART_PAL.length]} />)}
                   </Pie>
                   <Tooltip {...TT} />
                   <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
@@ -829,8 +834,8 @@ export default function AdminDashboard() {
                   <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: '#64748b' }} width={115} />
                   <Tooltip {...TT} formatter={(v: number) => [v, 'Units']} />
                   <Bar dataKey="qty" radius={[0, 5, 5, 0]}>
-                    {topProducts.map((_, i) => (
-                      <Cell key={i} fill={i === 0 ? C_GREEN : i < 3 ? '#22c55e99' : '#86efac'} />
+                    {topProducts.map((product, i) => (
+                      <Cell key={product.name} fill={i === 0 ? C_GREEN : i < 3 ? '#22c55e99' : '#86efac'} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -843,11 +848,11 @@ export default function AdminDashboard() {
               <ResponsiveContainer width="100%" height={230}>
                 <BarChart data={categoryData} layout="vertical" margin={{ top: 4, right: 20, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
-                  <XAxis type="number" tickFormatter={v => `₱${v >= 1000 ? (v/1000).toFixed(1)+'k' : v}`} tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                  <XAxis type="number" tickFormatter={v => `₱${v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v}`} tick={{ fontSize: 11, fill: '#94a3b8' }} />
                   <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: '#64748b' }} width={90} />
                   <Tooltip {...TT} formatter={(v: number) => [fmt(v), 'Revenue']} />
                   <Bar dataKey="value" radius={[0, 5, 5, 0]}>
-                    {categoryData.map((_, i) => <Cell key={i} fill={CHART_PAL[i % CHART_PAL.length]} />)}
+                    {categoryData.map((item) => <Cell key={item.name} fill={CHART_PAL[categoryData.indexOf(item) % CHART_PAL.length]} />)}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -856,12 +861,12 @@ export default function AdminDashboard() {
         </div>
 
         <div className="grid items-start lg:grid-cols-[minmax(0,1.5fr)_minmax(280px,0.9fr)] gap-4 mb-4">
-          <ChartCard title={`Products Bought Together — ${periodLabel}`}>
+          <ChartCard title={`Top ${Math.min(6, basketAnalysis.rows.length)} Products Bought Together — ${periodLabel}`}>
             {basketAnalysis.rows.length === 0 ? <EmptyChart label="Not enough data yet. Need more orders with 2+ different products." /> : (
               <>
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <p className="text-xs text-slate-400">
-                    How many times each product pair was purchased in the same order — from {basketAnalysis.eligibleOrders.toLocaleString()} orders.
+                    Showing the top {Math.min(6, basketAnalysis.rows.length)} strongest product relationships bought together in the same order — from {basketAnalysis.eligibleOrders.toLocaleString()} orders.
                   </p>
                   {topBasketPair && (
                     <span className="shrink-0 rounded-full bg-green-50 px-2.5 py-1 text-[10px] font-bold text-green-700">
@@ -869,7 +874,7 @@ export default function AdminDashboard() {
                     </span>
                   )}
                 </div>
-                <ResponsiveContainer width="100%" height={Math.max(120, basketAnalysis.rows.slice(0,6).length * 52)}>
+                <ResponsiveContainer width="100%" height={Math.max(120, basketAnalysis.rows.slice(0, 6).length * 52)}>
                   <BarChart data={basketAnalysis.rows.slice(0, 6)} layout="vertical" margin={{ top: 4, right: 40, left: 10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
                     <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: '#94a3b8' }} label={{ value: 'Times bought together', position: 'insideBottomRight', offset: -4, fontSize: 10, fill: '#94a3b8' }} />
@@ -884,8 +889,8 @@ export default function AdminDashboard() {
                       }}
                     />
                     <Bar dataKey="count" barSize={28} radius={[0, 6, 6, 0]}>
-                      {basketAnalysis.rows.slice(0,6).map((_, i) => (
-                        <Cell key={i} fill={i === 0 ? C_BLUE : i < 3 ? '#60a5fa' : '#bfdbfe'} />
+                      {basketAnalysis.rows.slice(0, 6).map((row, i) => (
+                        <Cell key={`basket-${row.pair}`} fill={i === 0 ? C_BLUE : i < 3 ? '#60a5fa' : '#bfdbfe'} />
                       ))}
                     </Bar>
                   </BarChart>
@@ -894,13 +899,13 @@ export default function AdminDashboard() {
             )}
           </ChartCard>
 
-          <ChartCard title="Product Pairing Insights">
+          <ChartCard title={`Top ${Math.min(6, basketAnalysis.rows.length)} Product Pairing Insights`}>
             {basketAnalysis.rows.length === 0 ? <EmptyChart label="No strong product pairings found yet" /> : (
               <div className="max-h-[340px] space-y-3 overflow-y-auto pr-1 pt-1">
                 {basketAnalysis.rows.slice(0, 6).map((row, i) => {
                   const strength = row.lift >= 3 ? { label: 'Very Strong', color: 'bg-green-500' }
-                                 : row.lift >= 2 ? { label: 'Strong',      color: 'bg-blue-500'  }
-                                 :                 { label: 'Moderate',    color: 'bg-amber-400' };
+                    : row.lift >= 2 ? { label: 'Strong', color: 'bg-blue-500' }
+                      : { label: 'Moderate', color: 'bg-amber-400' };
                   return (
                     <div key={`${row.left}-${row.right}-${i}`} className="rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
                       {/* Product names */}
@@ -946,12 +951,12 @@ export default function AdminDashboard() {
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
                   <Pie data={returnStatusData} cx="50%" cy="50%" innerRadius={50} outerRadius={76} paddingAngle={3} dataKey="value">
-                    {returnStatusData.map((e, i) => (
-                      <Cell key={i} fill={
-                        e.name === 'pending'   ? C_AMBER :
-                        e.name === 'reviewing' ? C_BLUE  :
-                        e.name === 'approved'  ? C_GREEN :
-                        e.name === 'rejected'  ? C_RED   : '#94a3b8'
+                    {returnStatusData.map((e) => (
+                      <Cell key={e.name} fill={
+                        e.name === 'pending' ? C_AMBER :
+                          e.name === 'reviewing' ? C_BLUE :
+                            e.name === 'approved' ? C_GREEN :
+                              e.name === 'rejected' ? C_RED : '#94a3b8'
                       } />
                     ))}
                   </Pie>
@@ -994,17 +999,17 @@ export default function AdminDashboard() {
                 {views.slice(0, 6).map((row, i) => {
                   const name = productNames[String(row.product_id)] ?? `Product #${row.product_id}`;
                   return (
-                  <div key={row.product_id} className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-slate-300 w-4 shrink-0">{i + 1}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-slate-700 truncate">{name}</p>
-                      <p className="text-[9px] text-slate-400">{row.category}</p>
+                    <div key={row.product_id} className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold text-slate-300 w-4 shrink-0">{i + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-slate-700 truncate">{name}</p>
+                        <p className="text-[9px] text-slate-400">{row.category}</p>
+                      </div>
+                      <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden shrink-0">
+                        <div className="h-full rounded-full" style={{ width: `${Math.round((row.total_views / views[0].total_views) * 100)}%`, background: C_INDIGO, opacity: 0.7 }} />
+                      </div>
+                      <span className="text-xs font-bold text-slate-500 shrink-0 w-5 text-right">{row.total_views}</span>
                     </div>
-                    <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden shrink-0">
-                      <div className="h-full rounded-full" style={{ width: `${Math.round((row.total_views / views[0].total_views) * 100)}%`, background: C_INDIGO, opacity: 0.7 }} />
-                    </div>
-                    <span className="text-xs font-bold text-slate-500 shrink-0 w-5 text-right">{row.total_views}</span>
-                  </div>
                   );
                 })}
               </div>

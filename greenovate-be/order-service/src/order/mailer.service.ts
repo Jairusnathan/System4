@@ -156,10 +156,16 @@ export class MailerService {
         this.logger.log(`[APICenter] Email sent → ${opts.to} | "${opts.subject}"`);
         return;
       } catch (err) {
-        this.logger.warn(
-          `[APICenter] Email failed for ${opts.to}, falling back to SMTP: ${err instanceof Error ? err.message : JSON.stringify(err)}`,
+        this.logger.error(
+          `[APICenter] Email FAILED for ${opts.to} — falling back to SMTP. Error: ${err instanceof Error ? err.message : JSON.stringify(err)}`,
         );
       }
+    } else {
+      this.logger.warn(`[MailerService] APICenter client not ready — sending via SMTP for ${opts.to}`);
+    }
+
+    if (!this.getSmtpEnv('OOS_ORDER_SMTP_HOST') || !this.getSmtpEnv('OOS_ORDER_SMTP_USER') || !this.getSmtpEnv('OOS_ORDER_SMTP_PASS')) {
+      throw new Error('No email channel available: APICenter is not ready and SMTP is not configured.');
     }
 
     const transporter = this.getSmtpTransporter();

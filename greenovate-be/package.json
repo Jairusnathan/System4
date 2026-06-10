@@ -11,7 +11,10 @@
     "start:dev": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/start-core-services.ps1",
     "start:core": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/start-core-services.ps1",
     "start:prod": "cd api-gateway && npm run start:prod",
-    "start:gateway": "cd api-gateway && npm run start:prod"
+    "start:gateway": "cd api-gateway && npm run start:prod",
+    "backfill": "npx ts-node --skip-project scripts/kafka-backfill.ts",
+    "populate": "npx ts-node --skip-project scripts/populate-test-data.ts",
+    "check-schema": "npx ts-node --skip-project scripts/check-schema.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

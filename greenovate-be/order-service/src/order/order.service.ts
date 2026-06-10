@@ -86,6 +86,18 @@ export class OrderService {
     }
     const { error: updateError } = await db.from('online_orders').update(updateData).eq('id', order.id);
     if (updateError) return { success: false, error: 'Failed to update order status' };
+    void this.apiCenterService.kafkaPublish(
+      this.apiCenterService.buildTopic('orders'),
+      'fulfillment_status_changed',
+      {
+        order_id: order.id,
+        receipt_number: receiptNumber,
+        previous_status: previousStatus,
+        new_status: newStatus,
+        cancellation_reason: reason ?? null,
+      },
+      order.id,
+    );
     return { success: true, receiptNumber, previousStatus, newStatus };
   }
 
@@ -175,6 +187,21 @@ export class OrderService {
 
     if (insertError) return { success: false, error: 'Failed to submit return request' };
 
+    void this.apiCenterService.kafkaPublish(
+      this.apiCenterService.buildTopic('returns'),
+      'return_request_created',
+      {
+        order_id: order.id,
+        customer_id: userId,
+        receipt_number: receiptNumber,
+        reason,
+        description: description?.trim() ?? null,
+        items,
+        status: 'pending',
+      },
+      order.id,
+    );
+
     // Send confirmation email — fire and forget
     if (this.mailerService.isConfigured() && customerEmail) {
       void (async () => {
@@ -221,6 +248,21 @@ export class OrderService {
     if (updateError) return { success: false, error: 'Failed to cancel order' };
 
     const items = (order.online_order_items ?? []) as any[];
+
+    void this.apiCenterService.kafkaPublish(
+      this.apiCenterService.buildTopic('orders'),
+      'order_cancelled',
+      {
+        order_id: order.id,
+        receipt_number: order.receipt_number,
+        customer_id: userId,
+        cancellation_reason: cancellationReason,
+        cancelled_at: cancelledAt,
+        total: Number(order.total),
+        items: items.map((i: any) => ({ product_id: i.product_id, name: i.product_name, quantity: Number(i.quantity), unit_price: Number(i.unit_price) })),
+      },
+      order.id,
+    );
 
     // 2. Update transaction status to cancelled — fire and forget
     if (order.transaction_id) {
@@ -316,18 +358,7 @@ export class OrderService {
 
     try {
       const db = this.supabaseService.supabaseAdmin;
-      const { data: receiptRows, error: receiptError } = await db.rpc('issue_next_receipt_number', {});
-      if (receiptError) throw receiptError;
-      const raw = Array.isArray(receiptRows) ? receiptRows[0] : receiptRows;
-      let receiptId: number, receiptNumber: string;
-      if (raw && typeof raw === 'object') {
-        receiptId = Number((raw as any).receipt_id ?? (raw as any).id ?? 0);
-        receiptNumber = String((raw as any).receipt_number ?? (raw as any).number ?? '');
-      } else {
-        receiptNumber = String(raw ?? '');
-        const { data: insertedReceipt, error: insertReceiptError } = await db.from('receipts').insert({ receipt_number: receiptNumber, issued_at: new Date().toISOString() }).select('receipt_id').single();
-        receiptId = insertReceiptError ? Number((await db.from('receipts').select('receipt_id').eq('receipt_number', receiptNumber).single()).data?.receipt_id ?? 0) : Number(insertedReceipt?.receipt_id ?? 0);
-      }
+      const { receiptId, receiptNumber } = await this.generateNextReceiptNumber(db);
       if (!receiptId || !receiptNumber) return { error: 'Invalid receipt response from database', status: 500 };
 
       const discountAmount = promoResult?.valid ? promoResult.discountAmount : 0;
@@ -342,6 +373,28 @@ export class OrderService {
       if (onlineOrderError || !insertedOnlineOrder) throw onlineOrderError;
 
       await db.from('online_order_items').insert(normalizedItems.map((item) => ({ online_order_id: insertedOnlineOrder.id, product_id: item.id, product_name: item.name, category: item.category, unit_price: item.price, quantity: item.quantity, line_total: Number((item.price * item.quantity).toFixed(2)) })));
+
+      void this.apiCenterService.kafkaPublish(
+        this.apiCenterService.buildTopic('orders'),
+        'order_placed',
+        {
+          order_id: insertedOnlineOrder.id,
+          order_number: orderNumber,
+          receipt_number: receiptNumber,
+          customer_id: userId,
+          branch_id: branchId,
+          items: normalizedItems.map((i) => ({ product_id: i.id, name: i.name, category: i.category, unit_price: i.price, quantity: i.quantity, line_total: Number((i.price * i.quantity).toFixed(2)) })),
+          subtotal,
+          delivery_fee: Number(deliveryFee.toFixed(2)),
+          discount_amount: Number(discountAmount.toFixed(2)),
+          total: totalAmount,
+          promo_code: promoResult?.valid ? promoResult.promo.code : null,
+          payment_method: paymentMethod,
+          delivery_method: deliveryMethod,
+          shipping_address: shippingAddress,
+        },
+        insertedOnlineOrder.id,
+      );
 
       if (promoResult?.valid) { try { await this.redeemPromoCode(promoResult.promo.id); } catch (error) { console.error('Promo redeem warning:', error); } }
       try { await this.clearCart(userId); } catch (error) { console.error('Cart clear warning:', error); }
@@ -436,45 +489,84 @@ export class OrderService {
     const promoResult = promoCode ? await this.validatePromoCode(promoCode, subtotal) : null;
     if (promoCode && (!promoResult || !promoResult.valid)) return { error: (promoResult as any)?.message || 'Invalid promo code.', status: 400 };
 
+    // Auto-cancel any stuck pending payment session for this user before starting a new one.
+    // This prevents the transactions_receipt_id_key duplicate constraint when a user retries payment.
+    try {
+      const db = this.supabaseService.supabaseAdmin;
+      const { data: pendingOrders } = await db
+        .from('online_orders')
+        .select('id, transaction_id, online_order_items(product_id, quantity)')
+        .eq('customer_id', userId)
+        .eq('payment_status', 'pending')
+        .order('created_at', { ascending: false });
+
+      if (pendingOrders && pendingOrders.length > 0) {
+        this.logger.log(`[payment/initiate] cancelling ${pendingOrders.length} stale pending order(s) for user ${userId}`);
+        for (const pending of pendingOrders) {
+          await db.from('online_orders').update({
+            payment_status: 'failed',
+            fulfillment_status: 'Cancelled',
+            cancellation_reason: 'Superseded by new payment session',
+            cancelled_at: new Date().toISOString(),
+          }).eq('id', pending.id);
+          if (pending.transaction_id) {
+            // Await and clear receipt_id so the unique slot is freed for the new transaction
+            await db.from('transactions').update({ status: 'cancelled', receipt_id: null }).eq('id', pending.transaction_id);
+          }
+          const staleItems = ((pending.online_order_items ?? []) as any[])
+            .map((i: any) => ({ id: String(i.product_id), quantity: Number(i.quantity) }));
+          if (staleItems.length > 0) {
+            void this.releaseStock(staleItems).catch(() => {});
+          }
+        }
+      }
+    } catch (err) {
+      this.logger.warn(`[payment/initiate] failed to cancel stale pending orders: ${err instanceof Error ? err.message : JSON.stringify(err)}`);
+    }
+
     this.logger.log(`[payment/initiate] committing stock for ${normalizedItems.length} items, subtotal=${subtotal}`);
     await this.commitStock(normalizedItems);
 
     try {
       const db = this.supabaseService.supabaseAdmin;
-      this.logger.log(`[payment/initiate] issuing receipt number`);
-      const { data: receiptRows, error: receiptError } = await db.rpc('issue_next_receipt_number', {});
-      if (receiptError) { this.logger.error(`[payment/initiate] receipt error: ${JSON.stringify(receiptError)}`); throw new Error((receiptError as any).message ?? JSON.stringify(receiptError)); }
-      const raw = Array.isArray(receiptRows) ? receiptRows[0] : receiptRows;
-      let receiptId: number, receiptNumber: string;
-      if (raw && typeof raw === 'object') {
-        receiptId = Number((raw as any).receipt_id ?? (raw as any).id ?? 0);
-        receiptNumber = String((raw as any).receipt_number ?? (raw as any).number ?? '');
-      } else {
-        receiptNumber = String(raw ?? '');
-        const { data: insertedReceipt, error: insertReceiptError } = await db.from('receipts').insert({ receipt_number: receiptNumber, issued_at: new Date().toISOString() }).select('receipt_id').single();
-        receiptId = insertReceiptError
-          ? Number((await db.from('receipts').select('receipt_id').eq('receipt_number', receiptNumber).single()).data?.receipt_id ?? 0)
-          : Number(insertedReceipt?.receipt_id ?? 0);
-      }
+      this.logger.log(`[payment/initiate] generating receipt number`);
+      let { receiptId, receiptNumber } = await this.generateNextReceiptNumber(db);
       if (!receiptId || !receiptNumber) return { error: 'Invalid receipt response from database', status: 500 };
 
       const discountAmount = promoResult?.valid ? promoResult.discountAmount : 0;
       const totalAmount = Number(Math.max(0, subtotal + deliveryFee - discountAmount).toFixed(2));
 
       this.logger.log(`[payment/initiate] creating transaction, total=${totalAmount}`);
-      const { data: insertedTransaction, error: transactionError } = await db.from('transactions').insert([{
-        status: 'pending',
-        subtotal,
-        total_amount: totalAmount,
-        payment_method: this.normalizePaymentMethod(paymentMethod),
-        vat,
-        items_count: normalizedItems.reduce((sum, item) => sum + item.quantity, 0),
-        discount_type: promoResult?.valid ? promoResult.promo.discount_type : 'None',
-        discount_amount: discountAmount,
-        receipt_id: receiptId,
-        cashier_name: 'Ecommerce',
-      }]).select('*').single();
-      if (transactionError || !insertedTransaction) throw new Error((transactionError as any)?.message ?? 'Failed to create transaction');
+      let insertedTransaction: any = null;
+      for (let txAttempt = 0; txAttempt < 3; txAttempt++) {
+        if (txAttempt > 0) {
+          this.logger.warn(`[payment/initiate] duplicate receipt_id ${receiptId} on attempt ${txAttempt}, issuing new receipt`);
+          const retryReceipt = await this.generateNextReceiptNumber(db);
+          receiptId = retryReceipt.receiptId;
+          receiptNumber = retryReceipt.receiptNumber;
+          if (!receiptId || !receiptNumber) throw new Error('Invalid receipt response from database on retry');
+        }
+        const { data: tx, error: txErr } = await db.from('transactions').insert([{
+          status: 'pending',
+          subtotal,
+          total_amount: totalAmount,
+          payment_method: this.normalizePaymentMethod(paymentMethod),
+          vat,
+          items_count: normalizedItems.reduce((sum, item) => sum + item.quantity, 0),
+          discount_type: promoResult?.valid ? promoResult.promo.discount_type : 'None',
+          discount_amount: discountAmount,
+          receipt_id: receiptId,
+          cashier_name: 'Ecommerce',
+        }]).select('*').single();
+        if (txErr) {
+          const isDuplicateReceipt = (txErr as any)?.code === '23505' && String((txErr as any)?.message ?? '').includes('transactions_receipt_id_key');
+          if (isDuplicateReceipt && txAttempt < 2) continue;
+          throw new Error((txErr as any)?.message ?? 'Failed to create transaction');
+        }
+        insertedTransaction = tx;
+        break;
+      }
+      if (!insertedTransaction) throw new Error('Failed to create a unique transaction after retries');
 
       const txNo = String(insertedTransaction.tx_no ?? receiptId);
       const orderNumber = `TXN-${txNo}`;
@@ -619,27 +711,55 @@ export class OrderService {
       await db.from('transactions').update({ status: 'paid', paid_at: now }).eq('id', order.transaction_id);
     }
 
+    void this.apiCenterService.kafkaPublish(
+      this.apiCenterService.buildTopic('orders'),
+      'payment_status_changed',
+      {
+        order_id: order.id,
+        receipt_number: order.receipt_number,
+        order_number: order.order_number,
+        customer_id: order.customer_id,
+        payment_status: 'paid',
+        fulfillment_status: 'Processing',
+        total: Number(order.total),
+        payment_method: order.payment_method,
+        paid_at: now,
+      },
+      order.id,
+    );
+
     void (async () => {
       try { await this.clearCart(order.customer_id); } catch {}
     })();
 
     void (async () => {
       try {
-        const email = typeof (order as any).customer_email === 'string' ? (order as any).customer_email : undefined;
-        if (email && this.mailerService.isConfigured()) {
-          const { data: items } = await db.from('online_order_items').select('product_name, quantity, unit_price').eq('online_order_id', order.id);
-          await this.mailerService.sendOrderConfirmationEmail(email, email.split('@')[0] || 'Customer', {
-            receiptNumber: order.receipt_number,
-            items: ((items ?? []) as any[]).map((i) => ({ name: i.product_name, quantity: Number(i.quantity), price: Number(i.unit_price) })),
-            subtotal: Number(order.total ?? 0),
-            deliveryFee: 0,
-            discountAmount: 0,
-            total: Number(order.total ?? 0),
-            paymentMethod: order.payment_method,
-            shippingAddress: order.shipping_address,
-          });
+        if (!this.mailerService.isConfigured()) {
+          this.logger.warn('[order-service] Mailer not configured — skipping order confirmation email');
+          return;
         }
-      } catch {}
+        const { data: userData } = await db.auth.admin.getUserById(order.customer_id);
+        const email = userData?.user?.email;
+        if (!email) {
+          this.logger.warn(`[order-service] No email found for customer ${order.customer_id} — skipping confirmation email`);
+          return;
+        }
+        const { data: items } = await db.from('online_order_items').select('product_name, quantity, unit_price').eq('online_order_id', order.id);
+        const { data: fullOrder } = await db.from('online_orders').select('subtotal, delivery_fee, discount_amount').eq('id', order.id).single();
+        await this.mailerService.sendOrderConfirmationEmail(email, email.split('@')[0] || 'Customer', {
+          receiptNumber: order.receipt_number,
+          items: ((items ?? []) as any[]).map((i) => ({ name: i.product_name, quantity: Number(i.quantity), price: Number(i.unit_price) })),
+          subtotal: Number((fullOrder as any)?.subtotal ?? order.total ?? 0),
+          deliveryFee: Number((fullOrder as any)?.delivery_fee ?? 0),
+          discountAmount: Number((fullOrder as any)?.discount_amount ?? 0),
+          total: Number(order.total ?? 0),
+          paymentMethod: order.payment_method,
+          shippingAddress: order.shipping_address,
+        });
+        this.logger.log(`[order-service] Order confirmation email sent to ${email} for receipt ${order.receipt_number}`);
+      } catch (err) {
+        this.logger.error(`[order-service] Failed to send order confirmation email for receipt ${order.receipt_number}: ${err instanceof Error ? err.message : JSON.stringify(err)}`);
+      }
     })();
 
     return {
@@ -666,7 +786,7 @@ export class OrderService {
     if (order.payment_status !== 'pending') return { success: false, error: 'Order is not awaiting payment' };
 
     const now = new Date().toISOString();
-    await db.from('online_orders').update({ fulfillment_status: 'Cancelled', payment_status: 'cancelled', cancellation_reason: 'Payment cancelled by customer', cancelled_at: now }).eq('id', order.id);
+    await db.from('online_orders').update({ fulfillment_status: 'Cancelled', payment_status: 'failed', cancellation_reason: 'Payment cancelled by customer', cancelled_at: now }).eq('id', order.id);
     if (order.transaction_id) {
       void db.from('transactions').update({ status: 'cancelled' }).eq('id', order.transaction_id);
     }
@@ -693,5 +813,68 @@ export class OrderService {
     if (normalized === 'credit / debit card' || normalized === 'credit/debit card' || normalized === 'card') return 'card';
     if (normalized === 'gcash' || normalized === 'maya' || normalized === 'mobile payment') return 'mobile';
     return normalized || 'cash';
+  }
+
+  private async generateNextReceiptNumber(db: any): Promise<{ receiptId: number; receiptNumber: string }> {
+    try {
+      const { data, error } = await db
+        .from('receipts')
+        .select('receipt_number')
+        .like('receipt_number', '00000%')
+        .order('receipt_number', { ascending: false })
+        .limit(1);
+
+      let nextNum = 19206; // Safe default increment from the highest seed receipt 19205
+      if (!error && data && data.length > 0) {
+        const lastNumStr = data[0].receipt_number;
+        const lastNum = parseInt(lastNumStr, 10);
+        if (!isNaN(lastNum)) {
+          nextNum = lastNum + 1;
+        }
+      }
+
+      const receiptNumber = String(nextNum).padStart(10, '0');
+
+      const { data: insertedReceipt, error: insertError } = await db
+        .from('receipts')
+        .insert({ receipt_number: receiptNumber, issued_at: new Date().toISOString() })
+        .select('receipt_id')
+        .single();
+
+      if (insertError) {
+        const { data: existing } = await db
+          .from('receipts')
+          .select('receipt_id')
+          .eq('receipt_number', receiptNumber)
+          .single();
+        if (existing?.receipt_id) {
+          return { receiptId: Number(existing.receipt_id), receiptNumber };
+        }
+        throw insertError;
+      }
+
+      return { receiptId: Number(insertedReceipt.receipt_id), receiptNumber };
+    } catch (err) {
+      this.logger.error(`Error in generateNextReceiptNumber: ${err instanceof Error ? err.message : JSON.stringify(err)}`);
+      // Fallback to original RPC if anything fails
+      const { data: receiptRows } = await db.rpc('issue_next_receipt_number', {});
+      const raw = Array.isArray(receiptRows) ? receiptRows[0] : receiptRows;
+      if (raw && typeof raw === 'object') {
+        return {
+          receiptId: Number((raw as any).receipt_id ?? (raw as any).id ?? 0),
+          receiptNumber: String((raw as any).receipt_number ?? (raw as any).number ?? ''),
+        };
+      }
+      const receiptNumber = String(raw ?? '');
+      const { data: insertedReceipt } = await db
+        .from('receipts')
+        .insert({ receipt_number: receiptNumber, issued_at: new Date().toISOString() })
+        .select('receipt_id')
+        .single();
+      return {
+        receiptId: Number(insertedReceipt?.receipt_id ?? 0),
+        receiptNumber,
+      };
+    }
   }
 }

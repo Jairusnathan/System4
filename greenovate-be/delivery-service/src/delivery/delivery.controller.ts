@@ -1,4 +1,4 @@
-﻿import { BadRequestException, Body, Controller, HttpException, InternalServerErrorException, NotFoundException, Post } from '@nestjs/common';
+import { BadRequestException, Body, Controller, HttpException, InternalServerErrorException, NotFoundException, Post } from '@nestjs/common';
 import { DeliveryService } from './delivery.service';
 
 @Controller('delivery')
@@ -29,5 +29,14 @@ export class DeliveryController {
       if ('error' in estimate) throw new HttpException({ error: estimate.error }, Number(estimate.status ?? 400));
       return { estimate };
     } catch (error) { if (error instanceof BadRequestException || error instanceof HttpException || error instanceof NotFoundException) throw error; throw new InternalServerErrorException(); }
+  }
+
+  @Post('place-details')
+  async placeDetails(@Body() body: any) {
+    try {
+      const place = await this.deliveryService.getPlaceDetails(body);
+      if (!place) throw new NotFoundException('Place details not found.');
+      return { place };
+    } catch (error) { if (error instanceof NotFoundException) throw error; throw new InternalServerErrorException(); }
   }
 }

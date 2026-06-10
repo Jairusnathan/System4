@@ -193,6 +193,7 @@ export default function AdminOrdersPage() {
   const [updating, setUpdating] = useState<string | null>(null);
   const undo = useUndoQueue();
   const [cancelModal, setCancelModal] = useState<{ receiptNumber: string; newStatus: string } | null>(null);
+  const [statusCounts, setStatusCounts] = useState({ Processing: 0, 'In Transit': 0, Delivered: 0, Cancelled: 0 });
   const LIMIT = 20;
 
   const fetchOrders = useCallback(async () => {
@@ -217,6 +218,20 @@ export default function AdminOrdersPage() {
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
+
+  useEffect(() => {
+    const token = getAccessToken();
+    if (!token) return;
+    fetch('/api/admin/stats', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(data => setStatusCounts({
+        Processing: data?.processingOrders ?? 0,
+        'In Transit': data?.inTransitOrders ?? 0,
+        Delivered: data?.deliveredOrders ?? 0,
+        Cancelled: data?.cancelledOrders ?? 0,
+      }))
+      .catch(() => {});
+  }, []);
 
   const updateStatus = async (receiptNumber: string, newStatus: string, reason?: string) => {
     const token = getAccessToken();
@@ -269,10 +284,6 @@ export default function AdminOrdersPage() {
   };
 
   const totalPages = Math.ceil(total / LIMIT);
-  const counts = orders.reduce<Record<string, number>>((acc, order) => {
-    acc[order.status] = (acc[order.status] ?? 0) + 1;
-    return acc;
-  }, {});
 
   return (
     <div className="space-y-5">
@@ -293,7 +304,7 @@ export default function AdminOrdersPage() {
         <div className={`rounded-2xl p-4 shadow-sm ${summaryCardClass('Processing')}`}>
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] opacity-70">Processing</p>
           <div className="mt-3 flex items-center justify-between">
-            <p className="text-3xl font-black">{counts.Processing ?? 0}</p>
+            <p className="text-3xl font-black">{statusCounts.Processing}</p>
             <Package className="h-5 w-5 opacity-70" />
           </div>
         </div>
@@ -301,7 +312,7 @@ export default function AdminOrdersPage() {
         <div className={`rounded-2xl p-4 shadow-sm ${summaryCardClass('In Transit')}`}>
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] opacity-70">In Transit</p>
           <div className="mt-3 flex items-center justify-between">
-            <p className="text-3xl font-black">{counts['In Transit'] ?? 0}</p>
+            <p className="text-3xl font-black">{statusCounts['In Transit']}</p>
             <Truck className="h-5 w-5 opacity-70" />
           </div>
         </div>
@@ -310,14 +321,14 @@ export default function AdminOrdersPage() {
           <div className={`rounded-2xl p-4 shadow-sm ${summaryCardClass('Delivered')}`}>
             <p className="text-[11px] font-bold uppercase tracking-[0.18em] opacity-70">Delivered</p>
             <div className="mt-3 flex items-center justify-between">
-              <p className="text-2xl font-black">{counts.Delivered ?? 0}</p>
+              <p className="text-2xl font-black">{statusCounts.Delivered}</p>
               <CheckCircle2 className="h-5 w-5 opacity-70" />
             </div>
           </div>
           <div className={`rounded-2xl p-4 shadow-sm ${summaryCardClass('Cancelled')}`}>
             <p className="text-[11px] font-bold uppercase tracking-[0.18em] opacity-70">Cancelled</p>
             <div className="mt-3 flex items-center justify-between">
-              <p className="text-2xl font-black">{counts.Cancelled ?? 0}</p>
+              <p className="text-2xl font-black">{statusCounts.Cancelled}</p>
               <XCircle className="h-5 w-5 opacity-70" />
             </div>
           </div>

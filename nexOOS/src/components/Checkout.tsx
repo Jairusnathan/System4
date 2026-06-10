@@ -221,6 +221,80 @@ export default function Checkout() {
   const [isCityPickerOpen, setIsCityPickerOpen] = useState(false);
   const [checkoutAddressError, setCheckoutAddressError] = useState('');
 
+  const [addressSuggestions, setAddressSuggestions] = useState<any[]>([]);
+  const [showAddressSuggestions, setShowAddressSuggestions] = useState(false);
+  const [isSearchingAddress, setIsSearchingAddress] = useState(false);
+
+  const handleStreetAddressChange = async (val: string) => {
+    setCheckoutAddressForm((prev) => ({
+      ...prev,
+      streetAddress: val,
+      formattedAddress: '',
+      placeId: '',
+      latitude: undefined,
+      longitude: undefined,
+    }));
+
+    const trimmed = val.trim();
+    if (trimmed.length < 3) {
+      setAddressSuggestions([]);
+      setShowAddressSuggestions(false);
+      return;
+    }
+
+    setIsSearchingAddress(true);
+    try {
+      const res = await fetch(buildApiUrl('/api/delivery/autocomplete'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ input: trimmed }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAddressSuggestions(data.suggestions || []);
+        setShowAddressSuggestions(true);
+      }
+    } catch (err) {
+      console.error('Failed to autocomplete address', err);
+    } finally {
+      setIsSearchingAddress(false);
+    }
+  };
+
+  const handleSelectSuggestion = async (suggestion: any) => {
+    setShowAddressSuggestions(false);
+    const displayAddress = suggestion.description || suggestion.formattedAddress || suggestion;
+    setCheckoutAddressForm((prev) => ({
+      ...prev,
+      streetAddress: displayAddress,
+      placeId: suggestion.placeId || '',
+    }));
+
+    if (!suggestion.placeId) return;
+
+    try {
+      const res = await fetch(buildApiUrl('/api/delivery/place-details'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ placeId: suggestion.placeId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const place = data.place;
+        if (place && typeof place.latitude === 'number') {
+          setCheckoutAddressForm((prev) => ({
+            ...prev,
+            formattedAddress: place.formattedAddress || displayAddress,
+            latitude: place.latitude,
+            longitude: place.longitude,
+          }));
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch place details', err);
+    }
+  };
+
   useBodyScrollLock(isAddressPickerOpen);
 
   const savedAddresses = checkoutAddresses;
@@ -328,11 +402,9 @@ export default function Checkout() {
     setShippingError('');
   };
 
-  // Fetch suggestions: try co-purchase recommendations for ALL cart items first,
-  // then fall back to all unique categories across the cart
   React.useEffect(() => {
     if (cart.length === 0) return;
-    const cartIds = new Set(cart.map((i) => i.id));
+    const cartIds = new Set(cart.map((i) => String(i.id)));
 
     const fetchAll = async () => {
       // Fetch recommendations for every cart item in parallel
@@ -350,8 +422,9 @@ export default function Checkout() {
       for (const payload of results) {
         const recs = (payload?.data ?? []) as import('../types').Product[];
         for (const p of recs) {
-          if (!cartIds.has(p.id) && !seen.has(p.id)) {
-            seen.add(p.id);
+          const idStr = String(p.id);
+          if (!cartIds.has(idStr) && !seen.has(idStr)) {
+            seen.add(idStr);
             merged.push(p);
           }
         }
@@ -388,15 +461,16 @@ export default function Checkout() {
         }
         const seenFallback = new Set<string>();
         const dedupedFallback = allFallback.filter((p) => {
-          if (cartIds.has(p.id) || seenFallback.has(p.id)) return false;
-          seenFallback.add(p.id);
+          const idStr = String(p.id);
+          if (cartIds.has(idStr) || seenFallback.has(idStr)) return false;
+          seenFallback.add(idStr);
           return true;
         });
         setSuggestions(dedupedFallback);
         return;
       }
 
-      setSuggestions(fallbackRecs.filter((p) => !cartIds.has(p.id)));
+      setSuggestions(fallbackRecs.filter((p) => !cartIds.has(String(p.id))));
     };
 
     fetchAll().catch(() => {});
@@ -705,12 +779,17 @@ export default function Checkout() {
       setView('success');
     } catch (error) {
       console.error('Place order failed:', error);
-      const message = error instanceof Error ? error.message : 'Failed to place order.';
+      // Regenerate key so the next manual retry is treated as a fresh request
+      idempotencyKeyRef.current = crypto.randomUUID();
+      let message = error instanceof Error ? error.message : 'Failed to place order.';
       if (message === 'Unauthorized' || message === 'Invalid or expired token') {
         alert('Your session has expired. Please log in again.');
         logout();
         setView('login');
       } else {
+        if (message.includes('duplicate key') || message.includes('transactions_receipt_id_key')) {
+          message = 'A previous payment session is still active. Please try again.';
+        }
         alert(message);
       }
     } finally {
@@ -1343,24 +1422,43 @@ export default function Checkout() {
 
                               <div className="relative mb-8 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 pt-6 pb-3 shadow-sm shadow-slate-100/70 transition-colors focus-within:border-blue-400 focus-within:bg-white focus-within:shadow-blue-100">
                                 <label htmlFor="checkout-address-street" className="absolute -top-2 left-4 bg-white px-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Street Name, Building, House No.</label>
-                                <textarea
-                                  id="checkout-address-street"
-                                  rows={4}
-                                  value={checkoutAddressForm.streetAddress}
-                                  onChange={(e) =>
-                                    setCheckoutAddressForm((prev) => ({
-                                      ...prev,
-                                      streetAddress: e.target.value,
-                                      formattedAddress: '',
-                                      placeId: '',
-                                      latitude: undefined,
-                                      longitude: undefined,
-                                    }))
-                                  }
-                                  className="w-full resize-none bg-transparent text-base font-semibold text-slate-800 outline-none sm:text-lg"
-                                />
+                                <div className="relative">
+                                  <textarea
+                                    id="checkout-address-street"
+                                    rows={4}
+                                    value={checkoutAddressForm.streetAddress}
+                                    onChange={(e) => handleStreetAddressChange(e.target.value)}
+                                    placeholder="Enter your street name, building, house number, or landmark..."
+                                    className="w-full resize-none bg-transparent text-base font-semibold text-slate-800 outline-none sm:text-lg"
+                                  />
+                                  
+                                  {isSearchingAddress && (
+                                    <div className="absolute right-2 top-2 flex items-center gap-2 bg-white/80 rounded-full px-2 py-1 shadow-sm backdrop-blur-sm">
+                                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+                                      <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">Searching...</span>
+                                    </div>
+                                  )}
+
+                                  {showAddressSuggestions && addressSuggestions.length > 0 && (
+                                    <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-60 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl shadow-slate-300/80">
+                                      {addressSuggestions.map((suggestion, idx) => (
+                                        <button
+                                          key={`address-suggest-${idx}-${suggestion.placeId || 'key'}`}
+                                          type="button"
+                                          onClick={() => handleSelectSuggestion(suggestion)}
+                                          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left font-semibold text-slate-700 transition-colors hover:bg-slate-50 hover:text-blue-600"
+                                        >
+                                          <MapPin className="h-5 w-5 shrink-0 text-slate-400" />
+                                          <span className="text-sm truncate sm:text-base">
+                                            {suggestion.description || suggestion.formattedAddress || suggestion}
+                                          </span>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
                                 <p className="mt-3 text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
-                                  Street details are used as delivery notes. Same day pricing is based on your selected city and branch.
+                                  Street details are used as delivery notes. Same day pricing is based on your selected address coordinates.
                                 </p>
                               </div>
 

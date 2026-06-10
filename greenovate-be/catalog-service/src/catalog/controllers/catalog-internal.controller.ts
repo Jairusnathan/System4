@@ -1,6 +1,7 @@
 ﻿import { Body, Controller, Get, InternalServerErrorException, NotFoundException, Param, Post } from '@nestjs/common';
 import { ProductsService } from '../products.service';
 import { SupabaseService } from '../supabase.service';
+import { ApiCenterService } from '../api-center.service';
 
 interface RequestedOrderItem { id?: string; productId?: string; quantity?: number; }
 const normalizeItems = (items: RequestedOrderItem[]) => items.map((item) => ({ id: typeof item.id === 'string' ? item.id : item.productId, quantity: Math.max(1, Math.trunc(Number(item.quantity ?? 1))) })).filter((item) => Boolean(item.id));
@@ -19,6 +20,7 @@ export class CatalogInternalController {
   constructor(
     private readonly productsService: ProductsService,
     private readonly supabaseService: SupabaseService,
+    private readonly apiCenterService: ApiCenterService,
   ) {}
 
   @Get('receipts/status/:receiptNumber')
@@ -84,6 +86,17 @@ export class CatalogInternalController {
         if (availableStock < item.quantity) return { success: false, message: `${product.name} only has ${availableStock} item(s) left.` };
         await this.productsService.updateStock(product.id, availableStock - item.quantity);
       }
+      void this.apiCenterService.kafkaPublish(
+        this.apiCenterService.buildTopic('products'),
+        'stock_committed',
+        {
+          items: normalizedItems.map((item) => {
+            const product = productsById.get(item.id as string);
+            return { product_id: item.id, name: product?.name ?? null, category: product?.category ?? null, quantity_committed: item.quantity };
+          }),
+          committed_at: new Date().toISOString(),
+        },
+      );
       return { success: true };
     } catch (error) { throw new InternalServerErrorException(error instanceof Error ? error.message : 'Failed to update stock.'); }
   }
@@ -100,6 +113,17 @@ export class CatalogInternalController {
         if (!product) continue;
         await this.productsService.updateStock(product.id, Number(product.stock ?? 0) + item.quantity);
       }
+      void this.apiCenterService.kafkaPublish(
+        this.apiCenterService.buildTopic('products'),
+        'stock_released',
+        {
+          items: normalizedItems.map((item) => {
+            const product = productsById.get(item.id as string);
+            return { product_id: item.id, name: product?.name ?? null, category: product?.category ?? null, quantity_released: item.quantity };
+          }),
+          released_at: new Date().toISOString(),
+        },
+      );
       return { success: true };
     } catch (error) { throw new InternalServerErrorException(); }
   }

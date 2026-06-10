@@ -4,7 +4,8 @@
   "scripts": {
     "dev": "node ./scripts/dev.mjs",
     "dev:backend": "npm --prefix greenovate-be run start:dev",
-    "dev:frontend": "npm --prefix nexOOS run dev"
+    "dev:frontend": "npm --prefix nexOOS run dev",
+    "build:pdf": "node export-pdf.js"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

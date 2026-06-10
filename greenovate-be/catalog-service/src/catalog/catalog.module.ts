@@ -7,10 +7,11 @@ import { ProductsService } from './products.service';
 import { RecommendationsService } from './recommendations.service';
 import { SupabaseService } from './supabase.service';
 import { CatalogInternalController } from './controllers/catalog-internal.controller';
+import { ApiCenterService } from './api-center.service';
 
 @Module({
   imports: [ConfigModule.forRoot({ isGlobal: true, cache: true })],
   controllers: [BranchesController, ProductsController, CatalogInternalController],
-  providers: [BranchesService, ProductsService, RecommendationsService, SupabaseService],
+  providers: [BranchesService, ProductsService, RecommendationsService, SupabaseService, ApiCenterService],
 })
 export class CatalogModule {}

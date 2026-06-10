@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { requestDownstream } from '../shared/http/request-downstream';
 import { SERVICE_URLS } from '../shared/http/service-urls';
 import { normalizePhilippineLocationName } from '../utils/philippine-locations.util';
 import { SupabaseService } from './supabase.service';
+import { ApiCenterService } from './api-center.service';
 
 type DeliveryRate = { id: number; province: string; city: string | null; barangay: string | null; fee: number | string; eta_min_minutes: number; eta_max_minutes: number; is_default: boolean; };
 type DeliveryMethod = 'claim_at_branch' | 'same_day' | 'scheduled';
@@ -32,21 +33,98 @@ const NEARBY_LUZON = new Set(['Bulacan', 'Cavite', 'Laguna', 'Rizal'].map((v) =>
 
 @Injectable()
 export class DeliveryService {
-  constructor(private readonly supabaseService: SupabaseService) {}
+  private readonly logger = new Logger(DeliveryService.name);
 
-  async autocompleteAddress(_: { input?: string; city?: string; province?: string }) { return []; }
-  async getPlaceDetails(_: { placeId?: string }) { return null; }
+  constructor(
+    private readonly supabaseService: SupabaseService,
+    private readonly apiCenterService: ApiCenterService,
+  ) {}
+
+  async autocompleteAddress(body: { input?: string; city?: string; province?: string }) {
+    const input = body.input?.trim() ?? '';
+    if (!input) return [];
+
+    if (this.apiCenterService.isReady()) {
+      try {
+        const response = await this.apiCenterService.getClient().callSharedService<any>('geo', '/autocomplete', {
+          method: 'POST',
+          data: { input },
+        });
+        if (Array.isArray(response)) return response;
+        if (response && Array.isArray(response.suggestions)) return response.suggestions;
+        if (response && Array.isArray(response.data)) return response.data;
+        return [];
+      } catch (error) {
+        this.logger.warn(`API Center autocompleteAddress failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+    return [];
+  }
+
+  async getPlaceDetails(body: { placeId?: string }) {
+    const placeId = body.placeId?.trim() ?? '';
+    if (!placeId) return null;
+
+    if (this.apiCenterService.isReady()) {
+      try {
+        const response = await this.apiCenterService.getClient().callSharedService<any>('geo', '/place-details', {
+          method: 'POST',
+          data: { placeId },
+        });
+        if (response && response.place) return response.place;
+        if (response && response.data) return response.data;
+        return response;
+      } catch (error) {
+        this.logger.warn(`API Center getPlaceDetails failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+    return null;
+  }
 
   async verifyAddress(body: { city?: string; province?: string }) {
     const city = body.city?.trim() ?? '';
     const province = body.province?.trim() ?? '';
     if (!city || !province) return null;
+
+    if (this.apiCenterService.isReady()) {
+      try {
+        const addressQuery = `${city}, ${province}, Philippines`;
+        const geocoded = await this.apiCenterService.getClient().geoGeocodeAddress({
+          address: addressQuery,
+        });
+        if (geocoded && typeof geocoded.latitude === 'number') {
+          const isMetroManila = this.findMetroManilaCityCenter(city, province) !== null;
+          return {
+            formattedAddress: geocoded.formattedAddress || `${city}, ${province}, Philippines`,
+            city,
+            province,
+            barangay: '',
+            postalCode: '',
+            latitude: geocoded.latitude,
+            longitude: geocoded.longitude,
+            isMetroManila,
+          };
+        }
+      } catch (error) {
+        this.logger.warn(`API Center verifyAddress failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
     const cityCenter = this.findMetroManilaCityCenter(city, province);
     if (!cityCenter) return null;
     return { formattedAddress: `${cityCenter.city}, ${cityCenter.province}, Philippines`, city: cityCenter.city, province: cityCenter.province, barangay: '', postalCode: '', latitude: cityCenter.latitude, longitude: cityCenter.longitude, isMetroManila: true };
   }
 
-  async estimateDelivery(body: { address?: string; city?: string; province?: string; barangay?: string; branchId?: number | string; deliveryMethod?: string }) {
+  async estimateDelivery(body: {
+    address?: string;
+    city?: string;
+    province?: string;
+    barangay?: string;
+    branchId?: number | string;
+    deliveryMethod?: string;
+    latitude?: number;
+    longitude?: number;
+  }) {
     const deliveryMethod = this.normalizeDeliveryMethod(body.deliveryMethod);
     const address = body.address?.trim() ?? '';
     const city = body.city?.trim() ?? '';
@@ -66,8 +144,17 @@ export class DeliveryService {
       const branchLatitude = Number(branch.latitude);
       const branchLongitude = Number(branch.longitude);
       if (!Number.isFinite(branchLatitude) || !Number.isFinite(branchLongitude)) return { error: 'The selected branch is missing map coordinates.', status: 500 } as const;
-      const distanceKm = this.calculateDistanceKm(branchLatitude, branchLongitude, cityCenter.latitude, cityCenter.longitude);
-      if (distanceKm > SAME_DAY_MAX_DISTANCE_KM) return { error: 'This city is outside the same day delivery radius.', status: 400 } as const;
+
+      let customerLatitude = Number(body.latitude);
+      let customerLongitude = Number(body.longitude);
+
+      if (!Number.isFinite(customerLatitude) || !Number.isFinite(customerLongitude)) {
+        customerLatitude = cityCenter.latitude;
+        customerLongitude = cityCenter.longitude;
+      }
+
+      const distanceKm = this.calculateDistanceKm(branchLatitude, branchLongitude, customerLatitude, customerLongitude);
+      if (distanceKm > SAME_DAY_MAX_DISTANCE_KM) return { error: 'This address is outside the same day delivery radius.', status: 400 } as const;
       const distanceChargeableKm = Math.max(0, Math.ceil(distanceKm - SAME_DAY_DISTANCE_THRESHOLD_KM));
       const fee = Number((SAME_DAY_BASE_FEE + distanceChargeableKm * SAME_DAY_FEE_PER_KM).toFixed(2));
       return { fee, etaMinMinutes: SAME_DAY_MIN_ETA_MINUTES + Math.round(distanceKm * 4), etaMaxMinutes: SAME_DAY_MAX_ETA_MINUTES + Math.round(distanceKm * 6), etaLabel: `${SAME_DAY_MIN_ETA_MINUTES + Math.round(distanceKm * 4)}-${SAME_DAY_MAX_ETA_MINUTES + Math.round(distanceKm * 6)} mins`, matchedLocation: `${cityCenter.city}, ${cityCenter.province}`, deliveryMethod, branchId: branch.id, isMetroManila: true };

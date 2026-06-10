@@ -9,6 +9,7 @@ import jwt from 'jsonwebtoken';
 import { MAX_SAVED_ADDRESSES, normalizeSavedAddresses, parseSerializedAddresses, stringifyAddresses } from '../utils/customer-addresses.util';
 import { normalizePhilippinePhone, PH_PHONE_MESSAGE } from '../utils/phone.util';
 import { AppAuthService, REFRESH_TOKEN_COOKIE_NAME } from './auth.service';
+import { ApiCenterService } from './api-center.service';
 import { MailerService } from './mailer.service';
 import { SupabaseService } from './supabase.service';
 
@@ -16,6 +17,7 @@ import { SupabaseService } from './supabase.service';
 export class AuthController {
   constructor(
     private readonly authService: AppAuthService,
+    private readonly apiCenterService: ApiCenterService,
     private readonly mailerService: MailerService,
     private readonly supabaseService: SupabaseService,
   ) {}
@@ -107,6 +109,17 @@ export class AuthController {
         throw new UnauthorizedException('Invalid credentials');
       }
       void (async () => { try { await db.from('customers').update({ failed_login_attempts: 0, account_locked_until: null }).eq('id', user.id); } catch {} })();
+      void this.apiCenterService.kafkaPublish(
+        this.apiCenterService.buildTopic('users'),
+        'customer_login',
+        {
+          customer_id: user.id,
+          email: user.email,
+          remember_me: rememberMe,
+          logged_in_at: new Date().toISOString(),
+        },
+        user.id,
+      );
       const payload = { userId: user.id, email: user.email };
       const token = this.authService.signAccessToken(payload);
       const refreshToken = this.authService.signRefreshToken(payload);
@@ -157,6 +170,20 @@ export class AuthController {
       if (decoded.purpose !== 'register' || decoded.email !== email || decoded.code !== verificationCode || decoded.full_name !== fullName || decoded.phone !== normalizedPhone || decoded.birthday !== birthday || decoded.gender !== gender) throw new UnauthorizedException('Invalid verification code');
       const { data: newUser, error: insertError } = await this.supabaseService.supabase.from('customers').insert([{ full_name: fullName, email, phone: normalizedPhone, birthday: decoded.birthday, gender: decoded.gender, password: decoded.password }]).select().single();
       if (insertError) throw insertError;
+      void this.apiCenterService.kafkaPublish(
+        this.apiCenterService.buildTopic('users'),
+        'customer_registered',
+        {
+          customer_id: newUser.id,
+          full_name: fullName,
+          email,
+          phone: normalizedPhone,
+          birthday: decoded.birthday,
+          gender: decoded.gender,
+          registered_at: newUser.created_at,
+        },
+        newUser.id,
+      );
       if (this.mailerService.isConfigured()) { try { await this.mailerService.sendWelcomeEmail(email, fullName); } catch (mailError) { console.error('Welcome email error:', mailError); } }
       const payload = { userId: newUser.id, email };
       const token = this.authService.signAccessToken(payload);
@@ -251,6 +278,39 @@ export class AuthController {
       if (typeof serializedAddressValue !== 'undefined') updatePayload.address = serializedAddressValue || null;
       const { data: updatedUser, error: updateError } = await this.supabaseService.supabase.from('customers').update(updatePayload).eq('id', userId).select('id, full_name, email, phone, birthday, gender, address, profile_image').single();
       if (updateError) throw updateError;
+
+      if (typeof address === 'string' && normalizedAddresses) {
+        // Delete existing addresses from customer_addresses table
+        await this.supabaseService.supabase
+          .from('customer_addresses')
+          .delete()
+          .eq('customer_id', userId);
+
+        if (normalizedAddresses.length > 0) {
+          // Insert new addresses into customer_addresses table
+          const addressRowsToInsert = normalizedAddresses.map((entry, index) => ({
+            customer_id: userId,
+            full_name: entry.fullName,
+            phone_number: entry.phoneNumber,
+            province: entry.province,
+            city: entry.city,
+            postal_code: entry.postalCode,
+            street_address: entry.streetAddress,
+            label: entry.label,
+            is_default: index === 0,
+            sort_order: index,
+          }));
+
+          const { error: insertError } = await this.supabaseService.supabase
+            .from('customer_addresses')
+            .insert(addressRowsToInsert);
+          
+          if (insertError) {
+            console.error('Failed to sync customer_addresses:', insertError);
+          }
+        }
+      }
+
       return { ...updatedUser, address: serializedAddressValue ?? updatedUser.address };
     } catch (error) {
       if (error instanceof BadRequestException || error instanceof UnauthorizedException) throw error;
@@ -440,6 +500,18 @@ export class AuthController {
         p_category: category,
       });
 
+      void this.apiCenterService.kafkaPublish(
+        this.apiCenterService.buildTopic('products'),
+        'product_viewed',
+        {
+          customer_id: userId,
+          product_id: productId,
+          category,
+          viewed_at: new Date().toISOString(),
+        },
+        userId,
+      );
+
       return { success: true };
     } catch (error) {
       if (error instanceof UnauthorizedException) throw error;
@@ -615,6 +687,21 @@ export class AuthController {
           details: opts.details ?? null,
           entity_id: opts.entityId ?? null,
         }]);
+        void this.apiCenterService.kafkaPublish(
+          this.apiCenterService.buildTopic('admin'),
+          'admin_action',
+          {
+            staff_id: opts.staffId ?? null,
+            staff_name: opts.staffName ?? 'System',
+            staff_role: opts.staffRole ?? null,
+            action: opts.action,
+            category: opts.category,
+            details: opts.details ?? null,
+            entity_id: opts.entityId ?? null,
+            occurred_at: new Date().toISOString(),
+          },
+          opts.staffId ?? undefined,
+        );
       } catch { /* non-fatal */ }
     })();
   }
